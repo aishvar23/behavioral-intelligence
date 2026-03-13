@@ -49,7 +49,8 @@ Return only valid JSON, no markdown.`;
     messages: [{ role: 'user', content: prompt }],
   });
 
-  const text = message.content[0].type === 'text' ? message.content[0].text : '';
+  const raw = message.content[0].type === 'text' ? message.content[0].text : '';
+  const text = raw.replace(/^```[a-z]*\n?/i, '').replace(/```\s*$/i, '').trim();
 
   try {
     const parsed = JSON.parse(text);
@@ -104,7 +105,8 @@ Respond with valid JSON only (no markdown), with these keys:
       messages: [{ role: 'user', content: prompt }],
     });
 
-    const text = message.content[0].type === 'text' ? message.content[0].text : '';
+    const raw = message.content[0].type === 'text' ? message.content[0].text : '';
+    const text = raw.replace(/^```[a-z]*\n?/i, '').replace(/```\s*$/i, '').trim();
 
     try {
       const parsed = JSON.parse(text);
