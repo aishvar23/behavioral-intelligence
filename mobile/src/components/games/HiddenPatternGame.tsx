@@ -20,54 +20,149 @@ import { trackEvent } from '../../utils/eventLogger';
 type Rule = {
   label: string;
   tier: 1 | 2 | 3;
-  seed: number[];
+  /** Called fresh each time the rule is picked — randomises starting values. */
+  seed: () => number[];
   /** Given the full history so far, return the next number. */
   next: (history: number[]) => number;
 };
 
-// Tier 1 — simple arithmetic (add a constant)
+function rnd(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+// ─── Tier 1 — Alternating difference patterns (3 numbers shown) ───────────────
+// Insight required: notice the gap alternates, not just grows.
 const TIER1_RULES: Rule[] = [
-  { label: '+2',  tier: 1, seed: [2, 4, 6],    next: h => h[h.length - 1] + 2 },
-  { label: '+3',  tier: 1, seed: [3, 6, 9],    next: h => h[h.length - 1] + 3 },
-  { label: '+4',  tier: 1, seed: [4, 8, 12],   next: h => h[h.length - 1] + 4 },
-  { label: '+5',  tier: 1, seed: [5, 10, 15],  next: h => h[h.length - 1] + 5 },
+  {
+    // +1 then +3, repeating: 5, 6, 9, 10, 13, 14…
+    label: 'Alt +1/+3',
+    tier: 1,
+    seed: () => { const r = rnd(2, 9); return [r, r + 1, r + 4]; },
+    next: h => (h[h.length - 1] - h[h.length - 2] === 1)
+      ? h[h.length - 1] + 3
+      : h[h.length - 1] + 1,
+  },
+  {
+    // +2 then +4, repeating: 3, 5, 9, 11, 15, 17…
+    label: 'Alt +2/+4',
+    tier: 1,
+    seed: () => { const r = rnd(1, 8); return [r, r + 2, r + 6]; },
+    next: h => (h[h.length - 1] - h[h.length - 2] === 2)
+      ? h[h.length - 1] + 4
+      : h[h.length - 1] + 2,
+  },
+  {
+    // +3 then −1 zigzag: 7, 10, 9, 12, 11, 14, 13…
+    label: 'Zigzag +3/−1',
+    tier: 1,
+    seed: () => { const r = rnd(4, 12); return [r, r + 3, r + 2]; },
+    next: h => (h[h.length - 1] - h[h.length - 2] === -1)
+      ? h[h.length - 1] + 3
+      : h[h.length - 1] - 1,
+  },
+  {
+    // +4 then +2, repeating: 2, 6, 8, 12, 14, 18…
+    label: 'Alt +4/+2',
+    tier: 1,
+    seed: () => { const r = rnd(1, 7); return [r, r + 4, r + 6]; },
+    next: h => (h[h.length - 1] - h[h.length - 2] === 4)
+      ? h[h.length - 1] + 2
+      : h[h.length - 1] + 4,
+  },
 ];
 
-// Tier 2 — multiplicative / quadratic
+// ─── Tier 2 — 2nd-order and two-lane patterns (4 numbers shown) ──────────────
+// Insight required: look at differences-of-differences, or spot two interleaved tracks.
 const TIER2_RULES: Rule[] = [
-  { label: '×2',  tier: 2, seed: [2, 4, 8, 16],  next: h => h[h.length - 1] * 2 },
-  { label: '×3',  tier: 2, seed: [3, 9, 27, 81], next: h => h[h.length - 1] * 3 },
   {
-    // Perfect squares: 1, 4, 9, 16, 25… differences increase by 2 each step
-    label: 'n²',
+    // Gaps grow by 1 each step: 2, 3, 5, 8, 12, 17…
+    label: 'Growing gaps',
     tier: 2,
-    seed: [1, 4, 9, 16],
+    seed: () => { const r = rnd(1, 5); return [r, r + 1, r + 3, r + 6]; },
+    next: h => h[h.length - 1] + (h[h.length - 1] - h[h.length - 2]) + 1,
+  },
+  {
+    // Perfect squares — recognise, don't calculate: 1, 4, 9, 16, 25…
+    label: 'Square steps',
+    tier: 2,
+    seed: () => [1, 4, 9, 16],
+    next: h => h[h.length - 1] + (h[h.length - 1] - h[h.length - 2]) + 2,
+  },
+  {
+    // Two interleaved lanes, each advancing independently:
+    // Lane A (+1 each step), Lane B (+2 each step)
+    // e.g. 2, 10, 3, 12, 4, 14, 5…
+    label: 'Two lanes',
+    tier: 2,
+    seed: () => {
+      const a = rnd(1, 5);
+      const b = rnd(10, 18);
+      return [a, b, a + 1, b + 2];
+    },
+    next: h => h.length % 2 === 0
+      ? h[h.length - 2] + 1   // Lane A: 0-indexed even positions
+      : h[h.length - 2] + 2,  // Lane B: 0-indexed odd positions
+  },
+  {
+    // Gaps grow by 2 each step: 1, 3, 7, 13, 21, 31…
+    label: 'Double-grow gaps',
+    tier: 2,
+    seed: () => { const r = rnd(1, 4); return [r, r + 2, r + 6, r + 12]; },
     next: h => h[h.length - 1] + (h[h.length - 1] - h[h.length - 2]) + 2,
   },
 ];
 
-// Tier 3 — complex multi-step rules
+// ─── Tier 3 — Complex relational patterns (5 numbers shown) ──────────────────
+// Insight required: relationship spans multiple terms, or two rules interleave.
 const TIER3_RULES: Rule[] = [
   {
-    // Fibonacci-like: each term = sum of previous two
-    label: 'Sum of prev 2',
+    // Fibonacci-style: each term = sum of the two before it.
+    // Seed is randomised so it never starts 1,1,2,3,5.
+    label: 'Sum prev 2',
     tier: 3,
-    seed: [2, 3, 5, 8, 13],
+    seed: () => {
+      const a = rnd(1, 5);
+      const b = rnd(a + 1, a + 6);
+      const c = a + b; const d = b + c; const e = c + d;
+      return [a, b, c, d, e];
+    },
     next: h => h[h.length - 2] + h[h.length - 1],
   },
   {
-    // Triangular numbers: 1, 3, 6, 10, 15… differences increase by 1 each step
-    label: 'Triangular',
+    // Up/Down lanes: one track rises +1, the other falls −2.
+    // e.g. 1, 20, 2, 18, 3, 16, 4, 14…
+    label: 'Up / Down lanes',
     tier: 3,
-    seed: [1, 3, 6, 10],
-    next: h => h[h.length - 1] + (h[h.length - 1] - h[h.length - 2]) + 1,
+    seed: () => {
+      const a = rnd(1, 4);
+      const b = rnd(18, 26);
+      return [a, b, a + 1, b - 2, a + 2];
+    },
+    next: h => h.length % 2 === 0
+      ? h[h.length - 2] + 1   // rising lane
+      : h[h.length - 2] - 2,  // falling lane
   },
   {
-    // Double-step Fibonacci variant with different seed
-    label: 'Sum of prev 2',
+    // Alternate: ×2, then +1, then ×2, then +1…
+    // e.g. 1, 2, 3, 6, 7, 14, 15, 30…
+    label: '×2 then +1',
     tier: 3,
-    seed: [1, 2, 3, 5, 8],
-    next: h => h[h.length - 2] + h[h.length - 1],
+    seed: () => {
+      const a = rnd(1, 4);
+      const b = a * 2;
+      return [a, b, b + 1, (b + 1) * 2, (b + 1) * 2 + 1];
+    },
+    next: h => h.length % 2 === 0
+      ? h[h.length - 1] + 1
+      : h[h.length - 1] * 2,
+  },
+  {
+    // Gaps are the sequence of odd numbers: 1, 3, 5, 7, 9…
+    // Result: 0, 1, 4, 9, 16, 25… — the square numbers, but the insight is in the gaps.
+    label: 'Odd-number gaps',
+    tier: 3,
+    seed: () => { const r = rnd(0, 3); return [r, r + 1, r + 4, r + 9, r + 16]; },
+    next: h => h[h.length - 1] + (h[h.length - 1] - h[h.length - 2]) + 2,
   },
 ];
 
@@ -97,7 +192,7 @@ export default function HiddenPatternGame({ onComplete }: Props) {
   const tierRef = useRef<0 | 1 | 2>(0);
 
   const [rule, setRule] = useState<Rule>(TIER1_RULES[0]);
-  const [history, setHistory] = useState<number[]>([...TIER1_RULES[0].seed]);
+  const [history, setHistory] = useState<number[]>([...TIER1_RULES[0].seed()]);
 
   const [guess, setGuess] = useState('');
   const [round, setRound] = useState(1);
@@ -118,7 +213,7 @@ export default function HiddenPatternGame({ onComplete }: Props) {
     tierRef.current = 0;
     const r = pickRuleForTier(0);
     setRule(r);
-    setHistory([...r.seed]);
+    setHistory([...r.seed()]);
     roundStart.current = Date.now();
   }, []);
 
@@ -173,7 +268,7 @@ export default function HiddenPatternGame({ onComplete }: Props) {
       const newRule = pickRuleForTier(nextTier);
       ruleChangeRound.current = newRound;
       setRule(newRule);
-      setHistory([...newRule.seed]);
+      setHistory([...newRule.seed()]);
       setCorrectInRule(0);
       setFeedback('🔄 New pattern — find the rule!');
     } else {
@@ -282,7 +377,7 @@ export default function HiddenPatternGame({ onComplete }: Props) {
               {'• Figure out the pattern and type what comes next, then press Guess.\n\n'}
               {'• Scoring per round:\n   +10 correct on first try\n   +5 correct after 1 wrong\n   +2 correct after 2+ wrongs\n   +0 for Pass\n\n'}
               {'• Press Pass to reveal the answer and move on (no points).\n\n'}
-              {'• Difficulty increases every 3 rounds:\n   Rounds 1–3: Easy (add a constant)\n   Rounds 4–6: Medium (multiply / squares)\n   Rounds 7–9: Hard (Fibonacci / triangular)\n\n'}
+              {'• Difficulty increases every 3 rounds:\n   Rounds 1–3: Easy — gaps alternate between two values\n   Rounds 4–6: Medium — gaps grow, or two hidden tracks interleave\n   Rounds 7–9: Hard — multiple terms interact, or two tracks move in opposite directions\n\n'}
               {'• 9 rounds total.'}
             </Text>
             <TouchableOpacity style={styles.modalClose} onPress={() => setShowRules(false)}>

@@ -15,12 +15,14 @@ description: Agent specializing in the Hidden Pattern Game (Game 2). Use for all
 ## Difficulty tiers
 | Tier | Rounds | Rules | Visible numbers |
 |------|--------|-------|-----------------|
-| 1 Easy | 1–3 | +2, +3, +4, +5 | 3 |
-| 2 Medium | 4–6 | ×2, ×3, n² | 4 |
-| 3 Hard | 7–9 | Fibonacci, Triangular | 5 |
+| 1 Easy | 1–3 | Alt +1/+3, Alt +2/+4, Zigzag +3/−1, Alt +4/+2 | 3 |
+| 2 Medium | 4–6 | Growing gaps, Square steps, Two lanes, Double-grow gaps | 4 |
+| 3 Hard | 7–9 | Sum prev 2, Up/Down lanes, ×2 then +1, Odd-number gaps | 5 |
 
 ## Sequence generation
 Rules use `next(history: number[]) => number`. History grows with each correct answer. No absolute indexing — sequences genuinely extend and never repeat.
+
+`seed` is `() => number[]` — called fresh each pick to randomise starting values.
 
 ## Scoring
 - +10: correct on first try
