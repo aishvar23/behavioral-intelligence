@@ -1,8 +1,8 @@
 /**
  * Game 2: Hidden Pattern Game
- * User sees a sequence of numbers and must identify the rule.
- * Rules change after every 3 correct guesses. 5 rounds total.
- * Behavioral signals: time to first guess, wrong guesses, adaptation speed after rule change.
+ * Progressive difficulty across 3 tiers (3 rounds per tier, 9 rounds total).
+ * Sequences never repeat — each correct answer extends a running history window.
+ * Behavioral signals: time to first guess, wrong guesses, pass rate, adaptation speed.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -11,73 +11,186 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
 } from 'react-native';
 import { trackEvent } from '../../utils/eventLogger';
 
+// ─── Rule types ───────────────────────────────────────────────────────────────
+
 type Rule = {
   label: string;
-  sequence: (n: number) => number;
+  tier: 1 | 2 | 3;
+  seed: number[];
+  /** Given the full history so far, return the next number. */
+  next: (history: number[]) => number;
 };
 
-const RULES: Rule[] = [
-  { label: '+3', sequence: n => n * 3 + (n === 0 ? 2 : 0) },
-  { label: '*2', sequence: n => Math.pow(2, n + 1) },
-  { label: 'squares', sequence: n => (n + 1) * (n + 1) },
-  { label: 'fibonacci-like', sequence: n => [3, 5, 8, 13, 21, 34][n] ?? 0 },
-  { label: '+7', sequence: n => 7 + n * 7 },
+// Tier 1 — simple arithmetic (add a constant)
+const TIER1_RULES: Rule[] = [
+  { label: '+2',  tier: 1, seed: [2, 4, 6],    next: h => h[h.length - 1] + 2 },
+  { label: '+3',  tier: 1, seed: [3, 6, 9],    next: h => h[h.length - 1] + 3 },
+  { label: '+4',  tier: 1, seed: [4, 8, 12],   next: h => h[h.length - 1] + 4 },
+  { label: '+5',  tier: 1, seed: [5, 10, 15],  next: h => h[h.length - 1] + 5 },
 ];
 
-function pickRule(): Rule {
-  return RULES[Math.floor(Math.random() * RULES.length)];
+// Tier 2 — multiplicative / quadratic
+const TIER2_RULES: Rule[] = [
+  { label: '×2',  tier: 2, seed: [2, 4, 8, 16],  next: h => h[h.length - 1] * 2 },
+  { label: '×3',  tier: 2, seed: [3, 9, 27, 81], next: h => h[h.length - 1] * 3 },
+  {
+    // Perfect squares: 1, 4, 9, 16, 25… differences increase by 2 each step
+    label: 'n²',
+    tier: 2,
+    seed: [1, 4, 9, 16],
+    next: h => h[h.length - 1] + (h[h.length - 1] - h[h.length - 2]) + 2,
+  },
+];
+
+// Tier 3 — complex multi-step rules
+const TIER3_RULES: Rule[] = [
+  {
+    // Fibonacci-like: each term = sum of previous two
+    label: 'Sum of prev 2',
+    tier: 3,
+    seed: [2, 3, 5, 8, 13],
+    next: h => h[h.length - 2] + h[h.length - 1],
+  },
+  {
+    // Triangular numbers: 1, 3, 6, 10, 15… differences increase by 1 each step
+    label: 'Triangular',
+    tier: 3,
+    seed: [1, 3, 6, 10],
+    next: h => h[h.length - 1] + (h[h.length - 1] - h[h.length - 2]) + 1,
+  },
+  {
+    // Double-step Fibonacci variant with different seed
+    label: 'Sum of prev 2',
+    tier: 3,
+    seed: [1, 2, 3, 5, 8],
+    next: h => h[h.length - 2] + h[h.length - 1],
+  },
+];
+
+const TIER_RULES: Rule[][] = [TIER1_RULES, TIER2_RULES, TIER3_RULES];
+/** How many numbers the user sees per tier (sequence window size) */
+const VISIBLE_BY_TIER = [3, 4, 5];
+
+function pickRuleForTier(tier: 0 | 1 | 2): Rule {
+  const pool = TIER_RULES[tier];
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
-function buildSequence(rule: Rule, offset = 0, length = 4): number[] {
-  return Array.from({ length }, (_, i) => rule.sequence(offset + i));
-}
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const ROUNDS_PER_RULE = 3;
+const TOTAL_ROUNDS = 9;
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 interface Props {
   sessionId: string;
   onComplete: () => void;
 }
 
-const ROUNDS_PER_RULE = 3;
-const TOTAL_ROUNDS = 9;
-
 export default function HiddenPatternGame({ onComplete }: Props) {
-  const [rule, setRule] = useState<Rule>(pickRule);
-  const [seqOffset, setSeqOffset] = useState(0);
-  const [sequence, setSequence] = useState<number[]>(() => {
-    const initialRule = RULES[0]; // placeholder, synced in useEffect
-    return buildSequence(initialRule);
-  });
+  // Current tier index (0 = easy, 1 = medium, 2 = hard)
+  const tierRef = useRef<0 | 1 | 2>(0);
+
+  const [rule, setRule] = useState<Rule>(TIER1_RULES[0]);
+  const [history, setHistory] = useState<number[]>([...TIER1_RULES[0].seed]);
+
   const [guess, setGuess] = useState('');
   const [round, setRound] = useState(1);
   const [correctInRule, setCorrectInRule] = useState(0);
-  const [wrongCount, setWrongCount] = useState(0);
+  const [wrongThisRound, setWrongThisRound] = useState(0);
+  const [score, setScore] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [revealAnswer, setRevealAnswer] = useState(false);
+
   const roundStart = useRef<number>(Date.now());
   const firstGuessMade = useRef(false);
   const firstGuessTime = useRef<number | null>(null);
   const ruleChangeRound = useRef<number | null>(null);
 
+  // Initialize consistently on mount
   useEffect(() => {
-    const r = pickRule();
+    tierRef.current = 0;
+    const r = pickRuleForTier(0);
     setRule(r);
-    setSeqOffset(0);
-    setSequence(buildSequence(r, 0));
+    setHistory([...r.seed]);
+    roundStart.current = Date.now();
+  }, []);
+
+  // ─── Helpers ────────────────────────────────────────────────────────────────
+
+  function getNextAnswer(currentRule: Rule, currentHistory: number[]): number {
+    return currentRule.next(currentHistory);
+  }
+
+  function getVisible(currentHistory: number[]): number[] {
+    const len = VISIBLE_BY_TIER[tierRef.current];
+    return currentHistory.slice(-len);
+  }
+
+  function pointsForGuess(wrongs: number): number {
+    if (wrongs === 0) return 10;
+    if (wrongs === 1) return 5;
+    return 2;
+  }
+
+  /**
+   * Advance to the next round after a correct answer or a pass.
+   * All values passed explicitly to avoid stale-closure issues inside setTimeout.
+   */
+  function advanceRound(
+    currentRule: Rule,
+    currentHistory: number[],
+    currentCorrectInRule: number,
+    currentRound: number,
+    earnedPoints: number,
+    currentScore: number,
+  ) {
+    const answer = getNextAnswer(currentRule, currentHistory);
+    const newHistory = [...currentHistory, answer];
+    const newCorrectInRule = currentCorrectInRule + 1;
+    const newRound = currentRound + 1;
+    const newScore = currentScore + earnedPoints;
+
+    setScore(newScore);
+
+    if (newRound > TOTAL_ROUNDS) {
+      setHistory(newHistory);
+      trackEvent('pattern', 'game_complete', { finalScore: newScore });
+      setTimeout(() => onComplete(), 900);
+      return;
+    }
+
+    if (newCorrectInRule >= ROUNDS_PER_RULE) {
+      // Advance to the next difficulty tier (cap at tier 3)
+      const nextTier = Math.min(tierRef.current + 1, 2) as 0 | 1 | 2;
+      tierRef.current = nextTier;
+      const newRule = pickRuleForTier(nextTier);
+      ruleChangeRound.current = newRound;
+      setRule(newRule);
+      setHistory([...newRule.seed]);
+      setCorrectInRule(0);
+      setFeedback('🔄 New pattern — find the rule!');
+    } else {
+      setHistory(newHistory);
+      setCorrectInRule(newCorrectInRule);
+    }
+
+    setRound(newRound);
+    setWrongThisRound(0);
     roundStart.current = Date.now();
     firstGuessMade.current = false;
     firstGuessTime.current = null;
-  }, []);
-
-  function nextNumber(): number {
-    return rule.sequence(seqOffset + sequence.length);
   }
+
+  // ─── Handlers ───────────────────────────────────────────────────────────────
 
   function handleGuess() {
     const val = parseInt(guess, 10);
-    if (isNaN(val)) return;
+    if (isNaN(val) || revealAnswer) return;
 
     const now = Date.now();
     if (!firstGuessMade.current) {
@@ -85,73 +198,102 @@ export default function HiddenPatternGame({ onComplete }: Props) {
       firstGuessMade.current = true;
     }
 
-    const correct = val === nextNumber();
+    const expected = getNextAnswer(rule, history);
+    const correct = val === expected;
     const adaptSpeed =
       ruleChangeRound.current !== null ? round - ruleChangeRound.current : null;
 
     trackEvent('pattern', correct ? 'correct_guess' : 'wrong_guess', {
       round,
+      tier: tierRef.current + 1,
       guess: val,
-      expected: nextNumber(),
+      expected,
       timeToFirstGuess: firstGuessTime.current,
-      wrongCount,
+      wrongThisRound,
       adaptationRound: adaptSpeed,
     });
 
-    if (correct) {
-      setFeedback('✅ Correct!');
-      const newCorrect = correctInRule + 1;
-      const newRound = round + 1;
-
-      if (newRound > TOTAL_ROUNDS) {
-        setTimeout(onComplete, 800);
-        return;
-      }
-
-      let newRule = rule;
-      let newCorrectInRule = newCorrect;
-      let newOffset = seqOffset + 1;
-
-      if (newCorrect >= ROUNDS_PER_RULE) {
-        newRule = pickRule();
-        newCorrectInRule = 0;
-        newOffset = 0;
-        ruleChangeRound.current = newRound;
-        setFeedback('✅ Rule changed! Find the new pattern.');
-      }
-
-      setCorrectInRule(newCorrectInRule);
-      setRule(newRule);
-      setSeqOffset(newOffset);
-      setSequence(buildSequence(newRule, newOffset));
-      setRound(newRound);
-      setWrongCount(0);
-      roundStart.current = Date.now();
-      firstGuessMade.current = false;
-    } else {
-      const newWrong = wrongCount + 1;
-      setWrongCount(newWrong);
-      setFeedback('❌ Wrong. Try again.');
-      setRound(r => r + 1);
-    }
-
     setGuess('');
-    setTimeout(() => setFeedback(null), 1200);
+
+    if (correct) {
+      const pts = pointsForGuess(wrongThisRound);
+      setFeedback(`✅ Correct! +${pts}`);
+      // Capture current values for the timeout closure
+      const capturedRule = rule;
+      const capturedHistory = history;
+      const capturedCorrectInRule = correctInRule;
+      const capturedRound = round;
+      const capturedScore = score;
+      setTimeout(() => {
+        setFeedback(null);
+        advanceRound(capturedRule, capturedHistory, capturedCorrectInRule, capturedRound, pts, capturedScore);
+      }, 800);
+    } else {
+      setWrongThisRound(w => w + 1);
+      setFeedback('❌ Wrong. Try again.');
+      setTimeout(() => setFeedback(null), 1000);
+    }
   }
+
+  function handlePass() {
+    if (revealAnswer) return;
+
+    const expected = getNextAnswer(rule, history);
+    trackEvent('pattern', 'pass', {
+      round,
+      tier: tierRef.current + 1,
+      answer: expected,
+    });
+
+    setRevealAnswer(true);
+    setGuess('');
+    setFeedback(`Answer: ${expected}`);
+
+    const capturedRule = rule;
+    const capturedHistory = history;
+    const capturedCorrectInRule = correctInRule;
+    const capturedRound = round;
+    const capturedScore = score;
+    setTimeout(() => {
+      setRevealAnswer(false);
+      setFeedback(null);
+      advanceRound(capturedRule, capturedHistory, capturedCorrectInRule, capturedRound, 0, capturedScore);
+    }, 1500);
+  }
+
+  // ─── Render ─────────────────────────────────────────────────────────────────
+
+  const visible = getVisible(history);
+  const answerForReveal = revealAnswer ? getNextAnswer(rule, history) : null;
+  const tierLabel = ['Easy', 'Medium', 'Hard'][tierRef.current];
+  const tierColor = ['#4caf50', '#ff9800', '#f44336'][tierRef.current];
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>🔍 Hidden Pattern Game</Text>
-      <Text style={styles.sub}>Round {round} / {TOTAL_ROUNDS}</Text>
+      {/* Header: title + score */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.title}>🔍 Hidden Pattern</Text>
+          <Text style={styles.sub}>Round {round} / {TOTAL_ROUNDS}</Text>
+        </View>
+        <View style={styles.scoreBox}>
+          <Text style={styles.scoreLabel}>SCORE</Text>
+          <Text style={styles.scoreValue}>{score}</Text>
+          <Text style={[styles.tierBadge, { color: tierColor }]}>{tierLabel}</Text>
+        </View>
+      </View>
 
+      {/* Sequence row */}
       <View style={styles.sequenceBox}>
-        {sequence.map((n, i) => (
+        {visible.map((n, i) => (
           <View key={i} style={styles.numBox}>
             <Text style={styles.numText}>{n}</Text>
           </View>
         ))}
-        <View style={[styles.numBox, styles.questionBox]}>
-          <Text style={styles.numText}>?</Text>
+        <View style={[styles.numBox, styles.questionBox, revealAnswer && styles.revealBox]}>
+          <Text style={styles.numText}>
+            {revealAnswer ? answerForReveal : '?'}
+          </Text>
         </View>
       </View>
 
@@ -165,48 +307,77 @@ export default function HiddenPatternGame({ onComplete }: Props) {
         placeholder="Enter number"
         placeholderTextColor="#555"
         onSubmitEditing={handleGuess}
+        editable={!revealAnswer}
       />
 
-      <TouchableOpacity style={styles.button} onPress={handleGuess}>
-        <Text style={styles.buttonText}>Guess</Text>
-      </TouchableOpacity>
+      <View style={styles.buttonRow}>
+        <TouchableOpacity
+          style={[styles.button, revealAnswer && styles.buttonDisabled]}
+          onPress={handleGuess}
+          disabled={revealAnswer}
+        >
+          <Text style={styles.buttonText}>Guess</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity style={styles.skipButton} onPress={() => {
-        trackEvent('pattern', 'skipped', { round });
-        if (round + 1 > TOTAL_ROUNDS) {
-          onComplete();
-        } else {
-          setRound(r => r + 1);
-          setGuess('');
-          setFeedback(null);
-        }
-      }}>
-        <Text style={styles.skipText}>Skip</Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.passButton, revealAnswer && styles.buttonDisabled]}
+          onPress={handlePass}
+          disabled={revealAnswer}
+        >
+          <Text style={styles.passText}>Pass</Text>
+        </TouchableOpacity>
+      </View>
 
-      {feedback && <Text style={styles.feedback}>{feedback}</Text>}
-
-      <Text style={styles.wrongCount}>Wrong guesses this round: {wrongCount}</Text>
+      {feedback ? (
+        <Text style={styles.feedback}>{feedback}</Text>
+      ) : (
+        <Text style={styles.wrongCount}>Wrong this round: {wrongThisRound}</Text>
+      )}
     </View>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: { flex: 1, alignItems: 'center', paddingTop: 24, paddingHorizontal: 20 },
-  title: { fontSize: 20, fontWeight: 'bold', color: '#e0e0ff', marginBottom: 6 },
-  sub: { color: '#9999cc', fontSize: 14, marginBottom: 24 },
-  sequenceBox: { flexDirection: 'row', gap: 10, marginBottom: 24 },
+
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    width: '100%',
+    marginBottom: 28,
+  },
+  title: { fontSize: 20, fontWeight: 'bold', color: '#e0e0ff' },
+  sub: { color: '#9999cc', fontSize: 14, marginTop: 2 },
+
+  scoreBox: { alignItems: 'flex-end' },
+  scoreLabel: { color: '#9999cc', fontSize: 11, letterSpacing: 1 },
+  scoreValue: { color: '#fff', fontSize: 28, fontWeight: 'bold', lineHeight: 32 },
+  tierBadge: { fontSize: 12, fontWeight: '600', marginTop: 2 },
+
+  sequenceBox: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 24,
+    justifyContent: 'center',
+  },
   numBox: {
-    width: 48,
-    height: 48,
+    width: 52,
+    height: 52,
     backgroundColor: '#16213e',
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   questionBox: { backgroundColor: '#3a3a6e' },
-  numText: { color: '#e0e0ff', fontSize: 18, fontWeight: 'bold' },
+  revealBox: { backgroundColor: '#1a4a1a' },
+  numText: { color: '#e0e0ff', fontSize: 17, fontWeight: 'bold' },
+
   hint: { color: '#9999cc', marginBottom: 16 },
+
   input: {
     backgroundColor: '#16213e',
     color: '#e0e0ff',
@@ -217,15 +388,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 16,
   },
+
+  buttonRow: { flexDirection: 'row', gap: 16, alignItems: 'center' },
   button: {
     backgroundColor: '#5c6bc0',
     paddingVertical: 14,
     paddingHorizontal: 40,
     borderRadius: 24,
   },
+  buttonDisabled: { opacity: 0.4 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  skipButton: { marginTop: 12, paddingVertical: 8, paddingHorizontal: 24 },
-  skipText: { color: '#666699', fontSize: 14, textDecorationLine: 'underline' },
+  passButton: {
+    paddingVertical: 13,
+    paddingHorizontal: 24,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#444466',
+  },
+  passText: { color: '#888aaa', fontSize: 15 },
+
   feedback: { color: '#e0e0ff', fontSize: 16, marginTop: 16 },
-  wrongCount: { color: '#666', fontSize: 13, marginTop: 12 },
+  wrongCount: { color: '#666', fontSize: 13, marginTop: 16 },
 });
