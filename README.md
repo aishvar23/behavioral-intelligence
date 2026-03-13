@@ -31,12 +31,24 @@ behavioral-intelligence/
 
 | Tool | Version |
 |------|---------|
-| Node.js | ≥ 18 |
+| Node.js | v18 or v20 LTS (**not v24+**) |
 | npm | ≥ 9 |
 | React Native CLI | latest |
 | Xcode (iOS) | ≥ 14 |
 | Android Studio | latest |
 | CocoaPods (iOS) | latest |
+
+> **Windows users** — `better-sqlite3` is a native addon that requires compilation. Before running `npm install` in the backend, ensure you have:
+> - **Python 3.x** — [python.org](https://www.python.org/downloads/) — check "Add Python to PATH" during install
+> - **Visual Studio Build Tools** with "Desktop development with C++":
+>   ```powershell
+>   winget install Microsoft.VisualStudio.2022.BuildTools
+>   ```
+> - **Node v20 LTS** (v24+ has no prebuilt binaries for `better-sqlite3`):
+>   ```powershell
+>   # Using nvm-windows
+>   nvm install 20 && nvm use 20
+>   ```
 
 ---
 
