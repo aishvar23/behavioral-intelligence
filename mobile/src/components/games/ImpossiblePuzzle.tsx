@@ -49,7 +49,7 @@ function isSolved(arr: number[]): boolean {
 
 interface Props {
   sessionId: string;
-  onComplete: () => void;
+  onComplete: (score: number) => void;
 }
 
 export default function ImpossiblePuzzle({ onComplete }: Props) {
@@ -114,8 +114,9 @@ export default function ImpossiblePuzzle({ onComplete }: Props) {
         hintRequests: hints,
         pauseMs: pauseAccumulator.current,
       });
-      Alert.alert('Solved!', `You solved it in ${newAttempts} moves!`, [
-        { text: 'Next', onPress: onComplete },
+      const finalScore = Math.max(0, Math.max(100, 1000 - newAttempts * 15) - hints * 20);
+      Alert.alert('Solved!', `You solved it in ${newAttempts} moves!\nScore: ${finalScore}`, [
+        { text: 'Next', onPress: () => onComplete(finalScore) },
       ]);
     } else if (newAttempts >= MAX_MOVES) {
       const elapsed = Date.now() - startTime.current;
@@ -125,8 +126,9 @@ export default function ImpossiblePuzzle({ onComplete }: Props) {
         hintRequests: hints,
         pauseMs: pauseAccumulator.current,
       });
-      Alert.alert('Time\'s up!', `You've used all ${MAX_MOVES} moves.`, [
-        { text: 'Next', onPress: onComplete },
+      const finalScore = Math.max(0, newAttempts * 3);
+      Alert.alert('Time\'s up!', `You've used all ${MAX_MOVES} moves.\nScore: ${finalScore}`, [
+        { text: 'Next', onPress: () => onComplete(finalScore) },
       ]);
     }
   }
@@ -149,7 +151,7 @@ export default function ImpossiblePuzzle({ onComplete }: Props) {
       hintRequests: hints,
       pauseMs: pauseAccumulator.current,
     });
-    onComplete();
+    onComplete(0);
   }
 
   return (

@@ -89,7 +89,7 @@ const TOTAL_ROUNDS = 9;
 
 interface Props {
   sessionId: string;
-  onComplete: () => void;
+  onComplete: (score: number) => void;
 }
 
 export default function HiddenPatternGame({ onComplete }: Props) {
@@ -162,7 +162,7 @@ export default function HiddenPatternGame({ onComplete }: Props) {
     if (newRound > TOTAL_ROUNDS) {
       setHistory(newHistory);
       trackEvent('pattern', 'game_complete', { finalScore: newScore });
-      setTimeout(() => onComplete(), 900);
+      setTimeout(() => onComplete(newScore), 900);
       return;
     }
 

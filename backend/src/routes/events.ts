@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { getDb } from '../db/database';
 import { calculateTraits } from '../services/traitEngine';
-import { generateBehaviorReport } from '../services/llmAnalysis';
+import { generateBehaviorReport, generateCareerReport } from '../services/llmAnalysis';
 
 const router = Router();
 
@@ -77,6 +77,36 @@ router.get('/report/:sessionId', async (req: Request, res: Response) => {
   ).run(sessionId, JSON.stringify(traits), aiReport, thinkingStyle, Date.now());
 
   return res.json({ traits, aiReport, thinkingStyle });
+});
+
+// POST /career-report — generate full career-aware report
+router.post('/career-report', async (req: Request, res: Response) => {
+  const { sessionId, selectedCareers, gameScores } = req.body;
+  if (!sessionId || !selectedCareers || !gameScores) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  const db = getDb();
+  const rows = db
+    .prepare('SELECT game_id, event_type, timestamp, data FROM events WHERE session_id = ?')
+    .all(sessionId) as Array<{ game_id: string; event_type: string; timestamp: number; data: string }>;
+
+  const events = rows.map(r => ({ game_id: r.game_id, event_type: r.event_type, timestamp: r.timestamp, data: JSON.parse(r.data) }));
+  const traits = calculateTraits(events);
+
+  try {
+    const llmResult = await generateCareerReport(traits, gameScores, selectedCareers);
+    return res.json({
+      traits,
+      gameScores,
+      thinkingStyle: llmResult.thinkingStyle,
+      aiReport: llmResult.aiReport,
+      careerRecommendations: llmResult.careerRecommendations,
+    });
+  } catch (err) {
+    console.error('Career report failed:', err);
+    return res.status(500).json({ error: 'Failed to generate career report' });
+  }
 });
 
 export default router;

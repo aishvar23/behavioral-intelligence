@@ -44,7 +44,7 @@ function placeTiles(grid: Tile[][], type: TileType, count: number) {
 
 interface Props {
   sessionId: string;
-  onComplete: () => void;
+  onComplete: (score: number) => void;
 }
 
 export default function ExplorationIsland({ onComplete }: Props) {
@@ -125,7 +125,7 @@ export default function ExplorationIsland({ onComplete }: Props) {
     setDone(true);
     const pct = (explored / TOTAL_TILES * 100).toFixed(0);
     Alert.alert('Game Over', `You explored ${pct}% of the island!\nScore: ${score}`, [
-      { text: 'Next Game', onPress: onComplete },
+      { text: 'Next Game', onPress: () => onComplete(score) },
     ]);
   }
 

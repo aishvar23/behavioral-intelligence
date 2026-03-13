@@ -34,3 +34,26 @@ export interface BehavioralReport {
   aiReport: string;
   thinkingStyle: string;
 }
+
+export interface CareerRecommendation {
+  career: string;
+  rating: 'highly_recommended' | 'recommended' | 'neutral' | 'not_recommended';
+  reason: string;
+}
+
+export interface FullReport {
+  traits: { curiosity: number; persistence: number; risk_tolerance: number; learning_speed: number };
+  gameScores: { exploration: number; pattern: number; puzzle: number };
+  thinkingStyle: string;
+  aiReport: string;
+  careerRecommendations: CareerRecommendation[];
+}
+
+export async function getCareerReport(
+  sessionId: string,
+  selectedCareers: string[],
+  gameScores: { exploration: number; pattern: number; puzzle: number }
+): Promise<FullReport> {
+  const response = await axios.post(`${BASE_URL}/career-report`, { sessionId, selectedCareers, gameScores });
+  return response.data;
+}
