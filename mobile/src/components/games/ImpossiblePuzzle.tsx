@@ -15,6 +15,7 @@ import { trackEvent } from '../../utils/eventLogger';
 
 const SOLVED = [1, 2, 3, 4, 5, 6, 7, 8, 0]; // 0 = empty slot
 const SIZE = 3;
+const MAX_MOVES = 50;
 
 function shuffle(arr: number[]): number[] {
   const a = [...arr];
@@ -101,15 +102,28 @@ export default function ImpossiblePuzzle({ onComplete }: Props) {
       attemptNumber: attempts + 1,
     });
 
+    const newAttempts = attempts + 1;
+
     if (isSolved(next)) {
       const elapsed = Date.now() - startTime.current;
       trackEvent('puzzle', 'solved', {
         timeMs: elapsed,
-        totalAttempts: attempts + 1,
+        totalAttempts: newAttempts,
         hintRequests: hints,
         pauseMs: pauseAccumulator.current,
       });
-      Alert.alert('Solved!', `You solved it in ${attempts + 1} moves!`, [
+      Alert.alert('Solved!', `You solved it in ${newAttempts} moves!`, [
+        { text: 'Next', onPress: onComplete },
+      ]);
+    } else if (newAttempts >= MAX_MOVES) {
+      const elapsed = Date.now() - startTime.current;
+      trackEvent('puzzle', 'max_moves_reached', {
+        timeMs: elapsed,
+        totalAttempts: newAttempts,
+        hintRequests: hints,
+        pauseMs: pauseAccumulator.current,
+      });
+      Alert.alert('Time\'s up!', `You've used all ${MAX_MOVES} moves.`, [
         { text: 'Next', onPress: onComplete },
       ]);
     }
@@ -139,7 +153,10 @@ export default function ImpossiblePuzzle({ onComplete }: Props) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>🧩 Impossible Puzzle</Text>
-      <Text style={styles.sub}>Slide tiles to solve. Moves: {attempts}</Text>
+      <Text style={styles.description}>
+        Arrange the tiles in order (1–8) by sliding them into the empty space. Tap a tile adjacent to the blank to move it. Use hints if you're stuck — but use them wisely, you only get 3!
+      </Text>
+      <Text style={styles.sub}>Moves: {attempts}</Text>
 
       <View style={styles.board}>
         {tiles.map((value, index) => (
@@ -184,6 +201,7 @@ const TILE_SIZE = 90;
 const styles = StyleSheet.create({
   container: { flex: 1, alignItems: 'center', paddingTop: 24 },
   title: { fontSize: 20, fontWeight: 'bold', color: '#e0e0ff', marginBottom: 6 },
+  description: { color: '#aaaacc', fontSize: 13, textAlign: 'center', marginBottom: 10, paddingHorizontal: 16, lineHeight: 19 },
   sub: { color: '#9999cc', fontSize: 14, marginBottom: 24 },
   board: {
     flexDirection: 'row',

@@ -32,8 +32,8 @@ function pickRule(): Rule {
   return RULES[Math.floor(Math.random() * RULES.length)];
 }
 
-function buildSequence(rule: Rule, length = 4): number[] {
-  return Array.from({ length }, (_, i) => rule.sequence(i));
+function buildSequence(rule: Rule, offset = 0, length = 4): number[] {
+  return Array.from({ length }, (_, i) => rule.sequence(offset + i));
 }
 
 interface Props {
@@ -46,6 +46,7 @@ const TOTAL_ROUNDS = 9;
 
 export default function HiddenPatternGame({ onComplete }: Props) {
   const [rule, setRule] = useState<Rule>(pickRule);
+  const [seqOffset, setSeqOffset] = useState(0);
   const [sequence, setSequence] = useState<number[]>(() => {
     const initialRule = RULES[0]; // placeholder, synced in useEffect
     return buildSequence(initialRule);
@@ -63,14 +64,15 @@ export default function HiddenPatternGame({ onComplete }: Props) {
   useEffect(() => {
     const r = pickRule();
     setRule(r);
-    setSequence(buildSequence(r));
+    setSeqOffset(0);
+    setSequence(buildSequence(r, 0));
     roundStart.current = Date.now();
     firstGuessMade.current = false;
     firstGuessTime.current = null;
   }, []);
 
   function nextNumber(): number {
-    return rule.sequence(sequence.length);
+    return rule.sequence(seqOffset + sequence.length);
   }
 
   function handleGuess() {
@@ -108,24 +110,29 @@ export default function HiddenPatternGame({ onComplete }: Props) {
 
       let newRule = rule;
       let newCorrectInRule = newCorrect;
+      let newOffset = seqOffset + 1;
 
       if (newCorrect >= ROUNDS_PER_RULE) {
         newRule = pickRule();
         newCorrectInRule = 0;
+        newOffset = 0;
         ruleChangeRound.current = newRound;
         setFeedback('✅ Rule changed! Find the new pattern.');
       }
 
       setCorrectInRule(newCorrectInRule);
       setRule(newRule);
-      setSequence(buildSequence(newRule));
+      setSeqOffset(newOffset);
+      setSequence(buildSequence(newRule, newOffset));
       setRound(newRound);
       setWrongCount(0);
       roundStart.current = Date.now();
       firstGuessMade.current = false;
     } else {
-      setWrongCount(w => w + 1);
+      const newWrong = wrongCount + 1;
+      setWrongCount(newWrong);
       setFeedback('❌ Wrong. Try again.');
+      setRound(r => r + 1);
     }
 
     setGuess('');
@@ -162,6 +169,19 @@ export default function HiddenPatternGame({ onComplete }: Props) {
 
       <TouchableOpacity style={styles.button} onPress={handleGuess}>
         <Text style={styles.buttonText}>Guess</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.skipButton} onPress={() => {
+        trackEvent('pattern', 'skipped', { round });
+        if (round + 1 > TOTAL_ROUNDS) {
+          onComplete();
+        } else {
+          setRound(r => r + 1);
+          setGuess('');
+          setFeedback(null);
+        }
+      }}>
+        <Text style={styles.skipText}>Skip</Text>
       </TouchableOpacity>
 
       {feedback && <Text style={styles.feedback}>{feedback}</Text>}
@@ -204,6 +224,8 @@ const styles = StyleSheet.create({
     borderRadius: 24,
   },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  skipButton: { marginTop: 12, paddingVertical: 8, paddingHorizontal: 24 },
+  skipText: { color: '#666699', fontSize: 14, textDecorationLine: 'underline' },
   feedback: { color: '#e0e0ff', fontSize: 16, marginTop: 16 },
   wrongCount: { color: '#666', fontSize: 13, marginTop: 12 },
 });
