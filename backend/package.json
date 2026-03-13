@@ -10,6 +10,7 @@
     "dev": "ts-node-dev --respawn src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "test": "jest --runInBand",
     "preinstall": "node -e \"const v=process.versions.node.split('.')[0]; if(v>22){console.error('\\nERROR: Node v'+v+' is not supported. Use Node v18 or v20 LTS (better-sqlite3 has no prebuilt binaries for v24+).\\n');process.exit(1);}\""
   },
   "dependencies": {
@@ -24,8 +25,13 @@
     "@types/better-sqlite3": "^7.6.8",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
+    "@types/jest": "^29.5.0",
     "@types/node": "^20.11.5",
+    "@types/supertest": "^6.0.0",
     "@types/uuid": "^9.0.7",
+    "jest": "^29.7.0",
+    "supertest": "^6.3.4",
+    "ts-jest": "^29.1.0",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.3.3"
   }

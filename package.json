@@ -1,0 +1,10 @@
+{
+  "name": "behavioral-intelligence-root",
+  "private": true,
+  "scripts": {
+    "test": "npm run test:backend && npm run test:mobile",
+    "test:backend": "npm test --prefix backend",
+    "test:mobile": "npm test --prefix mobile -- --watchAll=false",
+    "setup": "bash scripts/setup-hooks.sh"
+  }
+}
