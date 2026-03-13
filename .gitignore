@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Environment variables - never commit these
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+build/
+
+# Android build artifacts
+mobile/android/.gradle/
+mobile/android/app/build/
+mobile/android/build/
+mobile/android/local.properties
+
+# iOS build artifacts
+mobile/ios/build/
+mobile/ios/Pods/
+mobile/ios/*.xcworkspace/
+
+# Misc
+.DS_Store
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
