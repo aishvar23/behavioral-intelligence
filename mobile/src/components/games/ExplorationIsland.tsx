@@ -5,7 +5,7 @@
  * Players have 30 moves. Behavioral signals are logged on each move.
  */
 import React, { useCallback, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal } from 'react-native';
 import { trackEvent } from '../../utils/eventLogger';
 
 const GRID_SIZE = 8;
@@ -53,6 +53,7 @@ export default function ExplorationIsland({ onComplete }: Props) {
   const [movesLeft, setMovesLeft] = useState(MAX_MOVES);
   const [score, setScore] = useState(0);
   const [done, setDone] = useState(false);
+  const [showRules, setShowRules] = useState(false);
   const lastMoveTime = useRef<number>(Date.now());
   const visitCounts = useRef<Record<string, number>>({});
 
@@ -146,10 +147,31 @@ export default function ExplorationIsland({ onComplete }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>🏝️ Exploration Island</Text>
-      <Text style={styles.instructions}>
-        Navigate the fog-covered grid using the arrows. Find 💎 rewards and avoid 💀 traps. You have {MAX_MOVES} moves!
-      </Text>
+      {/* Rules modal */}
+      <Modal visible={showRules} transparent animationType="fade" onRequestClose={() => setShowRules(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>🏝️ How to Play</Text>
+            <Text style={styles.modalText}>
+              {'• You start at the top-left corner (🧭) of an 8×8 fog-covered island.\n\n'}
+              {'• Use the arrow buttons to move one tile at a time.\n\n'}
+              {'• Revealed tiles may contain:\n   💎 Reward — +10 points\n   💀 Trap — −5 points\n   Empty — no effect\n\n'}
+              {'• You have 30 moves total.\n\n'}
+              {'• Goal: explore as much of the island as you can and maximise your score!'}
+            </Text>
+            <TouchableOpacity style={styles.modalClose} onPress={() => setShowRules(false)}>
+              <Text style={styles.modalCloseText}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <View style={styles.titleRow}>
+        <Text style={styles.title}>🏝️ Exploration Island</Text>
+        <TouchableOpacity style={styles.rulesBtn} onPress={() => setShowRules(true)}>
+          <Text style={styles.rulesBtnText}>?</Text>
+        </TouchableOpacity>
+      </View>
       <View style={styles.stats}>
         <Text style={styles.stat}>Moves Left: {movesLeft}</Text>
         <Text style={styles.stat}>Score: {score}</Text>
@@ -196,9 +218,22 @@ const TILE_SIZE = 36;
 
 const styles = StyleSheet.create({
   container: { flex: 1, alignItems: 'center', paddingTop: 20 },
-  title: { fontSize: 20, fontWeight: 'bold', color: '#e0e0ff', marginBottom: 6 },
-  instructions: { color: '#9999cc', fontSize: 13, textAlign: 'center', paddingHorizontal: 16, marginBottom: 10 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  title: { fontSize: 20, fontWeight: 'bold', color: '#e0e0ff' },
+  rulesBtn: {
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: '#16213e', borderWidth: 1, borderColor: '#5c6bc0',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  rulesBtnText: { color: '#9999cc', fontSize: 14, fontWeight: 'bold' },
   stats: { flexDirection: 'row', gap: 24, marginBottom: 16 },
+  // Modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalBox: { backgroundColor: '#1a1a2e', borderRadius: 16, padding: 24, borderWidth: 1, borderColor: '#3a3a6e', width: '100%' },
+  modalTitle: { color: '#e0e0ff', fontSize: 18, fontWeight: 'bold', marginBottom: 16 },
+  modalText: { color: '#aaaacc', fontSize: 14, lineHeight: 22 },
+  modalClose: { marginTop: 20, backgroundColor: '#5c6bc0', borderRadius: 20, paddingVertical: 12, alignItems: 'center' },
+  modalCloseText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   stat: { color: '#9999cc', fontSize: 14 },
   grid: { borderWidth: 1, borderColor: '#333' },
   row: { flexDirection: 'row' },

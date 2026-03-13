@@ -11,6 +11,7 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
+  Modal,
 } from 'react-native';
 import { trackEvent } from '../../utils/eventLogger';
 
@@ -105,6 +106,7 @@ export default function HiddenPatternGame({ onComplete }: Props) {
   const [score, setScore] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [revealAnswer, setRevealAnswer] = useState(false);
+  const [showRules, setShowRules] = useState(false);
 
   const roundStart = useRef<number>(Date.now());
   const firstGuessMade = useRef(false);
@@ -270,10 +272,35 @@ export default function HiddenPatternGame({ onComplete }: Props) {
 
   return (
     <View style={styles.container}>
+      {/* Rules modal */}
+      <Modal visible={showRules} transparent animationType="fade" onRequestClose={() => setShowRules(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>🔍 How to Play</Text>
+            <Text style={styles.modalText}>
+              {'• A sequence of numbers is shown with a ? at the end.\n\n'}
+              {'• Figure out the pattern and type what comes next, then press Guess.\n\n'}
+              {'• Scoring per round:\n   +10 correct on first try\n   +5 correct after 1 wrong\n   +2 correct after 2+ wrongs\n   +0 for Pass\n\n'}
+              {'• Press Pass to reveal the answer and move on (no points).\n\n'}
+              {'• Difficulty increases every 3 rounds:\n   Rounds 1–3: Easy (add a constant)\n   Rounds 4–6: Medium (multiply / squares)\n   Rounds 7–9: Hard (Fibonacci / triangular)\n\n'}
+              {'• 9 rounds total.'}
+            </Text>
+            <TouchableOpacity style={styles.modalClose} onPress={() => setShowRules(false)}>
+              <Text style={styles.modalCloseText}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* Header: title + score */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>🔍 Hidden Pattern</Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>🔍 Hidden Pattern</Text>
+            <TouchableOpacity style={styles.rulesBtn} onPress={() => setShowRules(true)}>
+              <Text style={styles.rulesBtnText}>?</Text>
+            </TouchableOpacity>
+          </View>
           <Text style={styles.sub}>Round {round} / {TOTAL_ROUNDS}</Text>
         </View>
         <View style={styles.scoreBox}>
@@ -409,4 +436,19 @@ const styles = StyleSheet.create({
 
   feedback: { color: '#e0e0ff', fontSize: 16, marginTop: 16 },
   wrongCount: { color: '#666', fontSize: 13, marginTop: 16 },
+
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  rulesBtn: {
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: '#16213e', borderWidth: 1, borderColor: '#5c6bc0',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  rulesBtnText: { color: '#9999cc', fontSize: 12, fontWeight: 'bold' },
+  // Modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalBox: { backgroundColor: '#1a1a2e', borderRadius: 16, padding: 24, borderWidth: 1, borderColor: '#3a3a6e', width: '100%' },
+  modalTitle: { color: '#e0e0ff', fontSize: 18, fontWeight: 'bold', marginBottom: 16 },
+  modalText: { color: '#aaaacc', fontSize: 14, lineHeight: 22 },
+  modalClose: { marginTop: 20, backgroundColor: '#5c6bc0', borderRadius: 20, paddingVertical: 12, alignItems: 'center' },
+  modalCloseText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });

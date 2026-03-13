@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  Modal,
 } from 'react-native';
 import { trackEvent } from '../../utils/eventLogger';
 
@@ -57,6 +58,7 @@ export default function ImpossiblePuzzle({ onComplete }: Props) {
   const [hints, setHints] = useState(0);
   const [hintsRemaining, setHintsRemaining] = useState(3);
   const [hintTile, setHintTile] = useState<number | null>(null);
+  const [showRules, setShowRules] = useState(false);
   const startTime = useRef(Date.now());
   const lastMoveTime = useRef(Date.now());
   const pauseAccumulator = useRef(0);
@@ -152,10 +154,31 @@ export default function ImpossiblePuzzle({ onComplete }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>🧩 Impossible Puzzle</Text>
-      <Text style={styles.description}>
-        Arrange the tiles in order (1–8) by sliding them into the empty space. Tap a tile adjacent to the blank to move it. Use hints if you're stuck — but use them wisely, you only get 3!
-      </Text>
+      {/* Rules modal */}
+      <Modal visible={showRules} transparent animationType="fade" onRequestClose={() => setShowRules(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>🧩 How to Play</Text>
+            <Text style={styles.modalText}>
+              {'• Arrange tiles 1 through 8 in order, left-to-right, top-to-bottom.\n\n'}
+              {'• Tap any tile next to the blank space to slide it in.\n\n'}
+              {'• You have 3 hints — each hint highlights a tile that is out of place.\n\n'}
+              {'• Use as few moves as possible!\n\n'}
+              {'• If you get stuck, press Skip Game to move on.'}
+            </Text>
+            <TouchableOpacity style={styles.modalClose} onPress={() => setShowRules(false)}>
+              <Text style={styles.modalCloseText}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <View style={styles.titleRow}>
+        <Text style={styles.title}>🧩 Impossible Puzzle</Text>
+        <TouchableOpacity style={styles.rulesBtn} onPress={() => setShowRules(true)}>
+          <Text style={styles.rulesBtnText}>?</Text>
+        </TouchableOpacity>
+      </View>
       <Text style={styles.sub}>Moves: {attempts}</Text>
 
       <View style={styles.board}>
@@ -200,9 +223,22 @@ const TILE_SIZE = 90;
 
 const styles = StyleSheet.create({
   container: { flex: 1, alignItems: 'center', paddingTop: 24 },
-  title: { fontSize: 20, fontWeight: 'bold', color: '#e0e0ff', marginBottom: 6 },
-  description: { color: '#aaaacc', fontSize: 13, textAlign: 'center', marginBottom: 10, paddingHorizontal: 16, lineHeight: 19 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 },
+  title: { fontSize: 20, fontWeight: 'bold', color: '#e0e0ff' },
+  rulesBtn: {
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: '#16213e', borderWidth: 1, borderColor: '#5c6bc0',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  rulesBtnText: { color: '#9999cc', fontSize: 14, fontWeight: 'bold' },
   sub: { color: '#9999cc', fontSize: 14, marginBottom: 24 },
+  // Modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalBox: { backgroundColor: '#1a1a2e', borderRadius: 16, padding: 24, borderWidth: 1, borderColor: '#3a3a6e', width: '100%' },
+  modalTitle: { color: '#e0e0ff', fontSize: 18, fontWeight: 'bold', marginBottom: 16 },
+  modalText: { color: '#aaaacc', fontSize: 14, lineHeight: 22 },
+  modalClose: { marginTop: 20, backgroundColor: '#5c6bc0', borderRadius: 20, paddingVertical: 12, alignItems: 'center' },
+  modalCloseText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   board: {
     flexDirection: 'row',
     flexWrap: 'wrap',
