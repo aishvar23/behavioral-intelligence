@@ -1,6 +1,11 @@
 import axios from 'axios';
 
-const BASE_URL = 'http://localhost:3000'; // Update for production
+import { Platform } from 'react-native';
+
+// Android emulator routes localhost to 10.0.2.2; iOS simulator uses localhost
+const BASE_URL = Platform.OS === 'android'
+  ? 'http://10.0.2.2:3000'
+  : 'http://localhost:3000';
 
 export interface GameEvent {
   sessionId: string;

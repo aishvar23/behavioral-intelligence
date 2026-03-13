@@ -46,7 +46,10 @@ const TOTAL_ROUNDS = 9;
 
 export default function HiddenPatternGame({ onComplete }: Props) {
   const [rule, setRule] = useState<Rule>(pickRule);
-  const [sequence, setSequence] = useState<number[]>(() => buildSequence(pickRule()));
+  const [sequence, setSequence] = useState<number[]>(() => {
+    const initialRule = RULES[0]; // placeholder, synced in useEffect
+    return buildSequence(initialRule);
+  });
   const [guess, setGuess] = useState('');
   const [round, setRound] = useState(1);
   const [correctInRule, setCorrectInRule] = useState(0);

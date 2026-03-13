@@ -147,6 +147,9 @@ export default function ExplorationIsland({ onComplete }: Props) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>🏝️ Exploration Island</Text>
+      <Text style={styles.instructions}>
+        Navigate the fog-covered grid using the arrows. Find 💎 rewards and avoid 💀 traps. You have {MAX_MOVES} moves!
+      </Text>
       <View style={styles.stats}>
         <Text style={styles.stat}>Moves Left: {movesLeft}</Text>
         <Text style={styles.stat}>Score: {score}</Text>
@@ -193,7 +196,8 @@ const TILE_SIZE = 36;
 
 const styles = StyleSheet.create({
   container: { flex: 1, alignItems: 'center', paddingTop: 20 },
-  title: { fontSize: 20, fontWeight: 'bold', color: '#e0e0ff', marginBottom: 12 },
+  title: { fontSize: 20, fontWeight: 'bold', color: '#e0e0ff', marginBottom: 6 },
+  instructions: { color: '#9999cc', fontSize: 13, textAlign: 'center', paddingHorizontal: 16, marginBottom: 10 },
   stats: { flexDirection: 'row', gap: 24, marginBottom: 16 },
   stat: { color: '#9999cc', fontSize: 14 },
   grid: { borderWidth: 1, borderColor: '#333' },
