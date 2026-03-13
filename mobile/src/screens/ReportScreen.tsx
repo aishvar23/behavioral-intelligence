@@ -113,9 +113,21 @@ export default function ReportScreen({ navigation, route }: Props) {
 
       {/* Career Matches */}
       <Text style={styles.sectionHeading}>Career Matches</Text>
+      <Text style={styles.sectionSubtitle}>Based on your selected careers</Text>
       {report.careerRecommendations.map((item: CareerRecommendation) => (
         <CareerCard key={item.career} item={item} />
       ))}
+
+      {/* AI Recommended Careers */}
+      {report.aiRecommendedCareers && report.aiRecommendedCareers.length > 0 && (
+        <>
+          <Text style={[styles.sectionHeading, { marginTop: 24 }]}>✨ AI Picks For You</Text>
+          <Text style={styles.sectionSubtitle}>Careers you didn't select but strongly match your profile</Text>
+          {report.aiRecommendedCareers.map((item: CareerRecommendation) => (
+            <CareerCard key={`ai-${item.career}`} item={item} />
+          ))}
+        </>
+      )}
 
       <TouchableOpacity style={styles.button} onPress={() => navigation.popToTop()}>
         <Text style={styles.buttonText}>Play Again</Text>
@@ -137,8 +149,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#e0e0ff',
-    marginBottom: 14,
+    marginBottom: 6,
     marginTop: 8,
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    color: '#6666aa',
+    marginBottom: 12,
   },
 
   // Game Scores

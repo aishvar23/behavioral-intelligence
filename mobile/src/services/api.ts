@@ -47,6 +47,7 @@ export interface FullReport {
   thinkingStyle: string;
   aiReport: string;
   careerRecommendations: CareerRecommendation[];
+  aiRecommendedCareers: CareerRecommendation[];
 }
 
 export async function getCareerReport(

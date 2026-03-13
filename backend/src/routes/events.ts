@@ -102,6 +102,7 @@ router.post('/career-report', async (req: Request, res: Response) => {
       thinkingStyle: llmResult.thinkingStyle,
       aiReport: llmResult.aiReport,
       careerRecommendations: llmResult.careerRecommendations,
+      aiRecommendedCareers: llmResult.aiRecommendedCareers,
     });
   } catch (err) {
     console.error('Career report failed:', err);

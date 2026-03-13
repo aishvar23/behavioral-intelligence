@@ -11,6 +11,7 @@ export interface FullLLMResult {
   thinkingStyle: string;
   aiReport: string;
   careerRecommendations: CareerRecommendation[];
+  aiRecommendedCareers: CareerRecommendation[];
 }
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -50,7 +51,8 @@ Return only valid JSON, no markdown.`;
   });
 
   const raw = message.content[0].type === 'text' ? message.content[0].text : '';
-  const text = raw.replace(/^```[a-z]*\n?/i, '').replace(/```\s*$/i, '').trim();
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  const text = jsonMatch ? jsonMatch[0] : raw.trim();
 
   try {
     const parsed = JSON.parse(text);
@@ -90,13 +92,17 @@ GAME PERFORMANCE:
 CAREERS TO EVALUATE:
 ${careersText}
 
-Respond with valid JSON only (no markdown), with these keys:
+Respond with valid JSON only (no markdown, no code fences), with these keys:
 - "thinkingStyle": one sentence ≤20 words describing their core cognitive style
 - "aiReport": 4-5 sentences covering behavioral profile, key strengths, growth areas, and ideal work environments — be specific, cite trait numbers
-- "careerRecommendations": array, one entry per career, each with:
+- "careerRecommendations": array, one entry per career listed above, each with:
     - "career": exact career name as given
     - "rating": one of "highly_recommended", "recommended", "neutral", "not_recommended"
-    - "reason": 2-3 sentences explaining the fit or mismatch, citing specific traits and scores`;
+    - "reason": 2-3 sentences explaining the fit or mismatch, citing specific traits and scores
+- "aiRecommendedCareers": array of exactly 3 careers NOT in the list above that best match this behavioral profile, each with:
+    - "career": career title
+    - "rating": one of "highly_recommended", "recommended" (these should be strong matches so use these two only)
+    - "reason": 2-3 sentences explaining why this career is a strong fit for this specific profile`;
 
   try {
     const message = await client.messages.create({
@@ -106,7 +112,8 @@ Respond with valid JSON only (no markdown), with these keys:
     });
 
     const raw = message.content[0].type === 'text' ? message.content[0].text : '';
-    const text = raw.replace(/^```[a-z]*\n?/i, '').replace(/```\s*$/i, '').trim();
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    const text = jsonMatch ? jsonMatch[0] : raw.trim();
 
     try {
       const parsed = JSON.parse(text);
@@ -118,6 +125,7 @@ Respond with valid JSON only (no markdown), with these keys:
           rating: 'neutral' as const,
           reason: 'Analysis unavailable.',
         })),
+        aiRecommendedCareers: parsed.aiRecommendedCareers ?? [],
       };
     } catch {
       return {
@@ -128,6 +136,7 @@ Respond with valid JSON only (no markdown), with these keys:
           rating: 'neutral' as const,
           reason: 'Analysis unavailable.',
         })),
+        aiRecommendedCareers: [],
       };
     }
   } catch (err) {
@@ -140,6 +149,7 @@ Respond with valid JSON only (no markdown), with these keys:
         rating: 'neutral' as const,
         reason: 'Career analysis unavailable at this time.',
       })),
+      aiRecommendedCareers: [],
     };
   }
 }
