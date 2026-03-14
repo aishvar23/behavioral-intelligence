@@ -45,7 +45,7 @@ export default function BehavioralReportCard({ report }: Props) {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>AI Analysis</Text>
+        <Text style={styles.sectionTitle}>Behavioral Analysis</Text>
         <Text style={styles.sectionBody}>{report.aiReport}</Text>
       </View>
     </View>

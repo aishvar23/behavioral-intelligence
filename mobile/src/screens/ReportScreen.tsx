@@ -105,9 +105,9 @@ export default function ReportScreen({ navigation, route }: Props) {
         <Text style={styles.sectionBody}>{report.thinkingStyle}</Text>
       </View>
 
-      {/* AI Analysis */}
+      {/* Behavioral Analysis */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>AI Analysis</Text>
+        <Text style={styles.sectionTitle}>Behavioral Analysis</Text>
         <Text style={styles.sectionBody}>{report.aiReport}</Text>
       </View>
 
@@ -121,7 +121,7 @@ export default function ReportScreen({ navigation, route }: Props) {
       {/* AI Recommended Careers */}
       {report.aiRecommendedCareers && report.aiRecommendedCareers.length > 0 && (
         <>
-          <Text style={[styles.sectionHeading, { marginTop: 24 }]}>✨ AI Picks For You</Text>
+          <Text style={[styles.sectionHeading, { marginTop: 24 }]}>✨ Recommended For You</Text>
           <Text style={styles.sectionSubtitle}>Careers you didn't select but strongly match your profile</Text>
           {report.aiRecommendedCareers.map((item: CareerRecommendation) => (
             <CareerCard key={`ai-${item.career}`} item={item} />
