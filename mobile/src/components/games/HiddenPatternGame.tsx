@@ -240,14 +240,11 @@ export default function HiddenPatternGame({ onComplete }: Props) {
    */
   function advanceRound(
     currentRule: Rule,
-    currentHistory: number[],
     currentCorrectInRule: number,
     currentRound: number,
     earnedPoints: number,
     currentScore: number,
   ) {
-    const answer = getNextAnswer(currentRule, currentHistory);
-    const newHistory = [...currentHistory, answer];
     const newCorrectInRule = currentCorrectInRule + 1;
     const newRound = currentRound + 1;
     const newScore = currentScore + earnedPoints;
@@ -255,7 +252,6 @@ export default function HiddenPatternGame({ onComplete }: Props) {
     setScore(newScore);
 
     if (newRound > TOTAL_ROUNDS) {
-      setHistory(newHistory);
       trackEvent('pattern', 'game_complete', { finalScore: newScore });
       setTimeout(() => onComplete(newScore), 900);
       return;
@@ -272,7 +268,7 @@ export default function HiddenPatternGame({ onComplete }: Props) {
       setCorrectInRule(0);
       setFeedback('🔄 New pattern — find the rule!');
     } else {
-      setHistory(newHistory);
+      setHistory([...currentRule.seed()]);
       setCorrectInRule(newCorrectInRule);
     }
 
@@ -317,19 +313,23 @@ export default function HiddenPatternGame({ onComplete }: Props) {
       setFeedback(`✅ Correct! +${pts}`);
       // Capture current values for the timeout closure
       const capturedRule = rule;
-      const capturedHistory = history;
       const capturedCorrectInRule = correctInRule;
       const capturedRound = round;
       const capturedScore = score;
       setTimeout(() => {
         setFeedback(null);
-        advanceRound(capturedRule, capturedHistory, capturedCorrectInRule, capturedRound, pts, capturedScore);
+        advanceRound(capturedRule, capturedCorrectInRule, capturedRound, pts, capturedScore);
       }, 800);
     } else {
       setWrongThisRound(w => w + 1);
       setFeedback('❌ Wrong. Try again.');
       setTimeout(() => setFeedback(null), 1000);
     }
+  }
+
+  function handleQuit() {
+    trackEvent('pattern', 'quit', { round, score });
+    onComplete(score);
   }
 
   function handlePass() {
@@ -347,14 +347,13 @@ export default function HiddenPatternGame({ onComplete }: Props) {
     setFeedback(`Answer: ${expected}`);
 
     const capturedRule = rule;
-    const capturedHistory = history;
     const capturedCorrectInRule = correctInRule;
     const capturedRound = round;
     const capturedScore = score;
     setTimeout(() => {
       setRevealAnswer(false);
       setFeedback(null);
-      advanceRound(capturedRule, capturedHistory, capturedCorrectInRule, capturedRound, 0, capturedScore);
+      advanceRound(capturedRule, capturedCorrectInRule, capturedRound, 0, capturedScore);
     }, 1500);
   }
 
@@ -455,6 +454,10 @@ export default function HiddenPatternGame({ onComplete }: Props) {
       ) : (
         <Text style={styles.wrongCount}>Wrong this round: {wrongThisRound}</Text>
       )}
+
+      <TouchableOpacity style={styles.quitBtn} onPress={handleQuit}>
+        <Text style={styles.quitText}>Quit Game</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -531,6 +534,15 @@ const styles = StyleSheet.create({
 
   feedback: { color: '#e0e0ff', fontSize: 16, marginTop: 16 },
   wrongCount: { color: '#666', fontSize: 13, marginTop: 16 },
+  quitBtn: {
+    marginTop: 24,
+    paddingVertical: 10,
+    paddingHorizontal: 28,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#c62828',
+  },
+  quitText: { color: '#ff6666', fontSize: 14 },
 
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   rulesBtn: {

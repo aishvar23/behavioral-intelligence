@@ -113,7 +113,7 @@ export default function ExplorationIsland({ onComplete }: Props) {
     setMovesLeft(remaining);
 
     if (remaining === 0) {
-      finishGame(exploredCount);
+      finishGame(exploredCount, score + scoreChange);
     }
   }
 
@@ -121,11 +121,11 @@ export default function ExplorationIsland({ onComplete }: Props) {
     return grid.flat().filter(t => t.visited).length;
   }
 
-  function finishGame(explored: number) {
+  function finishGame(explored: number, currentScore: number) {
     setDone(true);
     const pct = (explored / TOTAL_TILES * 100).toFixed(0);
-    Alert.alert('Game Over', `You explored ${pct}% of the island!\nScore: ${score}`, [
-      { text: 'Next Game', onPress: () => onComplete(score) },
+    Alert.alert('Game Over', `You explored ${pct}% of the island!\nScore: ${currentScore}`, [
+      { text: 'Done', onPress: () => onComplete(currentScore) },
     ]);
   }
 
@@ -210,6 +210,12 @@ export default function ExplorationIsland({ onComplete }: Props) {
           </TouchableOpacity>
         </View>
       </View>
+
+      {!done && (
+        <TouchableOpacity style={styles.finishBtn} onPress={() => finishGame(countExplored(), score)}>
+          <Text style={styles.finishBtnText}>Finish Early</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -257,4 +263,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dpadLabel: { color: '#e0e0ff', fontSize: 22 },
+  finishBtn: {
+    marginTop: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 28,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#c62828',
+  },
+  finishBtnText: { color: '#ff6666', fontSize: 14 },
 });

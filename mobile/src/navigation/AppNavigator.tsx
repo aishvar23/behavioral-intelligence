@@ -7,8 +7,8 @@ import ReportScreen from '../screens/ReportScreen';
 import CareerSelectionScreen from '../screens/CareerSelectionScreen';
 
 export type RootStackParamList = {
-  Home: undefined;
-  Game: { gameId: 'exploration' | 'pattern' | 'puzzle'; sessionId: string; scores?: { exploration: number; pattern: number; puzzle: number } };
+  Home: { completedGame?: 'exploration' | 'pattern' | 'puzzle'; score?: number } | undefined;
+  Game: { gameId: 'exploration' | 'pattern' | 'puzzle'; sessionId: string };
   CareerSelection: { sessionId: string; scores: { exploration: number; pattern: number; puzzle: number } };
   Report: { sessionId: string; scores: { exploration: number; pattern: number; puzzle: number }; selectedCareers: string[] };
 };

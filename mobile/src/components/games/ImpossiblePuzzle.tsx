@@ -116,7 +116,7 @@ export default function ImpossiblePuzzle({ onComplete }: Props) {
       });
       const finalScore = Math.max(0, Math.max(100, 1000 - newAttempts * 15) - hints * 20);
       Alert.alert('Solved!', `You solved it in ${newAttempts} moves!\nScore: ${finalScore}`, [
-        { text: 'Next', onPress: () => onComplete(finalScore) },
+        { text: 'Done', onPress: () => onComplete(finalScore) },
       ]);
     } else if (newAttempts >= MAX_MOVES) {
       const elapsed = Date.now() - startTime.current;
@@ -128,7 +128,7 @@ export default function ImpossiblePuzzle({ onComplete }: Props) {
       });
       const finalScore = Math.max(0, newAttempts * 3);
       Alert.alert('Time\'s up!', `You've used all ${MAX_MOVES} moves.\nScore: ${finalScore}`, [
-        { text: 'Next', onPress: () => onComplete(finalScore) },
+        { text: 'Done', onPress: () => onComplete(finalScore) },
       ]);
     }
   }
