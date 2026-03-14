@@ -2,6 +2,9 @@
  * Game 1: Exploration Island
  * 8x8 grid with fog of war. Tiles are hidden until visited.
  * Some tiles have rewards (+), some traps (-), most are empty.
+ * Revealed empty tiles show adjacency clues (Minesweeper-style):
+ *   green number = reward tiles among 8 neighbours
+ *   red number   = trap tiles among 8 neighbours
  * Players have 30 moves. Behavioral signals are logged on each move.
  */
 import React, { useCallback, useRef, useState } from 'react';
@@ -24,7 +27,6 @@ function buildGrid(): Tile[][] {
   const grid: Tile[][] = Array.from({ length: GRID_SIZE }, () =>
     Array.from({ length: GRID_SIZE }, () => ({ type: 'empty' as TileType, revealed: false, visited: false }))
   );
-  // Place 8 rewards and 6 traps randomly
   placeTiles(grid, 'reward', 8);
   placeTiles(grid, 'trap', 6);
   return grid;
@@ -40,6 +42,24 @@ function placeTiles(grid: Tile[][], type: TileType, count: number) {
       placed++;
     }
   }
+}
+
+/** Count reward and trap tiles among the 8 neighbours of (r, c). */
+function getAdjacentCounts(g: Tile[][], r: number, c: number): { rewards: number; traps: number } {
+  let rewards = 0;
+  let traps = 0;
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      if (dr === 0 && dc === 0) continue;
+      const nr = r + dr;
+      const nc = c + dc;
+      if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE) {
+        if (g[nr][nc].type === 'reward') rewards++;
+        if (g[nr][nc].type === 'trap') traps++;
+      }
+    }
+  }
+  return { rewards, traps };
 }
 
 interface Props {
@@ -137,12 +157,22 @@ export default function ExplorationIsland({ onComplete }: Props) {
     return '#263238';
   }
 
-  function tileLabel(tile: Tile, r: number, c: number): string {
-    if (r === playerPos.r && c === playerPos.c) return '🧭';
-    if (!tile.revealed) return '';
-    if (tile.type === 'reward') return '💎';
-    if (tile.type === 'trap') return '💀';
-    return '';
+  function renderTileContent(tile: Tile, r: number, c: number) {
+    const isPlayer = r === playerPos.r && c === playerPos.c;
+    if (isPlayer) return <Text style={styles.tileText}>🧭</Text>;
+    if (!tile.revealed) return null;
+    if (tile.type === 'reward') return <Text style={styles.tileText}>💎</Text>;
+    if (tile.type === 'trap') return <Text style={styles.tileText}>💀</Text>;
+
+    // Revealed empty tile — show adjacency clues
+    const { rewards, traps } = getAdjacentCounts(grid, r, c);
+    if (rewards === 0 && traps === 0) return null;
+    return (
+      <View style={styles.adjContainer}>
+        {rewards > 0 && <Text style={styles.adjReward}>{rewards}</Text>}
+        {traps > 0 && <Text style={styles.adjTrap}>{traps}</Text>}
+      </View>
+    );
   }
 
   return (
@@ -155,9 +185,10 @@ export default function ExplorationIsland({ onComplete }: Props) {
             <Text style={styles.modalText}>
               {'• You start at the top-left corner (🧭) of an 8×8 fog-covered island.\n\n'}
               {'• Use the arrow buttons to move one tile at a time.\n\n'}
-              {'• Revealed tiles may contain:\n   💎 Reward — +10 points\n   💀 Trap — −5 points\n   Empty — no effect\n\n'}
+              {'• Revealed tiles may contain:\n   💎 Reward — +10 points\n   💀 Trap — −5 points\n   Empty — shows clues\n\n'}
+              {'• Empty tiles show neighbour clues:\n   🟢 green number = nearby rewards\n   🔴 red number = nearby traps\n   Use these to decide where to explore next!\n\n'}
               {'• You have 30 moves total.\n\n'}
-              {'• Goal: explore as much of the island as you can and maximise your score!'}
+              {'• Goal: find as many rewards as possible while avoiding traps!'}
             </Text>
             <TouchableOpacity style={styles.modalClose} onPress={() => setShowRules(false)}>
               <Text style={styles.modalCloseText}>Got it</Text>
@@ -182,7 +213,7 @@ export default function ExplorationIsland({ onComplete }: Props) {
           <View key={r} style={styles.row}>
             {row.map((tile, c) => (
               <View key={c} style={[styles.tile, { backgroundColor: tileColor(tile, r, c) }]}>
-                <Text style={styles.tileText}>{tileLabel(tile, r, c)}</Text>
+                {renderTileContent(tile, r, c)}
               </View>
             ))}
           </View>
@@ -252,6 +283,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tileText: { fontSize: 14 },
+  adjContainer: { flexDirection: 'row', gap: 2, alignItems: 'center' },
+  adjReward: { color: '#66bb6a', fontSize: 11, fontWeight: 'bold' },
+  adjTrap: { color: '#ef5350', fontSize: 11, fontWeight: 'bold' },
   dpad: { marginTop: 24, alignItems: 'center', gap: 4 },
   dpadRow: { flexDirection: 'row', gap: 4, justifyContent: 'center' },
   dpadBtn: {
