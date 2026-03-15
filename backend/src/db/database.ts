@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import path from 'path';
+import { Pool } from 'pg';
 
 const DB_PATH = path.join(__dirname, '../../data/behavioral.db');
 
@@ -36,4 +37,17 @@ function initSchema(db: Database.Database) {
       created_at    INTEGER NOT NULL
     );
   `);
+}
+
+let pgPool: Pool | undefined;
+
+export function getPgPool(): Pool {
+  if (!pgPool) {
+    pgPool = new Pool({ connectionString: process.env.DATABASE_URL });
+  }
+  return pgPool;
+}
+
+export function isPostgres(): boolean {
+  return process.env.NODE_ENV === 'production' && !!process.env.DATABASE_URL;
 }
