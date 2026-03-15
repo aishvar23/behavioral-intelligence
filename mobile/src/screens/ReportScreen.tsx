@@ -75,16 +75,7 @@ export default function ReportScreen({ navigation, route }: Props) {
     }
   }
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#5c6bc0" />
-        <Text style={styles.loadingText}>{loadingMsg}</Text>
-      </View>
-    );
-  }
-
-  if (error || !report) {
+  if (error) {
     return (
       <View style={styles.center}>
         <Text style={styles.errorText}>{error}</Text>
@@ -98,7 +89,7 @@ export default function ReportScreen({ navigation, route }: Props) {
   if (!pinUnlocked) {
     return (
       <View style={styles.center}>
-        <Text style={styles.pinTitle}>Report Ready</Text>
+        <Text style={styles.pinTitle}>Assessment Complete</Text>
         <Text style={styles.pinSubtitle}>
           This report is protected.{'\n'}Enter the PIN to view the results.
         </Text>
@@ -118,8 +109,30 @@ export default function ReportScreen({ navigation, route }: Props) {
         {pinError && (
           <Text style={styles.pinErrorText}>Incorrect PIN. Please try again.</Text>
         )}
-        <TouchableOpacity style={styles.button} onPress={handlePinSubmit}>
-          <Text style={styles.buttonText}>Unlock Report</Text>
+        <TouchableOpacity
+          style={[styles.button, loading && styles.buttonDisabled]}
+          onPress={handlePinSubmit}
+          disabled={loading}
+        >
+          {loading ? (
+            <>
+              <ActivityIndicator size="small" color="#fff" style={{ marginBottom: 4 }} />
+              <Text style={styles.buttonText}>{loadingMsg}</Text>
+            </>
+          ) : (
+            <Text style={styles.buttonText}>Unlock Report</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (!report) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.errorText}>Report unavailable. Please try again.</Text>
+        <TouchableOpacity style={styles.button} onPress={() => navigation.popToTop()}>
+          <Text style={styles.buttonText}>Try Again</Text>
         </TouchableOpacity>
       </View>
     );
@@ -268,6 +281,7 @@ const styles = StyleSheet.create({
   loadingText: { color: '#9999cc', marginTop: 16, fontSize: 15, textAlign: 'center' },
   errorText: { color: '#ff6b6b', textAlign: 'center', fontSize: 16, marginBottom: 24 },
   button: { backgroundColor: '#5c6bc0', padding: 16, borderRadius: 30, alignItems: 'center', marginTop: 24, width: '100%' },
+  buttonDisabled: { backgroundColor: '#3a3a6e' },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   // PIN gate
   pinTitle: { color: '#e0e0ff', fontSize: 22, fontWeight: '700', marginBottom: 10 },

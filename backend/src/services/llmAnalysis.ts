@@ -287,31 +287,31 @@ Then compare the observed game behaviors to those inferred traits.
 
 Respond with valid JSON only (no markdown, no code fences):
 {
-  "thinkingStyle": "one observation-based sentence ≤20 words — what their in-game behavior suggests about their cognitive approach",
-  "report": "4–5 sentences: observed behaviors → how they relate to ${userProfile.occupationTitle} → 2–3 strengths → 1–2 areas to develop",
+  "thinkingStyle": "≤12 words describing their cognitive approach based on observed behavior",
+  "report": "2–3 sentences: key observed behaviors → relation to ${userProfile.occupationTitle} → one strength and one area to develop",
   "observations": [
     {
-      "game": "exact game title from the data",
-      "observation": "factual second-person description of what happened (e.g. 'You explored 45% of the grid, hit 3 traps, and revisited 4 tiles.')",
-      "relevance": "how this specific behavior relates to ${userProfile.occupationTitle} (e.g. 'Systematic exploration mirrors how engineers investigate unfamiliar codebases.')"
+      "game": "game title",
+      "observation": "1 sentence: what the user did (factual, second-person)",
+      "relevance": "1 sentence: how it relates to ${userProfile.occupationTitle}"
     }
   ],
   "occupationFit": {
     "occupation": "${userProfile.occupationTitle}",
     "rating": "excellent | good | moderate | low",
-    "summary": "2–3 sentences grounded in specific observed behaviors. Reference actual in-game data, not stated goals."
+    "summary": "1–2 sentences grounded in observed in-game behavior"
   },
   "skillDevelopment": [
     {
-      "skill": "skill name (e.g. Analytical Thinking, Persistence, Pattern Recognition)",
-      "activities": ["age-appropriate activity 1", "activity 2", "activity 3"]
+      "skill": "skill name",
+      "activities": ["activity 1", "activity 2"]
     }
   ],
   "recommendedCareers": [
     {
       "career": "career title",
       "rating": "strong_match | possible_match | explore_further",
-      "reason": "2 sentences grounded in observed game behavior and relevant to age ${userProfile.age}"
+      "reason": "1 sentence linking observed behavior to this career"
     }
   ]
 }`;
@@ -319,7 +319,7 @@ Respond with valid JSON only (no markdown, no code fences):
   try {
     const message = await client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 2048,
+      max_tokens: 1024,
       messages: [{ role: 'user', content: prompt }],
     });
 
