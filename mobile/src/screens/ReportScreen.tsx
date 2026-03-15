@@ -48,6 +48,7 @@ export default function ReportScreen({ navigation, route }: Props) {
   const [pinUnlocked, setPinUnlocked] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
+  const [pinErrorMsg, setPinErrorMsg] = useState('');
   const pinRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -70,22 +71,13 @@ export default function ReportScreen({ navigation, route }: Props) {
       setPinUnlocked(true);
     } else {
       setPinError(true);
+      setPinErrorMsg('Wrong PIN. Please try again.');
       setPinInput('');
-      setTimeout(() => setPinError(false), 2000);
+      setTimeout(() => setPinError(false), 2500);
     }
   }
 
-  if (error) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.button} onPress={() => navigation.popToTop()}>
-          <Text style={styles.buttonText}>Try Again</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
+  // PIN gate — no spinner, report loads silently in background
   if (!pinUnlocked) {
     return (
       <View style={styles.center}>
@@ -97,7 +89,7 @@ export default function ReportScreen({ navigation, route }: Props) {
           ref={pinRef}
           style={[styles.pinInput, pinError && styles.pinInputError]}
           value={pinInput}
-          onChangeText={setPinInput}
+          onChangeText={v => { setPinInput(v); setPinError(false); }}
           placeholder="Enter PIN"
           placeholderTextColor="#555577"
           keyboardType="number-pad"
@@ -106,31 +98,28 @@ export default function ReportScreen({ navigation, route }: Props) {
           onSubmitEditing={handlePinSubmit}
           autoFocus
         />
-        {pinError && (
-          <Text style={styles.pinErrorText}>Incorrect PIN. Please try again.</Text>
-        )}
-        <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handlePinSubmit}
-          disabled={loading}
-        >
-          {loading ? (
-            <>
-              <ActivityIndicator size="small" color="#fff" style={{ marginBottom: 4 }} />
-              <Text style={styles.buttonText}>{loadingMsg}</Text>
-            </>
-          ) : (
-            <Text style={styles.buttonText}>Unlock Report</Text>
-          )}
+        {pinError && <Text style={styles.pinErrorText}>{pinErrorMsg}</Text>}
+        <TouchableOpacity style={styles.button} onPress={handlePinSubmit}>
+          <Text style={styles.buttonText}>Unlock Report</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  if (!report) {
+  // PIN correct — show spinner if report not yet ready
+  if (loading) {
     return (
       <View style={styles.center}>
-        <Text style={styles.errorText}>Report unavailable. Please try again.</Text>
+        <ActivityIndicator size="large" color="#5c6bc0" />
+        <Text style={styles.loadingText}>{loadingMsg}</Text>
+      </View>
+    );
+  }
+
+  if (error || !report) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.errorText}>{error ?? 'Report unavailable. Please try again.'}</Text>
         <TouchableOpacity style={styles.button} onPress={() => navigation.popToTop()}>
           <Text style={styles.buttonText}>Try Again</Text>
         </TouchableOpacity>
