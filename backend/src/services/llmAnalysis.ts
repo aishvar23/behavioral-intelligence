@@ -30,11 +30,24 @@ export interface OccupationFit {
   summary: string;
 }
 
+export interface GameObservation {
+  game: string;
+  observation: string;
+  relevance: string;
+}
+
+export interface SkillDevelopment {
+  skill: string;
+  activities: string[];
+}
+
 export interface FullLLMResult {
   thinkingStyle: string;
   aiReport: string;
   occupationFit: OccupationFit;
   aiRecommendedCareers: CareerRecommendation[];
+  observations: GameObservation[];
+  skillDevelopment: SkillDevelopment[];
 }
 
 export interface LLMResult {
@@ -234,46 +247,74 @@ export async function generateCareerReport(
     ? JSON.stringify(gameBehaviorData, null, 2)
     : JSON.stringify({ note: 'No structured behavioral data was recorded for this session.' }, null, 2);
 
-  const prompt = `You are an AI career exploration assistant.
+  const ageNum = parseInt(userProfile.age, 10);
+  const ageGroup = !isNaN(ageNum)
+    ? ageNum <= 13 ? 'child (age ≤13): suggest Scratch, simple game-building projects, kid-friendly puzzles and storytelling games'
+      : ageNum <= 16 ? 'early teen (age 14–16): suggest beginner coding projects, school clubs, online courses like Khan Academy or Codecademy'
+      : ageNum <= 19 ? 'late teen (age 17–19): suggest competitive programming (Codeforces/LeetCode), GitHub projects, hackathons, and internship prep'
+      : 'adult (age 20+): suggest professional certifications, open-source contributions, portfolio projects, and specialised courses'
+    : 'age unknown: give generally applicable suggestions';
 
-The user played three short cognitive games lasting 2–3 minutes.
-These games provide weak behavioral signals about curiosity,
-persistence, analytical thinking, and risk tolerance.
+  const prompt = `You are a behavioral assessment assistant for a career exploration platform.
 
-Do NOT make definitive career judgments.
+The user is ${userProfile.age} years old and wants to become a ${userProfile.occupationTitle}.
+They played ${gameResults.length} short cognitive games (2–3 minutes total). These provide WEAK behavioral signals — not definitive proof — about curiosity, persistence, analytical thinking, and risk tolerance.
+Do NOT make strong personality judgments. Use language like "this suggests…" or "this may indicate…" — never "you are…".
 
-Instead, structure your analysis around these five points:
-1. Describe the user's behavior observed in the games.
-2. Explain how these behaviors relate to the chosen occupation.
-3. Highlight strengths.
-4. Suggest areas for improvement.
-5. Provide learning activities suitable for the user's age.
-
-User information:
-- Age: ${userProfile.age}
-- Target occupation: ${userProfile.occupationTitle}
-
-Game behavior data:
+═══ BEHAVIORAL DATA (raw signals from game events) ═══
 ${behaviorJson}
 
-Supporting context (trait scores derived from the same session):
-- Curiosity: ${traits.curiosity.toFixed(2)} | Persistence: ${traits.persistence.toFixed(2)} | Risk Tolerance: ${traits.risk_tolerance.toFixed(2)} | Learning Speed: ${traits.learning_speed.toFixed(2)}
+═══ TRAIT SCORES (0 = low, 1 = high) ═══
+Curiosity: ${traits.curiosity.toFixed(2)} | Persistence: ${traits.persistence.toFixed(2)} | Risk Tolerance: ${traits.risk_tolerance.toFixed(2)} | Learning Speed: ${traits.learning_speed.toFixed(2)}
 
-Game scores (for reference):
+═══ GAME PERFORMANCE ═══
 ${gamePerformance}
 Overall engagement: ${avgPct}% — ${overallEngagement}
 
+═══ OCCUPATION CONTEXT ═══
+The user wants to become a ${userProfile.occupationTitle}.
+First, infer the core cognitive traits needed for this occupation (e.g. a software engineer needs analytical thinking, persistence, pattern recognition; a designer needs creativity and risk tolerance; a doctor needs memory, logic, and calm under pressure).
+Then compare the observed game behaviors to those inferred traits.
+
+═══ YOUR TASK ═══
+1. OBSERVE — Describe what the user actually did in each game using factual, second-person language.
+   Example: "In the pattern game, you identified the rule within 8 seconds and made 2 incorrect guesses. This suggests strong analytical reasoning, which is useful for debugging code."
+2. COMPARE — Match each observed behavior to a trait needed for ${userProfile.occupationTitle}.
+3. ALIGN — Highlight 2–3 behaviors that align with the occupation.
+4. DEVELOP — Identify 1–2 areas that may need development based on observed data.
+5. SUGGEST — Give age-appropriate skill-building activities for this user.
+   Age group: ${ageGroup}.
+
 Respond with valid JSON only (no markdown, no code fences):
-- "thinkingStyle": one sentence ≤20 words describing their cognitive style based on actual observed behavior
-- "report": 4–5 sentences following the five-point structure above — behavior observed, relation to occupation, strengths, improvement areas, and age-appropriate learning activities
-- "occupationFit": object with:
-    - "occupation": "${userProfile.occupationTitle}"
-    - "rating": one of "excellent", "good", "moderate", "low" — based on behavioral evidence, not stated goals
-    - "summary": 2–3 sentences on fit or mismatch with specific references to observed in-game behaviors
-- "recommendedCareers": array of 3 careers matching demonstrated behaviors, each with:
-    - "career": career title
-    - "rating": one of "strong_match", "possible_match", "explore_further"
-    - "reason": 2 sentences grounded in observed game behavior and age-appropriate development`;
+{
+  "thinkingStyle": "one observation-based sentence ≤20 words — what their in-game behavior suggests about their cognitive approach",
+  "report": "4–5 sentences: observed behaviors → how they relate to ${userProfile.occupationTitle} → 2–3 strengths → 1–2 areas to develop",
+  "observations": [
+    {
+      "game": "exact game title from the data",
+      "observation": "factual second-person description of what happened (e.g. 'You explored 45% of the grid, hit 3 traps, and revisited 4 tiles.')",
+      "relevance": "how this specific behavior relates to ${userProfile.occupationTitle} (e.g. 'Systematic exploration mirrors how engineers investigate unfamiliar codebases.')"
+    }
+  ],
+  "occupationFit": {
+    "occupation": "${userProfile.occupationTitle}",
+    "rating": "excellent | good | moderate | low",
+    "summary": "2–3 sentences grounded in specific observed behaviors. Reference actual in-game data, not stated goals."
+  },
+  "skillDevelopment": [
+    {
+      "skill": "skill name (e.g. Analytical Thinking, Persistence, Pattern Recognition)",
+      "activities": ["age-appropriate activity 1", "activity 2", "activity 3"]
+    }
+  ],
+  "recommendedCareers": [
+    {
+      "career": "career title",
+      "rating": "strong_match | possible_match | explore_further",
+      "reason": "2 sentences grounded in observed game behavior and relevant to age ${userProfile.age}"
+    }
+  ]
+}`;
 
   try {
     const message = await client.messages.create({
@@ -316,6 +357,8 @@ Respond with valid JSON only (no markdown, no code fences):
           rating: normaliseRating(c.rating),
           reason: c.reason,
         })),
+        observations: parsed.observations ?? [],
+        skillDevelopment: parsed.skillDevelopment ?? [],
       };
     } catch {
       return {
@@ -323,6 +366,8 @@ Respond with valid JSON only (no markdown, no code fences):
         aiReport: text,
         occupationFit: { occupation: userProfile.occupationTitle, rating: 'low', summary: 'Analysis unavailable.' },
         aiRecommendedCareers: [],
+        observations: [],
+        skillDevelopment: [],
       };
     }
   } catch (err) {
@@ -332,6 +377,8 @@ Respond with valid JSON only (no markdown, no code fences):
       aiReport: 'Unable to generate a detailed report at this time.',
       occupationFit: { occupation: userProfile.occupationTitle, rating: 'low', summary: 'Unable to generate fit analysis.' },
       aiRecommendedCareers: [],
+      observations: [],
+      skillDevelopment: [],
     };
   }
 }

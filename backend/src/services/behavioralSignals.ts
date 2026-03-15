@@ -176,6 +176,23 @@ export interface GameBehaviorData {
     timeSpentSeconds: number;
     quit: boolean;
   };
+  memory_game?: {
+    correctRounds: number;
+    totalRounds: number;
+    maxSequenceLength: number;
+    avgResponseTimeSec: number;
+  };
+  logic_game?: {
+    correctAnswers: number;
+    totalQuestions: number;
+    avgTimePerQuestionSec: number;
+  };
+  reaction_game?: {
+    accuracy: number;
+    avgReactionTimeMs: number;
+    falseStarts: number;
+    totalTrials: number;
+  };
 }
 
 export function extractStructuredBehaviorData(
@@ -236,6 +253,55 @@ export function extractStructuredBehaviorData(
           totalAttempts: moves.length,
           timeSpentSeconds,
           quit: gameEvents.some(e => e.event_type === 'quit'),
+        };
+        break;
+      }
+      case 'memory': {
+        const rounds = gameEvents.filter(e => e.event_type === 'round_complete');
+        if (rounds.length === 0) break;
+
+        const correctRounds = rounds.filter(e => e.data.correct === true).length;
+        const times = rounds
+          .map(e => e.data.responseTime as number)
+          .filter(t => typeof t === 'number' && t > 0);
+        const avgResponseTimeSec = times.length > 0 ? round1(avg(times) / 1000) : 0;
+        const lastRound = rounds[rounds.length - 1];
+        const maxSequenceLength = (lastRound.data.sequenceLength as number) ?? rounds.length + 3;
+
+        data.memory_game = { correctRounds, totalRounds: rounds.length, maxSequenceLength, avgResponseTimeSec };
+        break;
+      }
+      case 'logic': {
+        const answers = gameEvents.filter(e => e.event_type === 'question_answer');
+        if (answers.length === 0) break;
+
+        const correct = answers.filter(e => e.data.correct === true).length;
+        const times = answers
+          .map(e => e.data.timeSpent as number)
+          .filter(t => typeof t === 'number' && t > 0);
+        const avgTimePerQuestionSec = times.length > 0 ? round1(avg(times)) : 0;
+
+        data.logic_game = { correctAnswers: correct, totalQuestions: answers.length, avgTimePerQuestionSec };
+        break;
+      }
+      case 'reaction': {
+        const responses = gameEvents.filter(e => e.event_type === 'stimulus_response');
+        if (responses.length === 0) break;
+
+        const correct = responses.filter(e => e.data.correct === true).length;
+        const reactionTimes = responses
+          .filter(e => e.data.correct === true)
+          .map(e => e.data.reactionTime as number)
+          .filter(t => typeof t === 'number' && t > 0);
+        const avgReactionTimeMs = reactionTimes.length > 0 ? Math.round(avg(reactionTimes)) : 0;
+        const nogoTrials = responses.filter(e => e.data.stimulusType === 'nogo');
+        const falseStarts = nogoTrials.filter(e => e.data.responded === true).length;
+
+        data.reaction_game = {
+          accuracy: Math.round((correct / responses.length) * 100),
+          avgReactionTimeMs,
+          falseStarts,
+          totalTrials: responses.length,
         };
         break;
       }

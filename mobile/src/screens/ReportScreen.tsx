@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
-import { getCareerReport, FullReport, CareerRecommendation } from '../services/api';
+import { getCareerReport, FullReport, CareerRecommendation, GameObservation, SkillDevelopment } from '../services/api';
 import CareerCard from '../components/report/CareerCard';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Report'>;
@@ -160,6 +160,42 @@ export default function ReportScreen({ navigation, route }: Props) {
         </>
       )}
 
+      {/* Game Observations */}
+      {report.observations && report.observations.length > 0 && (
+        <>
+          <Text style={styles.sectionHeading}>What We Observed</Text>
+          <Text style={styles.sectionSubtitle}>Factual observations from your gameplay</Text>
+          {report.observations.map((obs: GameObservation, i: number) => (
+            <View key={i} style={styles.observationCard}>
+              <Text style={styles.observationGame}>{obs.game}</Text>
+              <Text style={styles.observationText}>{obs.observation}</Text>
+              <View style={styles.relevancePill}>
+                <Text style={styles.relevanceText}>{obs.relevance}</Text>
+              </View>
+            </View>
+          ))}
+        </>
+      )}
+
+      {/* Skill Development */}
+      {report.skillDevelopment && report.skillDevelopment.length > 0 && (
+        <>
+          <Text style={[styles.sectionHeading, { marginTop: 8 }]}>Skill Development</Text>
+          <Text style={styles.sectionSubtitle}>Personalised activities to build your skills</Text>
+          {report.skillDevelopment.map((item: SkillDevelopment, i: number) => (
+            <View key={i} style={styles.skillCard}>
+              <Text style={styles.skillName}>{item.skill}</Text>
+              {item.activities.map((act, j) => (
+                <View key={j} style={styles.activityRow}>
+                  <Text style={styles.activityBullet}>•</Text>
+                  <Text style={styles.activityText}>{act}</Text>
+                </View>
+              ))}
+            </View>
+          ))}
+        </>
+      )}
+
       {/* Recommended Careers */}
       {report.aiRecommendedCareers && report.aiRecommendedCareers.length > 0 && (
         <>
@@ -223,4 +259,16 @@ const styles = StyleSheet.create({
   fitBadge: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1 },
   fitBadgeText: { fontSize: 11, fontWeight: '700' },
   fitSummary: { color: '#c0c0ee', fontSize: 14, lineHeight: 22 },
+  // Observations
+  observationCard: { backgroundColor: '#16213e', borderRadius: 14, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#2a2a5e' },
+  observationGame: { color: '#5c6bc0', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 },
+  observationText: { color: '#e0e0ff', fontSize: 14, lineHeight: 21, marginBottom: 10 },
+  relevancePill: { backgroundColor: '#1a1a40', borderRadius: 8, padding: 10, borderLeftWidth: 3, borderLeftColor: '#5c6bc0' },
+  relevanceText: { color: '#9999cc', fontSize: 13, lineHeight: 19, fontStyle: 'italic' },
+  // Skill development
+  skillCard: { backgroundColor: '#16213e', borderRadius: 14, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#2a2a5e' },
+  skillName: { color: '#66bb6a', fontSize: 14, fontWeight: '700', marginBottom: 10 },
+  activityRow: { flexDirection: 'row', gap: 8, marginBottom: 6 },
+  activityBullet: { color: '#66bb6a', fontSize: 14, lineHeight: 20 },
+  activityText: { color: '#c0c0ee', fontSize: 14, lineHeight: 20, flex: 1 },
 });

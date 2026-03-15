@@ -47,6 +47,17 @@ export interface OccupationFit {
   summary: string;
 }
 
+export interface GameObservation {
+  game: string;
+  observation: string;
+  relevance: string;
+}
+
+export interface SkillDevelopment {
+  skill: string;
+  activities: string[];
+}
+
 export interface FullReport {
   traits: {
     curiosity: number;
@@ -59,6 +70,8 @@ export interface FullReport {
   aiReport: string;
   occupationFit: OccupationFit;
   aiRecommendedCareers: CareerRecommendation[];
+  observations?: GameObservation[];
+  skillDevelopment?: SkillDevelopment[];
 }
 
 export interface GameSelectionResult {
