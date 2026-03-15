@@ -27,8 +27,11 @@ function shuffle(arr: number[]): number[] {
   // Ensure it's not already solved and is solvable (ensure even parity)
   if (isSolved(a)) return shuffle(arr);
   if (!isSolvable(a)) {
-    // Swap two non-zero tiles to fix parity
-    [a[0], a[1]] = [a[1], a[0]];
+    // Swap the first two non-zero tiles to flip inversion parity
+    // (swapping with the blank tile would not change inversion count)
+    const i1 = a.findIndex(v => v !== 0);
+    const i2 = a.findIndex((v, i) => v !== 0 && i > i1);
+    [a[i1], a[i2]] = [a[i2], a[i1]];
   }
   return a;
 }

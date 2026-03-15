@@ -7,7 +7,7 @@
  *   red number   = trap tiles among 8 neighbours
  * Players have 30 moves. Behavioral signals are logged on each move.
  */
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal } from 'react-native';
 import { trackEvent } from '../../utils/eventLogger';
 
@@ -83,13 +83,13 @@ export default function ExplorationIsland({ onComplete }: Props) {
   }, []);
 
   // Reveal starting tile on first render
-  useState(() => {
+  useEffect(() => {
     setGrid(prev => {
       const next = prev.map(row => row.map(t => ({ ...t })));
       revealInitial(next);
       return next;
     });
-  });
+  }, [revealInitial]);
 
   function move(dr: number, dc: number) {
     if (done) return;
@@ -103,6 +103,7 @@ export default function ExplorationIsland({ onComplete }: Props) {
 
     const key = `${nr},${nc}`;
     visitCounts.current[key] = (visitCounts.current[key] ?? 0) + 1;
+    const isFirstVisit = visitCounts.current[key] === 1;
 
     setGrid(prev => {
       const next = prev.map(row => row.map(t => ({ ...t })));
@@ -117,7 +118,8 @@ export default function ExplorationIsland({ onComplete }: Props) {
     if (tile.type === 'trap') scoreChange = -5;
     setScore(s => s + scoreChange);
 
-    const exploredCount = countExplored();
+    // countExplored reads old grid state; add 1 if this is a first visit
+    const exploredCount = countExplored() + (isFirstVisit ? 1 : 0);
     trackEvent('exploration', 'move', {
       from: playerPos,
       to: { r: nr, c: nc },

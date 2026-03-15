@@ -70,6 +70,7 @@ export default function LogicDeductionGame({ sessionId, onComplete, config }: Pr
   const [correctCount, setCorrectCount] = useState(0);
   const [timeLeft, setTimeLeft] = useState(TIME_PER_QUESTION);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const qStartRef = useRef(0);
 
   const advance = useCallback((finalScore: number, correct: number) => {
@@ -85,7 +86,15 @@ export default function LogicDeductionGame({ sessionId, onComplete, config }: Pr
   }, [sessionId, variant, onComplete]);
 
   function startGame() {
-    const pool = [...QUESTIONS[variant]].sort(() => Math.random() - 0.5).slice(0, QUESTIONS_PER_GAME);
+    const pool = [...QUESTIONS[variant]]
+      .sort(() => Math.random() - 0.5)
+      .slice(0, QUESTIONS_PER_GAME)
+      .map(q => {
+        // Shuffle options so the correct answer isn't always at index 0
+        const correctAnswer = q.options[q.answer];
+        const shuffled = [...q.options].sort(() => Math.random() - 0.5);
+        return { ...q, options: shuffled, answer: shuffled.indexOf(correctAnswer) };
+      });
     setQuestions(pool);
     setCurrentQ(0);
     setScore(0);
@@ -95,20 +104,26 @@ export default function LogicDeductionGame({ sessionId, onComplete, config }: Pr
     setTimeLeft(TIME_PER_QUESTION);
   }
 
-  // Countdown timer
+  // Countdown timer — visual tick only; game logic timeout handled separately
   useEffect(() => {
-    if (phase !== 'playing') { if (timerRef.current) clearInterval(timerRef.current); return; }
+    if (phase !== 'playing') {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      return;
+    }
+    // Visual countdown
     timerRef.current = setInterval(() => {
-      setTimeLeft(t => {
-        if (t <= 1) {
-          clearInterval(timerRef.current!);
-          handleAnswer(-1); // timeout = wrong
-          return 0;
-        }
-        return t - 1;
-      });
+      setTimeLeft(t => Math.max(0, t - 1));
     }, 1000);
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    // Actual timeout that triggers game logic
+    timeoutRef.current = setTimeout(() => {
+      clearInterval(timerRef.current!);
+      handleAnswer(-1);
+    }, TIME_PER_QUESTION * 1000);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
   }, [phase, currentQ]);
 
   function handleAnswer(optionIndex: number) {
