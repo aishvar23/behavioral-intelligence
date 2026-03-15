@@ -182,42 +182,96 @@ Return only valid JSON, no markdown.`;
   }
 }
 
+// Approximate practical maximum scores per game type
+const GAME_MAX_SCORES: Record<string, number> = {
+  exploration: 80,   // 8 reward tiles × 10 pts
+  pattern:     90,   // 9 rounds × 10 pts first-try
+  puzzle:      700,  // practical max (theoretical 1000 minus minimum moves)
+  memory:      150,  // 5 rounds × 30 pts max
+  logic:       105,  // 7 questions × 15 pts max (with time bonus)
+  reaction:    150,  // 10 rounds × 15 pts max
+};
+
+function performanceLabel(pct: number): string {
+  if (pct >= 80) return 'Excellent';
+  if (pct >= 60) return 'Good';
+  if (pct >= 40) return 'Moderate';
+  if (pct >= 20) return 'Below average';
+  return 'Poor';
+}
+
+function overallEngagementLabel(avgPct: number): string {
+  if (avgPct >= 60) return 'Strong — meaningful behavioral data captured';
+  if (avgPct >= 35) return 'Moderate — partial behavioral signals captured';
+  return 'Poor — insufficient data to confirm cognitive fit for demanding roles';
+}
+
 export async function generateCareerReport(
   traits: TraitScores,
   userProfile: UserProfile,
   gameResults: GameResult[]
 ): Promise<FullLLMResult> {
-  const gamePerformance = gameResults
-    .map(g => `- ${g.emoji} ${g.title}: ${g.score} pts`)
+  // Build per-game performance lines with score context
+  const scoredGames = gameResults.map(g => {
+    const max = GAME_MAX_SCORES[g.gameType] ?? 100;
+    const pct = Math.min(100, Math.round((g.score / max) * 100));
+    return { ...g, max, pct, label: performanceLabel(pct) };
+  });
+
+  const avgPct = scoredGames.length > 0
+    ? Math.round(scoredGames.reduce((sum, g) => sum + g.pct, 0) / scoredGames.length)
+    : 0;
+
+  const overallEngagement = overallEngagementLabel(avgPct);
+
+  const gamePerformance = scoredGames
+    .map(g => `- ${g.emoji} ${g.title}: ${g.score} / ${g.max} pts (${g.pct}%) — ${g.label}`)
     .join('\n');
 
-  const prompt = `You are a behavioral psychologist and career counselor. Analyze the cognitive-behavioral profile below — derived from gameplay — and provide personalised career guidance tailored to this individual.
+  // Flag if traits are all near-default (skipped/rushed games produce flat 0.5 values)
+  const traitValues = [traits.curiosity, traits.persistence, traits.risk_tolerance, traits.learning_speed];
+  const allNearDefault = traitValues.every(v => Math.abs(v - 0.5) < 0.08);
+  const traitNote = allNearDefault
+    ? '\nNOTE: All trait scores are near the neutral midpoint (0.5), indicating minimal behavioral signals were captured — the user likely skipped or rushed through the games.'
+    : '';
+
+  const prompt = `You are a behavioral psychologist and career counselor. Analyze the assessment results below and provide honest, calibrated career guidance.
 
 USER PROFILE:
 - Age: ${userProfile.age}
 - Target / Current Occupation: ${userProfile.occupationTitle}
 - Areas of Interest: ${userProfile.interests}
 
-BEHAVIORAL TRAIT SCORES (0 = low, 1 = high):
-- Curiosity: ${traits.curiosity.toFixed(2)} — explorative, inquisitive behaviour
-- Persistence: ${traits.persistence.toFixed(2)} — resilience and continued effort after setbacks
+BEHAVIORAL TRAIT SCORES (0.0 = very low, 0.5 = neutral/insufficient data, 1.0 = very high):
+- Curiosity: ${traits.curiosity.toFixed(2)} — explorative and inquisitive behaviour
+- Persistence: ${traits.persistence.toFixed(2)} — resilience and effort after setbacks
 - Risk Tolerance: ${traits.risk_tolerance.toFixed(2)} — willingness to take uncertain risks
 - Learning Speed: ${traits.learning_speed.toFixed(2)} — speed of internalising new patterns
+${traitNote}
 
-GAME PERFORMANCE (occupation-specific assessment games):
+GAME PERFORMANCE (scores shown as achieved / maximum possible):
 ${gamePerformance}
 
-Using the user's profile, traits, AND their stated occupation/interests, respond with valid JSON only (no markdown, no code fences) containing:
-- "thinkingStyle": one sentence ≤20 words describing their core cognitive style, personalised to their background
-- "aiReport": 4-5 sentences covering behavioral profile, key strengths, growth areas, and ideal work environments — reference their age/interests where relevant; cite trait scores
-- "occupationFit": object assessing fit for "${userProfile.occupationTitle}" with:
+Overall assessment engagement: ${avgPct}% average — ${overallEngagement}
+
+CRITICAL INSTRUCTIONS — you MUST follow these:
+1. Base your ratings on actual performance, NOT on the user's stated occupation goals.
+2. If overall engagement is "Poor" (average < 35%), the occupationFit rating MUST be "low" or "moderate". Do NOT assign "good" or "excellent" for poor performance, regardless of stated interests.
+3. For the recommendedCareers list — only include roles where the evidence genuinely supports fit. For poor performance, recommend entry-level, exploratory, or less demanding roles, not specialised/high-skill professions (e.g. do not recommend ML Engineer, Surgeon, or Lawyer if scores are consistently poor).
+4. Be honest and constructive — acknowledge limited data where it exists, and suggest what the person could do to demonstrate stronger fit.
+5. A user may have potential that this session did not capture — say so if scores are low, and encourage retaking the assessment with full engagement.
+
+Respond with valid JSON only (no markdown, no code fences):
+- "thinkingStyle": one sentence ≤20 words describing their cognitive style based on actual evidence
+- "report": 4-5 sentences covering observed behavioral signals, strengths or gaps the data shows, and honest growth areas — cite specific scores and percentages
+- "occupationFit": object with:
     - "occupation": "${userProfile.occupationTitle}"
-    - "rating": one of "excellent", "good", "moderate", "low"
-    - "summary": 3-4 sentences explaining the fit, citing specific traits and game performance
-- "aiRecommendedCareers": array of 3-5 careers strongly matching this behavioral profile (may overlap with stated occupation if fit is high), each with:
+    - "rating": one of "excellent", "good", "moderate", "low" — chosen strictly based on performance data
+    - "summary": 3-4 sentences explaining the fit or mismatch honestly, citing specific scores
+- "recommendedCareers": array of 3 careers that genuinely match the demonstrated performance level, each with:
     - "career": career title
-    - "rating": "highly_recommended" or "recommended"
-    - "reason": 2-3 sentences explaining the fit for this specific person, referencing their interests and trait scores`;
+    - "rating": one of "strong_match", "possible_match", "explore_further"
+    - "reason": 2 sentences grounded in the actual scores and traits shown`;
 
   try {
     const message = await client.messages.create({
@@ -232,30 +286,49 @@ Using the user's profile, traits, AND their stated occupation/interests, respond
 
     try {
       const parsed = JSON.parse(text);
+      // Normalise recommendedCareers rating values to what the frontend expects
+      const normaliseRating = (r: string): CareerRecommendation['rating'] => {
+        if (r === 'strong_match') return 'highly_recommended';
+        if (r === 'possible_match') return 'recommended';
+        if (r === 'explore_further') return 'neutral';
+        // Pass through any legacy values the LLM might still use
+        if (['highly_recommended', 'recommended', 'neutral', 'not_recommended'].includes(r)) {
+          return r as CareerRecommendation['rating'];
+        }
+        return 'neutral';
+      };
+
+      const rawCareers: Array<{ career: string; rating: string; reason: string }> =
+        parsed.recommendedCareers ?? parsed.aiRecommendedCareers ?? [];
+
       return {
-        thinkingStyle: parsed.thinkingStyle ?? 'Analytical and adaptive thinker.',
-        aiReport: parsed.aiReport ?? 'Analysis unavailable.',
+        thinkingStyle: parsed.thinkingStyle ?? 'Adaptive thinker with room to demonstrate full potential.',
+        aiReport: parsed.report ?? parsed.aiReport ?? 'Analysis unavailable.',
         occupationFit: parsed.occupationFit ?? {
           occupation: userProfile.occupationTitle,
-          rating: 'moderate',
-          summary: 'Assessment data was insufficient for a detailed fit analysis.',
+          rating: 'low',
+          summary: 'Assessment data was insufficient to confirm fit for this role. Consider retaking with full engagement.',
         },
-        aiRecommendedCareers: parsed.aiRecommendedCareers ?? [],
+        aiRecommendedCareers: rawCareers.map(c => ({
+          career: c.career,
+          rating: normaliseRating(c.rating),
+          reason: c.reason,
+        })),
       };
     } catch {
       return {
-        thinkingStyle: 'Analytical and adaptive thinker.',
+        thinkingStyle: 'Adaptive thinker with room to demonstrate full potential.',
         aiReport: text,
-        occupationFit: { occupation: userProfile.occupationTitle, rating: 'moderate', summary: 'Analysis unavailable.' },
+        occupationFit: { occupation: userProfile.occupationTitle, rating: 'low', summary: 'Analysis unavailable.' },
         aiRecommendedCareers: [],
       };
     }
   } catch (err) {
     console.error('Career report LLM generation failed:', err);
     return {
-      thinkingStyle: 'Analytical and adaptive thinker.',
-      aiReport: 'Behavioral analysis complete. Unable to generate detailed report at this time.',
-      occupationFit: { occupation: userProfile.occupationTitle, rating: 'moderate', summary: 'Unable to generate fit analysis.' },
+      thinkingStyle: 'Adaptive thinker with room to demonstrate full potential.',
+      aiReport: 'Unable to generate a detailed report at this time.',
+      occupationFit: { occupation: userProfile.occupationTitle, rating: 'low', summary: 'Unable to generate fit analysis.' },
       aiRecommendedCareers: [],
     };
   }
