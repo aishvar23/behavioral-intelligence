@@ -55,7 +55,7 @@ export default function MemorySequenceGame({ sessionId, onComplete, config }: Pr
         setTimeout(() => { setShowIndex(-1); setPhase('recall'); }, 400);
         return;
       }
-      setShowIndex(i);
+      setShowIndex(seq[i]);
       Animated.sequence([
         Animated.timing(flashAnim, { toValue: 1.2, duration: 150, useNativeDriver: true }),
         Animated.timing(flashAnim, { toValue: 1, duration: 150, useNativeDriver: true }),
