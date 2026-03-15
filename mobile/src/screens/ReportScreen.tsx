@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
   ActivityIndicator,
+  ScrollView,
   StyleSheet,
+  Text,
   TouchableOpacity,
+  View,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
@@ -15,30 +15,54 @@ import CareerCard from '../components/report/CareerCard';
 type Props = NativeStackScreenProps<RootStackParamList, 'Report'>;
 
 const TRAIT_META: Record<string, { label: string; color: string; emoji: string }> = {
-  curiosity: { label: 'Curiosity', color: '#42a5f5', emoji: '🔭' },
-  persistence: { label: 'Persistence', color: '#66bb6a', emoji: '💪' },
-  risk_tolerance: { label: 'Risk Tolerance', color: '#ef5350', emoji: '⚡' },
-  learning_speed: { label: 'Learning Speed', color: '#ab47bc', emoji: '🧠' },
+  curiosity:       { label: 'Curiosity',       color: '#42a5f5', emoji: '🔭' },
+  persistence:     { label: 'Persistence',     color: '#66bb6a', emoji: '💪' },
+  risk_tolerance:  { label: 'Risk Tolerance',  color: '#ef5350', emoji: '⚡' },
+  learning_speed:  { label: 'Learning Speed',  color: '#ab47bc', emoji: '🧠' },
 };
 
+const FIT_COLORS: Record<string, string> = {
+  excellent: '#66bb6a',
+  good: '#42a5f5',
+  moderate: '#ffa726',
+  low: '#ef5350',
+};
+
+const LOADING_MESSAGES = [
+  'Analyzing your gameplay patterns…',
+  'Calculating behavioral traits…',
+  'Matching your profile to careers…',
+  'Generating your AI report…',
+  'Almost there…',
+];
+
 export default function ReportScreen({ navigation, route }: Props) {
-  const { sessionId, scores, selectedCareers } = route.params;
+  const { sessionId, userProfile, gameResults } = route.params;
   const [report, setReport] = useState<FullReport | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMsg, setLoadingMsg] = useState(LOADING_MESSAGES[0]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getCareerReport(sessionId, selectedCareers, scores)
+    let msgIndex = 0;
+    const interval = setInterval(() => {
+      msgIndex = (msgIndex + 1) % LOADING_MESSAGES.length;
+      setLoadingMsg(LOADING_MESSAGES[msgIndex]);
+    }, 2500);
+
+    getCareerReport(sessionId, userProfile, gameResults)
       .then(setReport)
       .catch(() => setError('Failed to load your report. Please try again.'))
-      .finally(() => setLoading(false));
-  }, [sessionId]);
+      .finally(() => { setLoading(false); clearInterval(interval); });
+
+    return () => clearInterval(interval);
+  }, []);
 
   if (loading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#5c6bc0" />
-        <Text style={styles.loadingText}>Analyzing your behavior...</Text>
+        <Text style={styles.loadingText}>{loadingMsg}</Text>
       </View>
     );
   }
@@ -56,28 +80,35 @@ export default function ReportScreen({ navigation, route }: Props) {
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-      {/* Game Scores Section */}
-      <Text style={styles.sectionHeading}>Game Scores</Text>
-      <View style={styles.scoresRow}>
-        <View style={styles.scoreCard}>
-          <Text style={styles.scoreEmoji}>🏝️</Text>
-          <Text style={styles.scoreLabel}>Exploration</Text>
-          <Text style={styles.scoreValue}>{report.gameScores.exploration}</Text>
-        </View>
-        <View style={styles.scoreCard}>
-          <Text style={styles.scoreEmoji}>🔍</Text>
-          <Text style={styles.scoreLabel}>Pattern</Text>
-          <Text style={styles.scoreValue}>{report.gameScores.pattern}</Text>
-        </View>
-        <View style={styles.scoreCard}>
-          <Text style={styles.scoreEmoji}>🧩</Text>
-          <Text style={styles.scoreLabel}>Puzzle</Text>
-          <Text style={styles.scoreValue}>{report.gameScores.puzzle}</Text>
+      {/* User Profile Banner */}
+      <View style={styles.profileBanner}>
+        <Text style={styles.profileEmoji}>{userProfile.occupationEmoji}</Text>
+        <View style={styles.profileInfo}>
+          <Text style={styles.profileName}>{userProfile.occupationTitle}</Text>
+          <Text style={styles.profileMeta}>
+            {userProfile.age !== 'Not specified' ? `Age ${userProfile.age}` : ''}
+            {userProfile.age !== 'Not specified' && userProfile.interests !== 'Not specified' ? '  ·  ' : ''}
+            {userProfile.interests !== 'Not specified' ? userProfile.interests : ''}
+          </Text>
         </View>
       </View>
 
+      {/* Game Scores */}
+      <Text style={styles.sectionHeading}>Game Performance</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scoresScroll}>
+        <View style={styles.scoresRow}>
+          {gameResults.map(g => (
+            <View key={g.configId} style={styles.scoreCard}>
+              <Text style={styles.scoreEmoji}>{g.emoji}</Text>
+              <Text style={styles.scoreLabel} numberOfLines={2}>{g.title}</Text>
+              <Text style={styles.scoreValue}>{g.score}</Text>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+
       {/* Trait Bars */}
-      <Text style={styles.sectionHeading}>Your Behavioral Profile</Text>
+      <Text style={styles.sectionHeading}>Behavioral Traits</Text>
       <View style={styles.traitsSection}>
         {Object.entries(report.traits).map(([key, value]) => {
           const meta = TRAIT_META[key] ?? { label: key, color: '#9999cc', emoji: '📊' };
@@ -91,7 +122,7 @@ export default function ReportScreen({ navigation, route }: Props) {
                   <Text style={[styles.traitScore, { color: meta.color }]}>{pct}%</Text>
                 </View>
                 <View style={styles.barTrack}>
-                  <View style={[styles.barFill, { width: `${pct}%`, backgroundColor: meta.color }]} />
+                  <View style={[styles.barFill, { width: `${pct}%` as any, backgroundColor: meta.color }]} />
                 </View>
               </View>
             </View>
@@ -111,18 +142,29 @@ export default function ReportScreen({ navigation, route }: Props) {
         <Text style={styles.sectionBody}>{report.aiReport}</Text>
       </View>
 
-      {/* Career Matches */}
-      <Text style={styles.sectionHeading}>Career Matches</Text>
-      <Text style={styles.sectionSubtitle}>Based on your selected careers</Text>
-      {report.careerRecommendations.map((item: CareerRecommendation) => (
-        <CareerCard key={item.career} item={item} />
-      ))}
+      {/* Occupation Fit */}
+      {report.occupationFit && (
+        <>
+          <Text style={styles.sectionHeading}>Career Fit Assessment</Text>
+          <View style={[styles.fitCard, { borderColor: FIT_COLORS[report.occupationFit.rating] ?? '#5c6bc0' }]}>
+            <View style={styles.fitHeader}>
+              <Text style={styles.fitOccupation}>{userProfile.occupationEmoji}  {userProfile.occupationTitle}</Text>
+              <View style={[styles.fitBadge, { backgroundColor: FIT_COLORS[report.occupationFit.rating] + '33', borderColor: FIT_COLORS[report.occupationFit.rating] }]}>
+                <Text style={[styles.fitBadgeText, { color: FIT_COLORS[report.occupationFit.rating] }]}>
+                  {report.occupationFit.rating.toUpperCase()}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.fitSummary}>{report.occupationFit.summary}</Text>
+          </View>
+        </>
+      )}
 
       {/* AI Recommended Careers */}
       {report.aiRecommendedCareers && report.aiRecommendedCareers.length > 0 && (
         <>
-          <Text style={[styles.sectionHeading, { marginTop: 24 }]}>✨ Recommended For You</Text>
-          <Text style={styles.sectionSubtitle}>Careers you didn't select but strongly match your profile</Text>
+          <Text style={[styles.sectionHeading, { marginTop: 20 }]}>✨ Also Recommended</Text>
+          <Text style={styles.sectionSubtitle}>Careers strongly matching your behavioral profile</Text>
           {report.aiRecommendedCareers.map((item: CareerRecommendation) => (
             <CareerCard key={`ai-${item.career}`} item={item} />
           ))}
@@ -140,60 +182,45 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: '#1a1a2e' },
   content: { padding: 20, paddingBottom: 40 },
   center: { flex: 1, backgroundColor: '#1a1a2e', alignItems: 'center', justifyContent: 'center', padding: 24 },
-  loadingText: { color: '#9999cc', marginTop: 16, fontSize: 16 },
+  loadingText: { color: '#9999cc', marginTop: 16, fontSize: 15, textAlign: 'center' },
   errorText: { color: '#ff6b6b', textAlign: 'center', fontSize: 16, marginBottom: 24 },
   button: { backgroundColor: '#5c6bc0', padding: 16, borderRadius: 30, alignItems: 'center', marginTop: 24 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-
-  sectionHeading: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#e0e0ff',
-    marginBottom: 6,
-    marginTop: 8,
-  },
-  sectionSubtitle: {
-    fontSize: 12,
-    color: '#6666aa',
-    marginBottom: 12,
-  },
-
-  // Game Scores
-  scoresRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 24,
-    gap: 10,
-  },
-  scoreCard: {
-    flex: 1,
-    backgroundColor: '#16213e',
-    borderRadius: 12,
-    padding: 14,
-    alignItems: 'center',
-  },
-  scoreEmoji: { fontSize: 24, marginBottom: 4 },
-  scoreLabel: { color: '#9999cc', fontSize: 11, marginBottom: 6, textAlign: 'center' },
-  scoreValue: { color: '#e0e0ff', fontSize: 22, fontWeight: 'bold' },
-
+  // Profile banner
+  profileBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#16213e', borderRadius: 14, padding: 16, marginBottom: 24, gap: 14, borderWidth: 1, borderColor: '#2a2a5e' },
+  profileEmoji: { fontSize: 36 },
+  profileInfo: { flex: 1 },
+  profileName: { color: '#e0e0ff', fontSize: 17, fontWeight: '700' },
+  profileMeta: { color: '#6666aa', fontSize: 12, marginTop: 4, lineHeight: 18 },
+  // Section headings
+  sectionHeading: { fontSize: 17, fontWeight: 'bold', color: '#e0e0ff', marginBottom: 10, marginTop: 8 },
+  sectionSubtitle: { fontSize: 12, color: '#6666aa', marginBottom: 12 },
+  // Game scores
+  scoresScroll: { marginBottom: 24 },
+  scoresRow: { flexDirection: 'row', gap: 10 },
+  scoreCard: { width: 100, backgroundColor: '#16213e', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#2a2a5e' },
+  scoreEmoji: { fontSize: 22, marginBottom: 6 },
+  scoreLabel: { color: '#9999cc', fontSize: 10, textAlign: 'center', marginBottom: 6 },
+  scoreValue: { color: '#e0e0ff', fontSize: 20, fontWeight: 'bold' },
   // Trait bars
   traitsSection: { marginBottom: 20, gap: 16 },
   traitRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   traitEmoji: { fontSize: 22, width: 32 },
   traitInfo: { flex: 1 },
   traitHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  traitLabel: { color: '#c0c0ee', fontSize: 15 },
-  traitScore: { fontSize: 15, fontWeight: 'bold' },
+  traitLabel: { color: '#c0c0ee', fontSize: 14 },
+  traitScore: { fontSize: 14, fontWeight: 'bold' },
   barTrack: { height: 8, backgroundColor: '#16213e', borderRadius: 4, overflow: 'hidden' },
   barFill: { height: 8, borderRadius: 4 },
-
   // Text sections
-  section: {
-    backgroundColor: '#16213e',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 16,
-  },
-  sectionTitle: { color: '#5c6bc0', fontSize: 13, fontWeight: '700', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 },
-  sectionBody: { color: '#c0c0ee', fontSize: 15, lineHeight: 22 },
+  section: { backgroundColor: '#16213e', borderRadius: 14, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#2a2a5e' },
+  sectionTitle: { color: '#5c6bc0', fontSize: 11, fontWeight: '700', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 },
+  sectionBody: { color: '#c0c0ee', fontSize: 14, lineHeight: 22 },
+  // Occupation fit card
+  fitCard: { backgroundColor: '#16213e', borderRadius: 14, padding: 16, marginBottom: 20, borderWidth: 1.5 },
+  fitHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  fitOccupation: { color: '#e0e0ff', fontSize: 16, fontWeight: '700', flex: 1 },
+  fitBadge: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1 },
+  fitBadgeText: { fontSize: 11, fontWeight: '700' },
+  fitSummary: { color: '#c0c0ee', fontSize: 14, lineHeight: 22 },
 });

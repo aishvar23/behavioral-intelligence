@@ -22,12 +22,11 @@ router.post('/event', (req: Request, res: Response) => {
   return res.status(201).json({ ok: true });
 });
 
-// GET /report/:sessionId — compute traits + generate LLM report
+// GET /report/:sessionId — compute traits + generate LLM report (legacy endpoint)
 router.get('/report/:sessionId', async (req: Request, res: Response) => {
   const { sessionId } = req.params;
   const db = getDb();
 
-  // Return cached report if available
   const cached = db
     .prepare('SELECT traits, ai_report, thinking_style FROM reports WHERE session_id = ?')
     .get(sessionId) as { traits: string; ai_report: string; thinking_style: string } | undefined;
@@ -40,7 +39,6 @@ router.get('/report/:sessionId', async (req: Request, res: Response) => {
     });
   }
 
-  // Fetch all events for this session
   const rows = db
     .prepare('SELECT game_id, event_type, timestamp, data FROM events WHERE session_id = ?')
     .all(sessionId) as Array<{ game_id: string; event_type: string; timestamp: number; data: string }>;
@@ -67,10 +65,8 @@ router.get('/report/:sessionId', async (req: Request, res: Response) => {
     thinkingStyle = llmResult.thinkingStyle;
   } catch (err) {
     console.error('LLM generation failed:', err);
-    // Continue with fallback text
   }
 
-  // Cache the report
   db.prepare(
     `INSERT OR REPLACE INTO reports (session_id, traits, ai_report, thinking_style, created_at)
      VALUES (?, ?, ?, ?, ?)`
@@ -79,11 +75,12 @@ router.get('/report/:sessionId', async (req: Request, res: Response) => {
   return res.json({ traits, aiReport, thinkingStyle });
 });
 
-// POST /career-report — generate full career-aware report
+// POST /career-report — generate occupation-aware report with user profile
 router.post('/career-report', async (req: Request, res: Response) => {
-  const { sessionId, selectedCareers, gameScores } = req.body;
-  if (!sessionId || !selectedCareers || !gameScores) {
-    return res.status(400).json({ error: 'Missing required fields' });
+  const { sessionId, userProfile, gameResults } = req.body;
+
+  if (!sessionId || !userProfile || !gameResults) {
+    return res.status(400).json({ error: 'Missing required fields: sessionId, userProfile, gameResults' });
   }
 
   const db = getDb();
@@ -91,17 +88,23 @@ router.post('/career-report', async (req: Request, res: Response) => {
     .prepare('SELECT game_id, event_type, timestamp, data FROM events WHERE session_id = ?')
     .all(sessionId) as Array<{ game_id: string; event_type: string; timestamp: number; data: string }>;
 
-  const events = rows.map(r => ({ game_id: r.game_id, event_type: r.event_type, timestamp: r.timestamp, data: JSON.parse(r.data) }));
+  const events = rows.map(r => ({
+    game_id: r.game_id,
+    event_type: r.event_type,
+    timestamp: r.timestamp,
+    data: JSON.parse(r.data),
+  }));
+
   const traits = calculateTraits(events);
 
   try {
-    const llmResult = await generateCareerReport(traits, gameScores, selectedCareers);
+    const llmResult = await generateCareerReport(traits, userProfile, gameResults);
     return res.json({
       traits,
-      gameScores,
+      gameResults,
       thinkingStyle: llmResult.thinkingStyle,
       aiReport: llmResult.aiReport,
-      careerRecommendations: llmResult.careerRecommendations,
+      occupationFit: llmResult.occupationFit,
       aiRecommendedCareers: llmResult.aiRecommendedCareers,
     });
   } catch (err) {

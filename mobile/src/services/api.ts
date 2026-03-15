@@ -1,6 +1,6 @@
 import axios from 'axios';
-
 import { Platform } from 'react-native';
+import { UserProfile, GameResult } from '../navigation/AppNavigator';
 
 // Android emulator routes localhost to 10.0.2.2; iOS simulator uses localhost
 const BASE_URL = Platform.OS === 'android'
@@ -19,11 +19,6 @@ export async function logEvent(event: GameEvent): Promise<void> {
   await axios.post(`${BASE_URL}/event`, event);
 }
 
-export async function getReport(sessionId: string): Promise<BehavioralReport> {
-  const response = await axios.get(`${BASE_URL}/report/${sessionId}`);
-  return response.data;
-}
-
 export interface BehavioralReport {
   traits: {
     curiosity: number;
@@ -35,26 +30,46 @@ export interface BehavioralReport {
   thinkingStyle: string;
 }
 
+export async function getReport(sessionId: string): Promise<BehavioralReport> {
+  const response = await axios.get(`${BASE_URL}/report/${sessionId}`);
+  return response.data;
+}
+
 export interface CareerRecommendation {
   career: string;
   rating: 'highly_recommended' | 'recommended' | 'neutral' | 'not_recommended';
   reason: string;
 }
 
+export interface OccupationFit {
+  occupation: string;
+  rating: 'excellent' | 'good' | 'moderate' | 'low';
+  summary: string;
+}
+
 export interface FullReport {
-  traits: { curiosity: number; persistence: number; risk_tolerance: number; learning_speed: number };
-  gameScores: { exploration: number; pattern: number; puzzle: number };
+  traits: {
+    curiosity: number;
+    persistence: number;
+    risk_tolerance: number;
+    learning_speed: number;
+  };
+  gameResults: GameResult[];
   thinkingStyle: string;
   aiReport: string;
-  careerRecommendations: CareerRecommendation[];
+  occupationFit: OccupationFit;
   aiRecommendedCareers: CareerRecommendation[];
 }
 
 export async function getCareerReport(
   sessionId: string,
-  selectedCareers: string[],
-  gameScores: { exploration: number; pattern: number; puzzle: number }
+  userProfile: UserProfile,
+  gameResults: GameResult[]
 ): Promise<FullReport> {
-  const response = await axios.post(`${BASE_URL}/career-report`, { sessionId, selectedCareers, gameScores });
+  const response = await axios.post(`${BASE_URL}/career-report`, {
+    sessionId,
+    userProfile,
+    gameResults,
+  });
   return response.data;
 }

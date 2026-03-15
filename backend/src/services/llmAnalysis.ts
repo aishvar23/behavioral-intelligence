@@ -1,25 +1,47 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { TraitScores } from './traitEngine';
 
+export interface UserProfile {
+  age: string;
+  occupation: string;
+  occupationTitle: string;
+  occupationEmoji: string;
+  interests: string;
+}
+
+export interface GameResult {
+  configId: string;
+  gameType: string;
+  title: string;
+  emoji: string;
+  score: number;
+}
+
 export interface CareerRecommendation {
   career: string;
   rating: 'highly_recommended' | 'recommended' | 'neutral' | 'not_recommended';
   reason: string;
 }
 
+export interface OccupationFit {
+  occupation: string;
+  rating: 'excellent' | 'good' | 'moderate' | 'low';
+  summary: string;
+}
+
 export interface FullLLMResult {
   thinkingStyle: string;
   aiReport: string;
-  careerRecommendations: CareerRecommendation[];
+  occupationFit: OccupationFit;
   aiRecommendedCareers: CareerRecommendation[];
 }
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export interface LLMResult {
   aiReport: string;
   thinkingStyle: string;
 }
+
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export async function generateBehaviorReport(traits: TraitScores): Promise<LLMResult> {
   const traitJson = JSON.stringify(
@@ -61,48 +83,46 @@ Return only valid JSON, no markdown.`;
       thinkingStyle: parsed.thinkingStyle ?? 'Analytical and adaptive thinker.',
     };
   } catch {
-    // Fallback if LLM returns non-JSON
-    return {
-      aiReport: text,
-      thinkingStyle: 'Unique and nuanced thinker.',
-    };
+    return { aiReport: text, thinkingStyle: 'Unique and nuanced thinker.' };
   }
 }
 
 export async function generateCareerReport(
   traits: TraitScores,
-  gameScores: { exploration: number; pattern: number; puzzle: number },
-  selectedCareers: string[]
+  userProfile: UserProfile,
+  gameResults: GameResult[]
 ): Promise<FullLLMResult> {
-  const careersText = selectedCareers.join('\n');
+  const gamePerformance = gameResults
+    .map(g => `- ${g.emoji} ${g.title}: ${g.score} pts`)
+    .join('\n');
 
-  const prompt = `You are a behavioral psychologist and career counselor. Analyze the cognitive trait profile below, derived from gameplay behavior, and provide detailed career recommendations.
+  const prompt = `You are a behavioral psychologist and career counselor. Analyze the cognitive-behavioral profile below — derived from gameplay — and provide personalised career guidance tailored to this individual.
 
-TRAIT SCORES (0 = low, 1 = high):
-- Curiosity: ${traits.curiosity.toFixed(2)} — how exploratory and inquisitive
+USER PROFILE:
+- Age: ${userProfile.age}
+- Target / Current Occupation: ${userProfile.occupationTitle}
+- Areas of Interest: ${userProfile.interests}
+
+BEHAVIORAL TRAIT SCORES (0 = low, 1 = high):
+- Curiosity: ${traits.curiosity.toFixed(2)} — explorative, inquisitive behaviour
 - Persistence: ${traits.persistence.toFixed(2)} — resilience and continued effort after setbacks
 - Risk Tolerance: ${traits.risk_tolerance.toFixed(2)} — willingness to take uncertain risks
-- Learning Speed: ${traits.learning_speed.toFixed(2)} — speed of internalizing new patterns and rules
+- Learning Speed: ${traits.learning_speed.toFixed(2)} — speed of internalising new patterns
 
-GAME PERFORMANCE:
-- Exploration Island score: ${gameScores.exploration} / 80 (strategic exploration)
-- Hidden Pattern score: ${gameScores.pattern} / 90 (pattern recognition, analytical thinking)
-- Impossible Puzzle score: ${gameScores.puzzle} / 1000 (problem-solving under pressure)
+GAME PERFORMANCE (occupation-specific assessment games):
+${gamePerformance}
 
-CAREERS TO EVALUATE:
-${careersText}
-
-Respond with valid JSON only (no markdown, no code fences), with these keys:
-- "thinkingStyle": one sentence ≤20 words describing their core cognitive style
-- "aiReport": 4-5 sentences covering behavioral profile, key strengths, growth areas, and ideal work environments — be specific, cite trait numbers
-- "careerRecommendations": array, one entry per career listed above, each with:
-    - "career": exact career name as given
-    - "rating": one of "highly_recommended", "recommended", "neutral", "not_recommended"
-    - "reason": 2-3 sentences explaining the fit or mismatch, citing specific traits and scores
-- "aiRecommendedCareers": array of exactly 3 careers NOT in the list above that best match this behavioral profile, each with:
+Using the user's profile, traits, AND their stated occupation/interests, respond with valid JSON only (no markdown, no code fences) containing:
+- "thinkingStyle": one sentence ≤20 words describing their core cognitive style, personalised to their background
+- "aiReport": 4-5 sentences covering behavioral profile, key strengths, growth areas, and ideal work environments — reference their age/interests where relevant; cite trait scores
+- "occupationFit": object assessing fit for "${userProfile.occupationTitle}" with:
+    - "occupation": "${userProfile.occupationTitle}"
+    - "rating": one of "excellent", "good", "moderate", "low"
+    - "summary": 3-4 sentences explaining the fit, citing specific traits and game performance
+- "aiRecommendedCareers": array of 3-5 careers strongly matching this behavioral profile (may overlap with stated occupation if fit is high), each with:
     - "career": career title
-    - "rating": one of "highly_recommended", "recommended" (these should be strong matches so use these two only)
-    - "reason": 2-3 sentences explaining why this career is a strong fit for this specific profile`;
+    - "rating": "highly_recommended" or "recommended"
+    - "reason": 2-3 sentences explaining the fit for this specific person, referencing their interests and trait scores`;
 
   try {
     const message = await client.messages.create({
@@ -120,22 +140,18 @@ Respond with valid JSON only (no markdown, no code fences), with these keys:
       return {
         thinkingStyle: parsed.thinkingStyle ?? 'Analytical and adaptive thinker.',
         aiReport: parsed.aiReport ?? 'Analysis unavailable.',
-        careerRecommendations: parsed.careerRecommendations ?? selectedCareers.map(career => ({
-          career,
-          rating: 'neutral' as const,
-          reason: 'Analysis unavailable.',
-        })),
+        occupationFit: parsed.occupationFit ?? {
+          occupation: userProfile.occupationTitle,
+          rating: 'moderate',
+          summary: 'Assessment data was insufficient for a detailed fit analysis.',
+        },
         aiRecommendedCareers: parsed.aiRecommendedCareers ?? [],
       };
     } catch {
       return {
         thinkingStyle: 'Analytical and adaptive thinker.',
         aiReport: text,
-        careerRecommendations: selectedCareers.map(career => ({
-          career,
-          rating: 'neutral' as const,
-          reason: 'Analysis unavailable.',
-        })),
+        occupationFit: { occupation: userProfile.occupationTitle, rating: 'moderate', summary: 'Analysis unavailable.' },
         aiRecommendedCareers: [],
       };
     }
@@ -144,11 +160,7 @@ Respond with valid JSON only (no markdown, no code fences), with these keys:
     return {
       thinkingStyle: 'Analytical and adaptive thinker.',
       aiReport: 'Behavioral analysis complete. Unable to generate detailed report at this time.',
-      careerRecommendations: selectedCareers.map(career => ({
-        career,
-        rating: 'neutral' as const,
-        reason: 'Career analysis unavailable at this time.',
-      })),
+      occupationFit: { occupation: userProfile.occupationTitle, rating: 'moderate', summary: 'Unable to generate fit analysis.' },
       aiRecommendedCareers: [],
     };
   }

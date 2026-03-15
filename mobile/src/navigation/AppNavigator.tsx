@@ -2,15 +2,46 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import HomeScreen from '../screens/HomeScreen';
+import UserProfileScreen from '../screens/UserProfileScreen';
 import GameScreen from '../screens/GameScreen';
 import ReportScreen from '../screens/ReportScreen';
-import CareerSelectionScreen from '../screens/CareerSelectionScreen';
+import { GameType } from '../data/gameCatalog';
+
+export interface UserProfile {
+  age: string;
+  occupation: string;       // occupation ID
+  occupationTitle: string;
+  occupationEmoji: string;
+  interests: string;
+}
+
+export interface GameQueueItem {
+  configId: string;
+  gameType: GameType;
+  title: string;
+  emoji: string;
+  description: string;
+}
+
+export interface GameResult extends GameQueueItem {
+  score: number;
+}
 
 export type RootStackParamList = {
-  Home: { completedGame?: 'exploration' | 'pattern' | 'puzzle'; score?: number } | undefined;
-  Game: { gameId: 'exploration' | 'pattern' | 'puzzle'; sessionId: string };
-  CareerSelection: { sessionId: string; scores: { exploration: number; pattern: number; puzzle: number } };
-  Report: { sessionId: string; scores: { exploration: number; pattern: number; puzzle: number }; selectedCareers: string[] };
+  Home: undefined;
+  UserProfile: undefined;
+  Game: {
+    sessionId: string;
+    userProfile: UserProfile;
+    gameQueue: GameQueueItem[];
+    currentIndex: number;
+    completedScores: number[];
+  };
+  Report: {
+    sessionId: string;
+    userProfile: UserProfile;
+    gameResults: GameResult[];
+  };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -22,10 +53,10 @@ export default function AppNavigator() {
         initialRouteName="Home"
         screenOptions={{ headerStyle: { backgroundColor: '#1a1a2e' }, headerTintColor: '#e0e0ff' }}
       >
-        <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Behavioral Intelligence' }} />
-        <Stack.Screen name="Game" component={GameScreen} options={{ title: 'Game' }} />
-        <Stack.Screen name="CareerSelection" component={CareerSelectionScreen} options={{ title: 'Choose Careers' }} />
-        <Stack.Screen name="Report" component={ReportScreen} options={{ title: 'Your Report' }} />
+        <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Behavioral Intelligence', headerShown: false }} />
+        <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ title: 'Your Profile' }} />
+        <Stack.Screen name="Game" component={GameScreen} options={{ title: 'Assessment', headerBackVisible: false }} />
+        <Stack.Screen name="Report" component={ReportScreen} options={{ title: 'Your Report', headerBackVisible: false }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

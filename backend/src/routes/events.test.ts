@@ -230,29 +230,43 @@ describe('GET /report/:sessionId', () => {
 
 // ─── POST /career-report ─────────────────────────────────────────────────────
 
+const mockUserProfile = {
+  age: '25',
+  occupation: 'software_engineer',
+  occupationTitle: 'Software Engineer',
+  occupationEmoji: '💻',
+  interests: 'Machine learning',
+};
+
+const mockGameResults = [
+  { configId: 'logic_deduction', gameType: 'logic', title: 'Logic Deduction', emoji: '🔎', score: 85 },
+  { configId: 'pattern_advanced', gameType: 'pattern', title: 'Advanced Patterns', emoji: '🔮', score: 70 },
+  { configId: 'memory_numbers', gameType: 'memory', title: 'Number Recall', emoji: '🔢', score: 60 },
+];
+
 describe('POST /career-report', () => {
   it('returns 400 when sessionId is missing', async () => {
     const res = await request(app)
       .post('/career-report')
-      .send({ selectedCareers: ['Engineer'], gameScores: { exploration: 60, pattern: 70, puzzle: 500 } });
+      .send({ userProfile: mockUserProfile, gameResults: mockGameResults });
 
     expect(res.status).toBe(400);
     expect(res.body).toHaveProperty('error');
   });
 
-  it('returns 400 when selectedCareers is missing', async () => {
+  it('returns 400 when userProfile is missing', async () => {
     const res = await request(app)
       .post('/career-report')
-      .send({ sessionId: 'sess-1', gameScores: { exploration: 60, pattern: 70, puzzle: 500 } });
+      .send({ sessionId: 'sess-1', gameResults: mockGameResults });
 
     expect(res.status).toBe(400);
     expect(res.body).toHaveProperty('error');
   });
 
-  it('returns 400 when gameScores is missing', async () => {
+  it('returns 400 when gameResults is missing', async () => {
     const res = await request(app)
       .post('/career-report')
-      .send({ sessionId: 'sess-1', selectedCareers: ['Engineer'] });
+      .send({ sessionId: 'sess-1', userProfile: mockUserProfile });
 
     expect(res.status).toBe(400);
     expect(res.body).toHaveProperty('error');
@@ -260,40 +274,33 @@ describe('POST /career-report', () => {
 
   it('returns full career report on valid request', async () => {
     mockAll.mockReturnValue([
-      makeDbRow('exploration', 'move', { explorationPct: 0.6 }),
-      makeDbRow('pattern', 'correct_guess', { adaptationRound: 2 }),
+      makeDbRow('logic_deduction', 'question_answer', { correct: true, timeSpent: 10 }),
+      makeDbRow('pattern_advanced', 'correct_guess', { adaptationRound: 2 }),
     ]);
 
     const cannedResult = {
       thinkingStyle: 'Methodical and exploratory thinker.',
       aiReport: 'Detailed behavioral profile here.',
-      careerRecommendations: [
-        { career: 'Software Engineer', rating: 'highly_recommended', reason: 'Strong analytical skills.' },
-        { career: 'Data Scientist', rating: 'recommended', reason: 'Good pattern recognition.' },
+      occupationFit: { occupation: 'Software Engineer', rating: 'excellent', summary: 'Great fit.' },
+      aiRecommendedCareers: [
+        { career: 'AI/ML Engineer', rating: 'highly_recommended', reason: 'Strong analytical skills.' },
       ],
     };
     (generateCareerReport as jest.Mock).mockResolvedValue(cannedResult);
 
     const res = await request(app)
       .post('/career-report')
-      .send({
-        sessionId: 'sess-career',
-        selectedCareers: ['Software Engineer', 'Data Scientist'],
-        gameScores: { exploration: 70, pattern: 80, puzzle: 600 },
-      });
+      .send({ sessionId: 'sess-career', userProfile: mockUserProfile, gameResults: mockGameResults });
 
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('traits');
-    expect(res.body).toHaveProperty('gameScores');
+    expect(res.body).toHaveProperty('gameResults');
     expect(res.body).toHaveProperty('thinkingStyle', 'Methodical and exploratory thinker.');
     expect(res.body).toHaveProperty('aiReport', 'Detailed behavioral profile here.');
-    expect(res.body).toHaveProperty('careerRecommendations');
-    expect(res.body.careerRecommendations).toHaveLength(2);
-    expect(res.body.careerRecommendations[0]).toEqual({
-      career: 'Software Engineer',
-      rating: 'highly_recommended',
-      reason: 'Strong analytical skills.',
-    });
+    expect(res.body).toHaveProperty('occupationFit');
+    expect(res.body.occupationFit).toHaveProperty('rating', 'excellent');
+    expect(res.body).toHaveProperty('aiRecommendedCareers');
+    expect(res.body.aiRecommendedCareers).toHaveLength(1);
   });
 
   it('returns 500 when generateCareerReport throws', async () => {
@@ -303,18 +310,13 @@ describe('POST /career-report', () => {
 
     const res = await request(app)
       .post('/career-report')
-      .send({
-        sessionId: 'sess-fail',
-        selectedCareers: ['Engineer'],
-        gameScores: { exploration: 50, pattern: 50, puzzle: 300 },
-      });
+      .send({ sessionId: 'sess-fail', userProfile: mockUserProfile, gameResults: mockGameResults });
 
     expect(res.status).toBe(500);
     expect(res.body).toHaveProperty('error', 'Failed to generate career report');
   });
 
-  it('passes traits computed from events to generateCareerReport', async () => {
-    // Give it an exploration move so curiosity is non-default
+  it('passes traits and userProfile to generateCareerReport', async () => {
     mockAll.mockReturnValue([
       makeDbRow('exploration', 'move', { explorationPct: 0.6 }),
     ]);
@@ -322,21 +324,18 @@ describe('POST /career-report', () => {
     (generateCareerReport as jest.Mock).mockResolvedValue({
       thinkingStyle: 'Test style.',
       aiReport: 'Test report.',
-      careerRecommendations: [],
+      occupationFit: { occupation: 'Software Engineer', rating: 'good', summary: 'Good fit.' },
+      aiRecommendedCareers: [],
     });
 
     await request(app)
       .post('/career-report')
-      .send({
-        sessionId: 'sess-traits',
-        selectedCareers: ['Doctor'],
-        gameScores: { exploration: 40, pattern: 40, puzzle: 200 },
-      });
+      .send({ sessionId: 'sess-traits', userProfile: mockUserProfile, gameResults: mockGameResults });
 
     expect(generateCareerReport).toHaveBeenCalledWith(
       expect.objectContaining({ curiosity: 1.0 }),  // 0.6/0.6 = 1.0
-      { exploration: 40, pattern: 40, puzzle: 200 },
-      ['Doctor']
+      mockUserProfile,
+      mockGameResults
     );
   });
 });
