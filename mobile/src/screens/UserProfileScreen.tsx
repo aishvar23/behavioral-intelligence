@@ -92,7 +92,9 @@ export default function UserProfileScreen({ navigation }: Props) {
         };
       });
 
-      navigation.navigate('Game', {
+      // replace (not navigate) so UserProfile is removed from the stack —
+      // prevents the Android back button from returning to this screen mid-assessment
+      navigation.replace('Game', {
         sessionId,
         userProfile: profile,
         gameQueue,

@@ -1,6 +1,7 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  BackHandler,
   Modal,
   ScrollView,
   StyleSheet,
@@ -83,6 +84,26 @@ export default function GameScreen({ navigation, route }: Props) {
   const current = gameQueue[currentIndex];
   const completedRef = useRef(false); // guard against onComplete firing more than once
   const [showTooltip, setShowTooltip] = useState(false);
+
+  // Intercept the Android hardware back button during the assessment
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      Alert.alert(
+        'Quit assessment?',
+        'Your progress will be lost and you\'ll return to the home screen.',
+        [
+          { text: 'Keep playing', style: 'cancel' },
+          {
+            text: 'Quit',
+            style: 'destructive',
+            onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Home' }] }),
+          },
+        ]
+      );
+      return true; // prevent default back behaviour
+    });
+    return () => sub.remove();
+  }, [navigation]);
 
   function handleGameComplete(score: number) {
     if (completedRef.current) return; // already handled — ignore duplicate calls
