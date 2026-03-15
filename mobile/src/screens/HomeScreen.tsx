@@ -29,7 +29,7 @@ export default function HomeScreen({ navigation }: Props) {
         ))}
       </View>
 
-      <TouchableOpacity style={styles.btn} onPress={() => navigation.navigate('UserProfile')} activeOpacity={0.85}>
+      <TouchableOpacity style={styles.btn} onPress={() => navigation.navigate('OccupationIntent')} activeOpacity={0.85}>
         <Text style={styles.btnText}>Begin Assessment →</Text>
       </TouchableOpacity>
 

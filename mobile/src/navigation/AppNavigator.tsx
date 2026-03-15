@@ -2,6 +2,7 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import HomeScreen from '../screens/HomeScreen';
+import OccupationIntentScreen from '../screens/OccupationIntentScreen';
 import UserProfileScreen from '../screens/UserProfileScreen';
 import GameScreen from '../screens/GameScreen';
 import ReportScreen from '../screens/ReportScreen';
@@ -29,6 +30,7 @@ export interface GameResult extends GameQueueItem {
 
 export type RootStackParamList = {
   Home: undefined;
+  OccupationIntent: undefined;
   UserProfile: undefined;
   Game: {
     sessionId: string;
@@ -54,6 +56,7 @@ export default function AppNavigator() {
         screenOptions={{ headerStyle: { backgroundColor: '#1a1a2e' }, headerTintColor: '#e0e0ff' }}
       >
         <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Behavioral Intelligence', headerShown: false }} />
+        <Stack.Screen name="OccupationIntent" component={OccupationIntentScreen} options={{ title: 'Assessment Setup', headerShown: false }} />
         <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ title: 'Your Profile' }} />
         <Stack.Screen name="Game" component={GameScreen} options={{ title: 'Assessment', headerBackVisible: false }} />
         <Stack.Screen name="Report" component={ReportScreen} options={{ title: 'Your Report', headerBackVisible: false }} />
