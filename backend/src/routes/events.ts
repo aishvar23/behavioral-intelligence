@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { getDb } from '../db/database';
 import { calculateTraits } from '../services/traitEngine';
-import { generateBehaviorReport, generateCareerReport } from '../services/llmAnalysis';
+import { generateBehaviorReport, generateCareerReport, selectGamesForUser } from '../services/llmAnalysis';
 
 const router = Router();
 
@@ -73,6 +73,17 @@ router.get('/report/:sessionId', async (req: Request, res: Response) => {
   ).run(sessionId, JSON.stringify(traits), aiReport, thinkingStyle, Date.now());
 
   return res.json({ traits, aiReport, thinkingStyle });
+});
+
+// POST /select-games — LLM picks 3 assessment games based on user profile + occupation
+router.post('/select-games', async (req: Request, res: Response) => {
+  const { userProfile } = req.body;
+  if (!userProfile || !userProfile.occupationTitle) {
+    return res.status(400).json({ error: 'Missing userProfile' });
+  }
+
+  const result = await selectGamesForUser(userProfile);
+  return res.json(result);
 });
 
 // POST /career-report — generate occupation-aware report with user profile

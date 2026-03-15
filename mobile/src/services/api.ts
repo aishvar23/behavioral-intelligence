@@ -61,6 +61,16 @@ export interface FullReport {
   aiRecommendedCareers: CareerRecommendation[];
 }
 
+export interface GameSelectionResult {
+  selectedIds: string[];
+  reasoning: string;
+}
+
+export async function selectGames(userProfile: UserProfile): Promise<GameSelectionResult> {
+  const response = await axios.post(`${BASE_URL}/select-games`, { userProfile });
+  return response.data;
+}
+
 export async function getCareerReport(
   sessionId: string,
   userProfile: UserProfile,

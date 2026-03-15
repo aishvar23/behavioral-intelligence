@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
   Modal,
@@ -15,12 +16,12 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, UserProfile } from '../navigation/AppNavigator';
 import {
-  OCCUPATIONS,
   OCCUPATION_CATEGORY_LABELS,
   OccupationCategory,
   getOccupationsByCategory,
 } from '../data/occupations';
-import { selectGamesForOccupation } from '../data/gameCatalog';
+import { GAME_CONFIGS } from '../data/gameCatalog';
+import { selectGames } from '../services/api';
 import { startSession } from '../services/session';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'UserProfile'>;
@@ -37,6 +38,9 @@ export default function UserProfileScreen({ navigation }: Props) {
   const [occupationEmoji, setOccupationEmoji] = useState('');
   const [showPicker, setShowPicker] = useState(false);
   const [search, setSearch] = useState('');
+  const [selecting, setSelecting] = useState(false);
+  const [selectionReasoning, setSelectionReasoning] = useState('');
+  const [error, setError] = useState('');
 
   const byCategory = useMemo(() => getOccupationsByCategory(), []);
 
@@ -54,12 +58,16 @@ export default function UserProfileScreen({ navigation }: Props) {
     setSelectedOccupation(id);
     setOccupationTitle(title);
     setOccupationEmoji(emoji);
+    setSelectionReasoning(''); // clear previous reasoning when occupation changes
     setShowPicker(false);
     setSearch('');
   }
 
-  function handleStart() {
-    if (!selectedOccupation) return;
+  async function handleStart() {
+    if (!selectedOccupation || selecting) return;
+    setError('');
+    setSelecting(true);
+
     const profile: UserProfile = {
       age: age.trim() || 'Not specified',
       occupation: selectedOccupation,
@@ -67,21 +75,35 @@ export default function UserProfileScreen({ navigation }: Props) {
       occupationEmoji,
       interests: interests.trim() || 'Not specified',
     };
-    const sessionId = startSession();
-    const gameQueue = selectGamesForOccupation(selectedOccupation, 3).map(cfg => ({
-      configId: cfg.id,
-      gameType: cfg.type,
-      title: cfg.title,
-      emoji: cfg.emoji,
-      description: cfg.description,
-    }));
-    navigation.navigate('Game', {
-      sessionId,
-      userProfile: profile,
-      gameQueue,
-      currentIndex: 0,
-      completedScores: [],
-    });
+
+    try {
+      const { selectedIds, reasoning } = await selectGames(profile);
+      setSelectionReasoning(reasoning);
+
+      const sessionId = startSession();
+      const gameQueue = selectedIds.map(id => {
+        const cfg = GAME_CONFIGS[id];
+        return {
+          configId: id,
+          gameType: cfg?.type ?? 'pattern',
+          title: cfg?.title ?? id,
+          emoji: cfg?.emoji ?? '🎮',
+          description: cfg?.description ?? '',
+        };
+      });
+
+      navigation.navigate('Game', {
+        sessionId,
+        userProfile: profile,
+        gameQueue,
+        currentIndex: 0,
+        completedScores: [],
+      });
+    } catch {
+      setError('Could not connect to the server. Please check your connection and try again.');
+    } finally {
+      setSelecting(false);
+    }
   }
 
   return (
@@ -95,7 +117,7 @@ export default function UserProfileScreen({ navigation }: Props) {
             <View style={styles.content}>
               <Text style={styles.title}>Tell us about yourself</Text>
               <Text style={styles.subtitle}>
-                We'll tailor your games and personalise your behavioral report.
+                Our AI will select the right games for your occupation and personalise your report.
               </Text>
 
               {/* Age */}
@@ -111,7 +133,9 @@ export default function UserProfileScreen({ navigation }: Props) {
               />
 
               {/* Occupation */}
-              <Text style={styles.label}>Target / Current Occupation <Text style={styles.required}>*</Text></Text>
+              <Text style={styles.label}>
+                Target / Current Occupation <Text style={styles.required}>*</Text>
+              </Text>
               <TouchableOpacity
                 style={[styles.pickerBtn, selectedOccupation && styles.pickerBtnSelected]}
                 onPress={() => setShowPicker(true)}
@@ -137,21 +161,28 @@ export default function UserProfileScreen({ navigation }: Props) {
                 numberOfLines={3}
               />
 
-              {/* Info box */}
-              <View style={styles.infoBox}>
-                <Text style={styles.infoText}>
-                  Games will be selected specifically for <Text style={styles.infoBold}>{occupationTitle || 'your occupation'}</Text>.
-                  Your profile is used only to generate your personalised report.
-                </Text>
-              </View>
+              {/* Error */}
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
+              {/* CTA */}
               <TouchableOpacity
-                style={[styles.startBtn, !selectedOccupation && styles.startBtnDisabled]}
+                style={[styles.startBtn, (!selectedOccupation || selecting) && styles.startBtnDisabled]}
                 onPress={handleStart}
-                disabled={!selectedOccupation}
+                disabled={!selectedOccupation || selecting}
               >
-                <Text style={styles.startBtnText}>Start Assessment →</Text>
+                {selecting ? (
+                  <View style={styles.loadingRow}>
+                    <ActivityIndicator color="#fff" size="small" />
+                    <Text style={styles.startBtnText}>Selecting your games…</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.startBtnText}>Start Assessment →</Text>
+                )}
               </TouchableOpacity>
+
+              <Text style={styles.note}>
+                Our AI picks 3 games tailored to <Text style={styles.noteBold}>{occupationTitle || 'your occupation'}</Text>
+              </Text>
             </View>
           }
         />
@@ -241,12 +272,13 @@ const styles = StyleSheet.create({
   pickerBtnText: { color: '#e0e0ff', fontSize: 15, flex: 1 },
   pickerPlaceholder: { color: '#5555aa', fontSize: 15, flex: 1 },
   chevron: { color: '#5c6bc0', fontSize: 22 },
-  infoBox: { backgroundColor: '#0f1635', borderRadius: 12, padding: 14, marginBottom: 28, borderWidth: 1, borderColor: '#1e2a5e' },
-  infoText: { color: '#7777aa', fontSize: 13, lineHeight: 20 },
-  infoBold: { color: '#9999cc', fontWeight: '700' },
-  startBtn: { backgroundColor: '#5c6bc0', paddingVertical: 18, borderRadius: 30, alignItems: 'center' },
+  errorText: { color: '#ef5350', fontSize: 13, textAlign: 'center', marginBottom: 16 },
+  startBtn: { backgroundColor: '#5c6bc0', paddingVertical: 18, borderRadius: 30, alignItems: 'center', marginBottom: 16 },
   startBtnDisabled: { backgroundColor: '#2a2a4e' },
   startBtnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  note: { color: '#4a4a7a', fontSize: 12, textAlign: 'center' },
+  noteBold: { color: '#6a6aaa' },
   // Modal
   modal: { flex: 1, backgroundColor: '#1a1a2e' },
   modalHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16 },
