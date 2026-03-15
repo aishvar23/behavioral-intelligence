@@ -49,7 +49,7 @@ jobs:
         run: |
           curl -X POST \
             --fail \
-            --max-time 120 \
+            --max-time 300 \
             -u "$KUDU_USER:$KUDU_PASS" \
             -T deploy.zip \
             "https://$APP_HOSTNAME/api/zipdeploy?isAsync=false" \
