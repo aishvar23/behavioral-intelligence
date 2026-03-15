@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { getDb } from '../db/database';
 import { calculateTraits } from '../services/traitEngine';
 import { generateBehaviorReport, generateCareerReport, selectGamesForUser } from '../services/llmAnalysis';
+import { extractBehavioralSignals } from '../services/behavioralSignals';
 
 const router = Router();
 
@@ -107,9 +108,10 @@ router.post('/career-report', async (req: Request, res: Response) => {
   }));
 
   const traits = calculateTraits(events);
+  const behavioralSignals = extractBehavioralSignals(events, gameResults);
 
   try {
-    const llmResult = await generateCareerReport(traits, userProfile, gameResults);
+    const llmResult = await generateCareerReport(traits, userProfile, gameResults, behavioralSignals);
     return res.json({
       traits,
       gameResults,

@@ -209,7 +209,8 @@ function overallEngagementLabel(avgPct: number): string {
 export async function generateCareerReport(
   traits: TraitScores,
   userProfile: UserProfile,
-  gameResults: GameResult[]
+  gameResults: GameResult[],
+  behavioralSignals?: string
 ): Promise<FullLLMResult> {
   // Build per-game performance lines with score context
   const scoredGames = gameResults.map(g => {
@@ -235,6 +236,10 @@ export async function generateCareerReport(
     ? '\nNOTE: All trait scores are near the neutral midpoint (0.5), indicating minimal behavioral signals were captured — the user likely skipped or rushed through the games.'
     : '';
 
+  const behavioralSection = behavioralSignals
+    ? `\nRAW BEHAVIORAL SIGNALS (observed in-game actions — use these as primary evidence):\n${behavioralSignals}\n`
+    : '';
+
   const prompt = `You are a behavioral psychologist and career counselor. Analyze the assessment results below and provide honest, calibrated career guidance.
 
 USER PROFILE:
@@ -253,6 +258,7 @@ GAME PERFORMANCE (scores shown as achieved / maximum possible):
 ${gamePerformance}
 
 Overall assessment engagement: ${avgPct}% average — ${overallEngagement}
+${behavioralSection}
 
 CRITICAL INSTRUCTIONS — you MUST follow these:
 1. Base your ratings on actual performance, NOT on the user's stated occupation goals.
