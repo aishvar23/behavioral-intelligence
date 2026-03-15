@@ -8,7 +8,6 @@
   },
   "scripts": {
     "dev": "ts-node-dev --respawn src/index.ts",
-    "build": "tsc",
     "start": "node dist/index.js",
     "test": "jest --runInBand",
     "preinstall": "node -e \"const v=process.versions.node.split('.')[0]; if(v>22){console.error('\\nERROR: Node v'+v+' is not supported. Use Node v18 or v20 LTS (better-sqlite3 has no prebuilt binaries for v24+).\\n');process.exit(1);}\""

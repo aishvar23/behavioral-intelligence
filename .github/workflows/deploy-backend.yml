@@ -1,0 +1,50 @@
+name: Deploy Backend to Azure App Service
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Compile TypeScript
+        working-directory: backend
+        run: npx tsc
+
+      - name: Create deployment zip
+        working-directory: backend
+        run: zip -r ../deploy.zip dist/ src/ package.json package-lock.json tsconfig.json
+
+      - name: Deploy to Azure App Service
+        working-directory: .
+        env:
+          KUDU_USER: ${{ secrets.AZURE_KUDU_USER }}
+          KUDU_PASS: ${{ secrets.AZURE_KUDU_PASS }}
+        run: |
+          curl -X POST \
+            --fail \
+            --max-time 120 \
+            -u "$KUDU_USER:$KUDU_PASS" \
+            -T deploy.zip \
+            "https://bi-backend-dev.scm.azurewebsites.net/api/zipdeploy?isAsync=false" \
+            -w "\nHTTP Status: %{http_code}\n"
