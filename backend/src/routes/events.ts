@@ -1,4 +1,6 @@
 import { Router, Request, Response } from 'express';
+import { rateLimit } from 'express-rate-limit';
+import { z } from 'zod';
 import { getDb } from '../db/database';
 import { calculateTraits } from '../services/traitEngine';
 import { generateBehaviorReport, generateCareerReport, selectGamesForUser } from '../services/llmAnalysis';
@@ -6,15 +8,70 @@ import { extractStructuredBehaviorData } from '../services/behavioralSignals';
 
 const router = Router();
 
-// POST /event — log a single game event
-router.post('/event', (req: Request, res: Response) => {
-  const { sessionId, gameId, eventType, timestamp, data } = req.body;
+// Rate limiters
+const eventLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
-  if (!sessionId || !gameId || !eventType || !timestamp) {
-    return res.status(400).json({ error: 'Missing required fields' });
+const careerReportLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Zod schemas
+const EventSchema = z.object({
+  sessionId: z.string().uuid(),
+  gameId:    z.string(),
+  eventType: z.string(),
+  timestamp: z.number().int(),
+  data:      z.record(z.unknown()),
+});
+
+const CareerReportSchema = z.object({
+  sessionId: z.string().uuid(),
+  userProfile: z.object({
+    age:             z.string(),
+    occupation:      z.string(),
+    occupationTitle: z.string(),
+    occupationEmoji: z.string(),
+    interests:       z.string(),
+  }),
+  gameResults: z.array(
+    z.object({
+      configId:  z.string(),
+      gameType:  z.string(),
+      title:     z.string(),
+      emoji:     z.string(),
+      score:     z.number(),
+    })
+  ),
+});
+
+// POST /event — log a single game event
+router.post('/event', eventLimiter, (req: Request, res: Response) => {
+  const result = EventSchema.safeParse(req.body);
+  if (!result.success) {
+    return res.status(400).json({ error: 'Invalid request', details: result.error.issues });
   }
 
+  const { sessionId, gameId, eventType, timestamp, data } = result.data;
+
   const db = getDb();
+
+  // 500-event cap per session
+  const countRow = db
+    .prepare('SELECT COUNT(*) as count FROM events WHERE session_id = ?')
+    .get(sessionId) as { count: number };
+
+  if (countRow.count >= 500) {
+    return res.status(429).json({ error: 'Session event limit reached' });
+  }
+
   db.prepare(
     `INSERT INTO events (session_id, game_id, event_type, timestamp, data)
      VALUES (?, ?, ?, ?, ?)`
@@ -88,12 +145,13 @@ router.post('/select-games', async (req: Request, res: Response) => {
 });
 
 // POST /career-report — generate occupation-aware report with user profile
-router.post('/career-report', async (req: Request, res: Response) => {
-  const { sessionId, userProfile, gameResults } = req.body;
-
-  if (!sessionId || !userProfile || !gameResults) {
-    return res.status(400).json({ error: 'Missing required fields: sessionId, userProfile, gameResults' });
+router.post('/career-report', careerReportLimiter, async (req: Request, res: Response) => {
+  const parseResult = CareerReportSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res.status(400).json({ error: 'Invalid request', details: parseResult.error.issues });
   }
+
+  const { sessionId, userProfile, gameResults } = parseResult.data;
 
   const db = getDb();
   const rows = db
