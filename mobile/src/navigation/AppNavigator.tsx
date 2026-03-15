@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import HomeScreen from '../screens/HomeScreen';
@@ -7,6 +7,7 @@ import UserProfileScreen from '../screens/UserProfileScreen';
 import GameScreen from '../screens/GameScreen';
 import ReportScreen from '../screens/ReportScreen';
 import { GameType } from '../data/gameCatalog';
+import { initSession } from '../services/session';
 
 export interface UserProfile {
   age: string;
@@ -49,6 +50,8 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function AppNavigator() {
+  useEffect(() => { initSession(); }, []);
+
   return (
     <NavigationContainer>
       <Stack.Navigator
