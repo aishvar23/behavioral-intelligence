@@ -32,7 +32,7 @@ const LOADING_MESSAGES = [
   'Analyzing your gameplay patterns…',
   'Calculating behavioral traits…',
   'Matching your profile to careers…',
-  'Generating your AI report…',
+  'Generating your behavioral report…',
   'Almost there…',
 ];
 
@@ -160,11 +160,11 @@ export default function ReportScreen({ navigation, route }: Props) {
         </>
       )}
 
-      {/* AI Recommended Careers */}
+      {/* Recommended Careers */}
       {report.aiRecommendedCareers && report.aiRecommendedCareers.length > 0 && (
         <>
           <Text style={[styles.sectionHeading, { marginTop: 20 }]}>✨ Also Recommended</Text>
-          <Text style={styles.sectionSubtitle}>Careers strongly matching your behavioral profile</Text>
+          <Text style={styles.sectionSubtitle}>Careers that strongly match your behavioral profile</Text>
           {report.aiRecommendedCareers.map((item: CareerRecommendation) => (
             <CareerCard key={`ai-${item.career}`} item={item} />
           ))}

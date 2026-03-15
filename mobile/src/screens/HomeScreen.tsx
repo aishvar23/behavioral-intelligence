@@ -20,7 +20,7 @@ export default function HomeScreen({ navigation }: Props) {
         {[
           { icon: '🎯', text: 'Games tailored to your occupation' },
           { icon: '📊', text: 'Real-time behavioral trait analysis' },
-          { icon: '✨', text: 'AI-powered career recommendations' },
+          { icon: '✨', text: 'Personalised career recommendations' },
         ].map(f => (
           <View key={f.text} style={styles.featureRow}>
             <Text style={styles.featureIcon}>{f.icon}</Text>

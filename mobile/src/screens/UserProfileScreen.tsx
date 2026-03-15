@@ -117,7 +117,7 @@ export default function UserProfileScreen({ navigation }: Props) {
             <View style={styles.content}>
               <Text style={styles.title}>Tell us about yourself</Text>
               <Text style={styles.subtitle}>
-                Our AI will select the right games for your occupation and personalise your report.
+                We'll select the right games for your occupation and generate a personalised behavioral report.
               </Text>
 
               {/* Age */}
@@ -181,7 +181,7 @@ export default function UserProfileScreen({ navigation }: Props) {
               </TouchableOpacity>
 
               <Text style={styles.note}>
-                Our AI picks 3 games tailored to <Text style={styles.noteBold}>{occupationTitle || 'your occupation'}</Text>
+                3 games selected specifically for <Text style={styles.noteBold}>{occupationTitle || 'your occupation'}</Text>
               </Text>
             </View>
           }
