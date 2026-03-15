@@ -47,10 +47,24 @@ jobs:
           KUDU_PASS: ${{ secrets.AZURE_KUDU_PASS }}
           APP_HOSTNAME: ${{ secrets.AZURE_APP_HOSTNAME }}
         run: |
-          curl -X POST \
-            --fail \
-            --max-time 300 \
+          # Upload zip (async — returns 202 immediately)
+          HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            --max-time 60 \
             -u "$KUDU_USER:$KUDU_PASS" \
             -T deploy.zip \
-            "https://$APP_HOSTNAME/api/zipdeploy?isAsync=false" \
-            -w "\nHTTP Status: %{http_code}\n"
+            "https://$APP_HOSTNAME/api/zipdeploy?isAsync=true")
+          echo "Upload HTTP: $HTTP"
+          if [ "$HTTP" != "202" ] && [ "$HTTP" != "200" ]; then exit 1; fi
+
+          # Poll until complete (max 5 min)
+          for i in $(seq 1 20); do
+            sleep 15
+            STATUS=$(curl -s --max-time 10 -u "$KUDU_USER:$KUDU_PASS" \
+              "https://$APP_HOSTNAME/api/deployments/latest" | \
+              python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status'))" 2>/dev/null)
+            echo "[${i}] Deployment status: $STATUS"
+            if [ "$STATUS" = "4" ]; then echo "Deployment succeeded."; exit 0; fi
+            if [ "$STATUS" = "3" ]; then echo "Deployment failed."; exit 1; fi
+          done
+          echo "Deployment timed out after polling."
+          exit 1
