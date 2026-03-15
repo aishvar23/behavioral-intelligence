@@ -3,7 +3,9 @@ name: Deploy Backend to Azure App Service
 on:
   push:
     branches:
-      - main
+      - main          # → dev
+      - staging       # → staging
+      - production    # → prod
     paths:
       - 'backend/**'
       - '.github/workflows/deploy-backend.yml'
@@ -11,6 +13,10 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
+    # Pick the GitHub Environment based on branch
+    # Each environment has its own scoped secrets
+    environment: ${{ github.ref_name == 'main' && 'dev' || github.ref_name }}
 
     steps:
       - name: Checkout code
@@ -36,15 +42,15 @@ jobs:
         run: zip -r ../deploy.zip dist/ src/ package.json package-lock.json tsconfig.json
 
       - name: Deploy to Azure App Service
-        working-directory: .
         env:
           KUDU_USER: ${{ secrets.AZURE_KUDU_USER }}
           KUDU_PASS: ${{ secrets.AZURE_KUDU_PASS }}
+          APP_HOSTNAME: ${{ secrets.AZURE_APP_HOSTNAME }}
         run: |
           curl -X POST \
             --fail \
             --max-time 120 \
             -u "$KUDU_USER:$KUDU_PASS" \
             -T deploy.zip \
-            "https://bi-backend-dev.scm.azurewebsites.net/api/zipdeploy?isAsync=false" \
+            "https://$APP_HOSTNAME/api/zipdeploy?isAsync=false" \
             -w "\nHTTP Status: %{http_code}\n"
