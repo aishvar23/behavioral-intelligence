@@ -54,6 +54,7 @@ const CareerReportSchema = z.object({
 
 // POST /event — log a single game event
 router.post('/event', eventLimiter, async (req: Request, res: Response) => {
+  try {
   const result = EventSchema.safeParse(req.body);
   if (!result.success) {
     return res.status(400).json({ error: 'Invalid request', details: result.error.issues });
@@ -98,10 +99,15 @@ router.post('/event', eventLimiter, async (req: Request, res: Response) => {
   }
 
   return res.status(201).json({ ok: true });
+  } catch (err) {
+    console.error('POST /event error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // GET /report/:sessionId — compute traits + generate LLM report (legacy endpoint)
 router.get('/report/:sessionId', async (req: Request, res: Response) => {
+  try {
   const { sessionId } = req.params;
 
   if (isPostgres()) {
@@ -212,21 +218,31 @@ router.get('/report/:sessionId', async (req: Request, res: Response) => {
 
     return res.json({ traits, aiReport, thinkingStyle });
   }
+  } catch (err) {
+    console.error('GET /report error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // POST /select-games — LLM picks 3 assessment games based on user profile + occupation
 router.post('/select-games', async (req: Request, res: Response) => {
-  const { userProfile } = req.body;
-  if (!userProfile || !userProfile.occupationTitle) {
-    return res.status(400).json({ error: 'Missing userProfile' });
-  }
+  try {
+    const { userProfile } = req.body;
+    if (!userProfile || !userProfile.occupationTitle) {
+      return res.status(400).json({ error: 'Missing userProfile' });
+    }
 
-  const result = await selectGamesForUser(userProfile);
-  return res.json(result);
+    const result = await selectGamesForUser(userProfile);
+    return res.json(result);
+  } catch (err) {
+    console.error('POST /select-games error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // POST /career-report — generate occupation-aware report with user profile
 router.post('/career-report', careerReportLimiter, async (req: Request, res: Response) => {
+  try {
   const parseResult = CareerReportSchema.safeParse(req.body);
   if (!parseResult.success) {
     return res.status(400).json({ error: 'Invalid request', details: parseResult.error.issues });
@@ -280,6 +296,10 @@ router.post('/career-report', careerReportLimiter, async (req: Request, res: Res
   } catch (err) {
     console.error('Career report failed:', err);
     return res.status(500).json({ error: 'Failed to generate career report' });
+  }
+  } catch (err) {
+    console.error('POST /career-report error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
