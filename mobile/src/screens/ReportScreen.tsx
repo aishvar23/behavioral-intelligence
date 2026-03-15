@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -36,12 +37,18 @@ const LOADING_MESSAGES = [
   'Almost there…',
 ];
 
+const REPORT_PIN = '0987654321';
+
 export default function ReportScreen({ navigation, route }: Props) {
   const { sessionId, userProfile, gameResults } = route.params;
   const [report, setReport] = useState<FullReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMsg, setLoadingMsg] = useState(LOADING_MESSAGES[0]);
   const [error, setError] = useState<string | null>(null);
+  const [pinUnlocked, setPinUnlocked] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState(false);
+  const pinRef = useRef<TextInput>(null);
 
   useEffect(() => {
     let msgIndex = 0;
@@ -58,6 +65,16 @@ export default function ReportScreen({ navigation, route }: Props) {
     return () => clearInterval(interval);
   }, []);
 
+  function handlePinSubmit() {
+    if (pinInput === REPORT_PIN) {
+      setPinUnlocked(true);
+    } else {
+      setPinError(true);
+      setPinInput('');
+      setTimeout(() => setPinError(false), 2000);
+    }
+  }
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -73,6 +90,36 @@ export default function ReportScreen({ navigation, route }: Props) {
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity style={styles.button} onPress={() => navigation.popToTop()}>
           <Text style={styles.buttonText}>Try Again</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (!pinUnlocked) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.pinTitle}>Report Ready</Text>
+        <Text style={styles.pinSubtitle}>
+          This report is protected.{'\n'}Enter the PIN to view the results.
+        </Text>
+        <TextInput
+          ref={pinRef}
+          style={[styles.pinInput, pinError && styles.pinInputError]}
+          value={pinInput}
+          onChangeText={setPinInput}
+          placeholder="Enter PIN"
+          placeholderTextColor="#555577"
+          keyboardType="number-pad"
+          secureTextEntry
+          maxLength={10}
+          onSubmitEditing={handlePinSubmit}
+          autoFocus
+        />
+        {pinError && (
+          <Text style={styles.pinErrorText}>Incorrect PIN. Please try again.</Text>
+        )}
+        <TouchableOpacity style={styles.button} onPress={handlePinSubmit}>
+          <Text style={styles.buttonText}>Unlock Report</Text>
         </TouchableOpacity>
       </View>
     );
@@ -220,8 +267,14 @@ const styles = StyleSheet.create({
   center: { flex: 1, backgroundColor: '#1a1a2e', alignItems: 'center', justifyContent: 'center', padding: 24 },
   loadingText: { color: '#9999cc', marginTop: 16, fontSize: 15, textAlign: 'center' },
   errorText: { color: '#ff6b6b', textAlign: 'center', fontSize: 16, marginBottom: 24 },
-  button: { backgroundColor: '#5c6bc0', padding: 16, borderRadius: 30, alignItems: 'center', marginTop: 24 },
+  button: { backgroundColor: '#5c6bc0', padding: 16, borderRadius: 30, alignItems: 'center', marginTop: 24, width: '100%' },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  // PIN gate
+  pinTitle: { color: '#e0e0ff', fontSize: 22, fontWeight: '700', marginBottom: 10 },
+  pinSubtitle: { color: '#9999cc', fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 28 },
+  pinInput: { width: '100%', backgroundColor: '#16213e', borderWidth: 1.5, borderColor: '#2a2a5e', borderRadius: 14, padding: 16, fontSize: 22, color: '#e0e0ff', textAlign: 'center', letterSpacing: 6, marginBottom: 8 },
+  pinInputError: { borderColor: '#ef5350' },
+  pinErrorText: { color: '#ef5350', fontSize: 13, marginBottom: 8 },
   // Profile banner
   profileBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#16213e', borderRadius: 14, padding: 16, marginBottom: 24, gap: 14, borderWidth: 1, borderColor: '#2a2a5e' },
   profileEmoji: { fontSize: 36 },
