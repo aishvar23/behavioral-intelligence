@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { TraitScores } from './traitEngine';
+import { GameBehaviorData } from './behavioralSignals';
 
 export interface UserProfile {
   age: string;
@@ -210,7 +211,7 @@ export async function generateCareerReport(
   traits: TraitScores,
   userProfile: UserProfile,
   gameResults: GameResult[],
-  behavioralSignals?: string
+  gameBehaviorData?: GameBehaviorData
 ): Promise<FullLLMResult> {
   // Build per-game performance lines with score context
   const scoredGames = gameResults.map(g => {
@@ -229,55 +230,50 @@ export async function generateCareerReport(
     .map(g => `- ${g.emoji} ${g.title}: ${g.score} / ${g.max} pts (${g.pct}%) — ${g.label}`)
     .join('\n');
 
-  // Flag if traits are all near-default (skipped/rushed games produce flat 0.5 values)
-  const traitValues = [traits.curiosity, traits.persistence, traits.risk_tolerance, traits.learning_speed];
-  const allNearDefault = traitValues.every(v => Math.abs(v - 0.5) < 0.08);
-  const traitNote = allNearDefault
-    ? '\nNOTE: All trait scores are near the neutral midpoint (0.5), indicating minimal behavioral signals were captured — the user likely skipped or rushed through the games.'
-    : '';
+  const behaviorJson = gameBehaviorData && Object.keys(gameBehaviorData).length > 0
+    ? JSON.stringify(gameBehaviorData, null, 2)
+    : JSON.stringify({ note: 'No structured behavioral data was recorded for this session.' }, null, 2);
 
-  const behavioralSection = behavioralSignals
-    ? `\nRAW BEHAVIORAL SIGNALS (observed in-game actions — use these as primary evidence):\n${behavioralSignals}\n`
-    : '';
+  const prompt = `You are an AI career exploration assistant.
 
-  const prompt = `You are a behavioral psychologist and career counselor. Analyze the assessment results below and provide honest, calibrated career guidance.
+The user played three short cognitive games lasting 2–3 minutes.
+These games provide weak behavioral signals about curiosity,
+persistence, analytical thinking, and risk tolerance.
 
-USER PROFILE:
+Do NOT make definitive career judgments.
+
+Instead, structure your analysis around these five points:
+1. Describe the user's behavior observed in the games.
+2. Explain how these behaviors relate to the chosen occupation.
+3. Highlight strengths.
+4. Suggest areas for improvement.
+5. Provide learning activities suitable for the user's age.
+
+User information:
 - Age: ${userProfile.age}
-- Target / Current Occupation: ${userProfile.occupationTitle}
-- Areas of Interest: ${userProfile.interests}
+- Target occupation: ${userProfile.occupationTitle}
 
-BEHAVIORAL TRAIT SCORES (0.0 = very low, 0.5 = neutral/insufficient data, 1.0 = very high):
-- Curiosity: ${traits.curiosity.toFixed(2)} — explorative and inquisitive behaviour
-- Persistence: ${traits.persistence.toFixed(2)} — resilience and effort after setbacks
-- Risk Tolerance: ${traits.risk_tolerance.toFixed(2)} — willingness to take uncertain risks
-- Learning Speed: ${traits.learning_speed.toFixed(2)} — speed of internalising new patterns
-${traitNote}
+Game behavior data:
+${behaviorJson}
 
-GAME PERFORMANCE (scores shown as achieved / maximum possible):
+Supporting context (trait scores derived from the same session):
+- Curiosity: ${traits.curiosity.toFixed(2)} | Persistence: ${traits.persistence.toFixed(2)} | Risk Tolerance: ${traits.risk_tolerance.toFixed(2)} | Learning Speed: ${traits.learning_speed.toFixed(2)}
+
+Game scores (for reference):
 ${gamePerformance}
-
-Overall assessment engagement: ${avgPct}% average — ${overallEngagement}
-${behavioralSection}
-
-CRITICAL INSTRUCTIONS — you MUST follow these:
-1. Base your ratings on actual performance, NOT on the user's stated occupation goals.
-2. If overall engagement is "Poor" (average < 35%), the occupationFit rating MUST be "low" or "moderate". Do NOT assign "good" or "excellent" for poor performance, regardless of stated interests.
-3. For the recommendedCareers list — only include roles where the evidence genuinely supports fit. For poor performance, recommend entry-level, exploratory, or less demanding roles, not specialised/high-skill professions (e.g. do not recommend ML Engineer, Surgeon, or Lawyer if scores are consistently poor).
-4. Be honest and constructive — acknowledge limited data where it exists, and suggest what the person could do to demonstrate stronger fit.
-5. A user may have potential that this session did not capture — say so if scores are low, and encourage retaking the assessment with full engagement.
+Overall engagement: ${avgPct}% — ${overallEngagement}
 
 Respond with valid JSON only (no markdown, no code fences):
-- "thinkingStyle": one sentence ≤20 words describing their cognitive style based on actual evidence
-- "report": 4-5 sentences covering observed behavioral signals, strengths or gaps the data shows, and honest growth areas — cite specific scores and percentages
+- "thinkingStyle": one sentence ≤20 words describing their cognitive style based on actual observed behavior
+- "report": 4–5 sentences following the five-point structure above — behavior observed, relation to occupation, strengths, improvement areas, and age-appropriate learning activities
 - "occupationFit": object with:
     - "occupation": "${userProfile.occupationTitle}"
-    - "rating": one of "excellent", "good", "moderate", "low" — chosen strictly based on performance data
-    - "summary": 3-4 sentences explaining the fit or mismatch honestly, citing specific scores
-- "recommendedCareers": array of 3 careers that genuinely match the demonstrated performance level, each with:
+    - "rating": one of "excellent", "good", "moderate", "low" — based on behavioral evidence, not stated goals
+    - "summary": 2–3 sentences on fit or mismatch with specific references to observed in-game behaviors
+- "recommendedCareers": array of 3 careers matching demonstrated behaviors, each with:
     - "career": career title
     - "rating": one of "strong_match", "possible_match", "explore_further"
-    - "reason": 2 sentences grounded in the actual scores and traits shown`;
+    - "reason": 2 sentences grounded in observed game behavior and age-appropriate development`;
 
   try {
     const message = await client.messages.create({

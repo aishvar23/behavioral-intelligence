@@ -158,6 +158,93 @@ function describeReaction(events: GameEvent[], title: string): string {
   return line + '.';
 }
 
+// ── Structured behavior data (typed JSON for LLM prompt) ─────────────────────
+export interface GameBehaviorData {
+  exploration_game?: {
+    tilesExplored: number;
+    revisitedTiles: number;
+    decisionTimeAvg: number;
+    trapEncounters: number;
+  };
+  pattern_game?: {
+    attempts: number;
+    timeToDetectPattern: number;
+    incorrectGuesses: number;
+  };
+  persistence_puzzle?: {
+    totalAttempts: number;
+    timeSpentSeconds: number;
+    quit: boolean;
+  };
+}
+
+export function extractStructuredBehaviorData(
+  events: GameEvent[],
+  gameResults: GameResult[]
+): GameBehaviorData {
+  const TOTAL_TILES = 64; // 8×8 grid
+  const data: GameBehaviorData = {};
+
+  for (const game of gameResults) {
+    const gameEvents = events.filter(e => e.game_id === game.configId || e.game_id === game.gameType);
+
+    switch (game.gameType) {
+      case 'exploration': {
+        const moves = gameEvents.filter(e => e.event_type === 'move');
+        if (moves.length === 0) break;
+
+        const lastMove = moves[moves.length - 1];
+        const explorationPct = (lastMove.data.explorationPct as number) ?? 0;
+        const tilesExplored = Math.round(explorationPct * TOTAL_TILES);
+        const revisitedTiles = moves.filter(e => e.data.revisit === true).length;
+        const trapEncounters = moves.filter(e => e.data.tileType === 'trap').length;
+
+        const moveTimes = moves.map(e => e.timestamp);
+        const gaps = moveTimes.slice(1).map((t, i) => (t - moveTimes[i]) / 1000);
+        const decisionTimeAvg = gaps.length > 0 ? round1(avg(gaps)) : 0;
+
+        data.exploration_game = { tilesExplored, revisitedTiles, decisionTimeAvg, trapEncounters };
+        break;
+      }
+      case 'pattern': {
+        const correct = gameEvents.filter(e => e.event_type === 'correct_guess');
+        const wrong = gameEvents.filter(e => e.event_type === 'wrong_guess');
+        const passes = gameEvents.filter(e => e.event_type === 'pass');
+
+        const timings = correct
+          .map(e => e.data.timeToFirstGuess as number)
+          .filter(t => typeof t === 'number' && t > 0);
+        const timeToDetectPattern = timings.length > 0 ? Math.round(avg(timings) / 1000) : 0;
+
+        data.pattern_game = {
+          attempts: correct.length + wrong.length + passes.length,
+          timeToDetectPattern,
+          incorrectGuesses: wrong.length,
+        };
+        break;
+      }
+      case 'puzzle': {
+        const moves = gameEvents.filter(e => e.event_type === 'move');
+        if (moves.length === 0) break;
+
+        const timestamps = gameEvents.map(e => e.timestamp);
+        const timeSpentSeconds = timestamps.length > 1
+          ? Math.round((Math.max(...timestamps) - Math.min(...timestamps)) / 1000)
+          : 0;
+
+        data.persistence_puzzle = {
+          totalAttempts: moves.length,
+          timeSpentSeconds,
+          quit: gameEvents.some(e => e.event_type === 'quit'),
+        };
+        break;
+      }
+    }
+  }
+
+  return data;
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 export function extractBehavioralSignals(
   events: GameEvent[],
