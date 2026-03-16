@@ -1,11 +1,10 @@
 import axios from 'axios';
-import { Platform } from 'react-native';
 import { UserProfile, GameResult } from '../navigation/AppNavigator';
 
-// Android emulator routes localhost to 10.0.2.2; iOS simulator uses localhost
-const BASE_URL = Platform.OS === 'android'
-  ? 'http://10.0.2.2:3000'
-  : 'http://localhost:3000';
+// __DEV__ is true for debug builds (local dev), false for release builds
+const BASE_URL = __DEV__
+  ? 'http://10.0.2.2:3000'                         // local backend (Android emulator)
+  : 'https://bi-backend-dev.azurewebsites.net';     // release builds → Azure dev
 
 export interface GameEvent {
   sessionId: string;

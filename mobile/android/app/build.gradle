@@ -2,13 +2,6 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
-// react-native-config: pick .env file based on build type if ENVFILE not already set
-project.ext.envConfigFiles = [
-    debug  : ".env",           // local dev  → http://10.0.2.2:3000
-    dev    : ".env.dev",       // Azure dev  → bi-backend-dev.azurewebsites.net
-    release: ".env.production" // prod       → bi-backend-prod.azurewebsites.net
-]
-apply from: "../../node_modules/react-native-config/dotenv.gradle"
 
 /**
  * This is the configuration block to customize your React Native Android app.
@@ -108,16 +101,9 @@ android {
     }
     buildTypes {
         debug {
-            // Local dev — hits http://10.0.2.2:3000 (reads .env)
             signingConfig signingConfigs.debug
         }
-        dev {
-            // Azure dev — hits bi-backend-dev.azurewebsites.net (reads .env.dev)
-            initWith debug
-            matchingFallbacks = ['debug']
-        }
         release {
-            // Production — hits bi-backend-prod.azurewebsites.net (reads .env.production)
             signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
