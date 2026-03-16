@@ -1,8 +1,11 @@
 import axios from 'axios';
-import Config from 'react-native-config';
+import { Platform } from 'react-native';
 import { UserProfile, GameResult } from '../navigation/AppNavigator';
 
-const BASE_URL = Config.API_BASE_URL ?? 'http://10.0.2.2:3000';
+// Android emulator routes localhost to 10.0.2.2; iOS simulator uses localhost
+const BASE_URL = Platform.OS === 'android'
+  ? 'http://10.0.2.2:3000'
+  : 'http://localhost:3000';
 
 export interface GameEvent {
   sessionId: string;
