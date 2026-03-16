@@ -2,7 +2,9 @@
 node_modules/
 
 # Environment variables - never commit these
-.env
+# backend/.env contains ANTHROPIC_API_KEY — keep it out of git
+backend/.env
+backend/.env.local
 .env.local
 .env.*.local
 
