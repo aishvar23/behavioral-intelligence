@@ -50,6 +50,9 @@ export default function MemorySequenceGame({ sessionId, onComplete, config }: Pr
     setRoundStart(Date.now());
 
     let i = 0;
+    const SHOW_MS = 550;  // how long each item stays lit
+    const GAP_MS  = 220;  // blank gap between items (visible even for repeated values)
+
     const show = () => {
       if (i >= seq.length) {
         setTimeout(() => { setShowIndex(-1); setPhase('recall'); }, 400);
@@ -57,11 +60,15 @@ export default function MemorySequenceGame({ sessionId, onComplete, config }: Pr
       }
       setShowIndex(seq[i]);
       Animated.sequence([
-        Animated.timing(flashAnim, { toValue: 1.2, duration: 150, useNativeDriver: true }),
-        Animated.timing(flashAnim, { toValue: 1, duration: 150, useNativeDriver: true }),
+        Animated.timing(flashAnim, { toValue: 1.25, duration: 120, useNativeDriver: true }),
+        Animated.timing(flashAnim, { toValue: 1,    duration: 180, useNativeDriver: true }),
       ]).start();
       i++;
-      setTimeout(show, 800);
+      // Always blank out before showing the next item so repeated values are clearly distinct
+      setTimeout(() => {
+        setShowIndex(-1);
+        setTimeout(show, GAP_MS);
+      }, SHOW_MS);
     };
     setTimeout(show, 600);
   }, [variant, flashAnim]);
