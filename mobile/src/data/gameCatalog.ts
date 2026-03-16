@@ -1,8 +1,8 @@
 /**
  * Game Catalog
  *
- * Architecture: 18 uniquely configured game variants × 50 occupations, each with
- * a curated pool of 6-8 variants. Random selection of 3 per session creates
+ * Architecture: 36 uniquely configured game variants × 50 occupations, each with
+ * a curated pool of 10-12 variants. Random selection of 3 per session creates
  * near-unlimited variety. Add more GameConfig entries to scale toward 50,000+ configs.
  */
 
@@ -38,6 +38,24 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     description: 'Wide terrain rich with rewards for the truly curious.',
     config: { rewardDensity: 'high' },
   },
+  exploration_data: {
+    id: 'exploration_data', type: 'exploration',
+    title: 'Data Landscape', emoji: '🗃️', difficulty: 'medium',
+    description: 'Uncover patterns in a data-rich terrain — clusters reveal insights.',
+    config: { rewardPattern: 'clustered' },
+  },
+  exploration_resource: {
+    id: 'exploration_resource', type: 'exploration',
+    title: 'Resource Optimizer', emoji: '💎', difficulty: 'hard',
+    description: 'Maximise resources collected with a tight move budget.',
+    config: { movePenalty: true },
+  },
+  exploration_systematic: {
+    id: 'exploration_systematic', type: 'exploration',
+    title: 'Systematic Survey', emoji: '📡', difficulty: 'easy',
+    description: 'Cover every zone methodically — bonus points for full grid coverage.',
+    config: { coverageBonus: true },
+  },
 
   // ── Pattern variants (3) ──────────────────────────────────────────────────
   pattern_standard: {
@@ -57,6 +75,24 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     title: 'Logic Sequences', emoji: '🧮', difficulty: 'hard',
     description: 'Complex chains demanding deep analytical thinking.',
     config: { startTier: 2 },
+  },
+  pattern_financial: {
+    id: 'pattern_financial', type: 'pattern',
+    title: 'Market Signals', emoji: '📉', difficulty: 'hard',
+    description: 'Detect trends in numerical sequences that mimic financial data.',
+    config: { variant: 'financial' },
+  },
+  pattern_adaptive: {
+    id: 'pattern_adaptive', type: 'pattern',
+    title: 'Adaptive Decode', emoji: '🔄', difficulty: 'hard',
+    description: 'Rules shift faster than usual — test how quickly you re-calibrate.',
+    config: { ruleChanges: 'frequent', startTier: 1 },
+  },
+  pattern_creative: {
+    id: 'pattern_creative', type: 'pattern',
+    title: 'Open Sequences', emoji: '🎨', difficulty: 'easy',
+    description: 'Flexible, open-ended patterns that reward lateral thinking.',
+    config: { variant: 'creative' },
   },
 
   // ── Puzzle variants (3) ───────────────────────────────────────────────────
@@ -78,6 +114,24 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     description: 'Efficiency scores — solve in fewest moves for max reward.',
     config: { scoreEfficiencyBonus: true },
   },
+  puzzle_collaborative: {
+    id: 'puzzle_collaborative', type: 'puzzle',
+    title: 'Team Solve', emoji: '🤝', difficulty: 'easy',
+    description: 'Hints are freely available — collaboration over brute-force.',
+    config: { maxHints: 5, hintPenalty: 5 },
+  },
+  puzzle_precise: {
+    id: 'puzzle_precise', type: 'puzzle',
+    title: 'Precision Assembly', emoji: '🔩', difficulty: 'hard',
+    description: 'Requires exact, efficient moves — no room for trial and error.',
+    config: { shuffleDepth: 'low', efficiencyRequired: true },
+  },
+  puzzle_analytical: {
+    id: 'puzzle_analytical', type: 'puzzle',
+    title: 'Analytical Deconstruct', emoji: '🧐', difficulty: 'medium',
+    description: 'Move history visible throughout — reward deliberate, methodical solvers.',
+    config: { showMoveHistory: true },
+  },
 
   // ── Memory variants (3) — new game type ───────────────────────────────────
   memory_colors: {
@@ -97,6 +151,24 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     title: 'Spatial Memory', emoji: '🗂️', difficulty: 'hard',
     description: 'Remember which grid positions were highlighted.',
     config: { variant: 'positions' },
+  },
+  memory_sequential: {
+    id: 'memory_sequential', type: 'memory',
+    title: 'Procedure Recall', emoji: '📋', difficulty: 'medium',
+    description: 'Memorise ordered sequences of steps — precision and order matter.',
+    config: { variant: 'sequential' },
+  },
+  memory_faces: {
+    id: 'memory_faces', type: 'memory',
+    title: 'Name & Context', emoji: '🧑‍🤝‍🧑', difficulty: 'medium',
+    description: 'Associate names with faces or labels — social and associative memory.',
+    config: { variant: 'faces' },
+  },
+  memory_code: {
+    id: 'memory_code', type: 'memory',
+    title: 'Code Recall', emoji: '💾', difficulty: 'hard',
+    description: 'Remember symbolic patterns and code-like structures under load.',
+    config: { variant: 'code' },
   },
 
   // ── Logic variants (3) — new game type ───────────────────────────────────
