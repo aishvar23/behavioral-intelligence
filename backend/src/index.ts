@@ -1,4 +1,22 @@
 import 'dotenv/config';
+
+// App Insights must be initialized before all other imports
+// Only activates when APPLICATIONINSIGHTS_CONNECTION_STRING is set (i.e. in Azure)
+if (process.env.APPLICATIONINSIGHTS_CONNECTION_STRING) {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const appInsights = require('applicationinsights');
+  appInsights
+    .setup(process.env.APPLICATIONINSIGHTS_CONNECTION_STRING)
+    .setAutoCollectRequests(true)
+    .setAutoCollectDependencies(true)
+    .setAutoCollectExceptions(true)
+    .setAutoCollectPerformance(true)
+    .setAutoCollectConsole(true, true)
+    .setSendLiveMetrics(true)
+    .start();
+  console.log('Azure App Insights initialized.');
+}
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
