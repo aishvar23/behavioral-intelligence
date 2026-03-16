@@ -20,7 +20,15 @@ else
   TARGET="$DEFAULT_DEV_URL"
 fi
 
+# API key — read from BI_API_KEY env var (leave unset for local dev)
+API_KEY="${BI_API_KEY:-}"
+AUTH_HEADER=""
+if [[ -n "$API_KEY" ]]; then
+  AUTH_HEADER="-H \"X-API-Key: $API_KEY\""
+fi
+
 echo "Target: $TARGET"
+[[ -n "$API_KEY" ]] && echo "Auth:   X-API-Key set" || echo "Auth:   none (local dev)"
 echo "──────────────────────────────────────────"
 
 PASS=0
@@ -55,6 +63,15 @@ check() {
   fi
 }
 
+# curl wrapper that injects X-API-Key when set
+api_curl() {
+  if [[ -n "$API_KEY" ]]; then
+    curl -s -H "X-API-Key: $API_KEY" "$@"
+  else
+    curl -s "$@"
+  fi
+}
+
 # ── 1. Health ────────────────────────────────────────────────────────────────
 echo ""
 echo "1. Health check"
@@ -65,7 +82,7 @@ check "GET /health" "$RESP" "$BODY" "200" '"status"'
 # ── 2. Session ───────────────────────────────────────────────────────────────
 echo ""
 echo "2. Session creation"
-RESP=$(curl -s -o /tmp/bi_body.txt -w "%{http_code}" -X POST "$TARGET/session")
+RESP=$(api_curl -o /tmp/bi_body.txt -w "%{http_code}" -X POST "$TARGET/session")
 BODY=$(cat /tmp/bi_body.txt)
 check "POST /session" "$RESP" "$BODY" "200" '"sessionId"'
 
@@ -85,7 +102,7 @@ post_event() {
   local game_id="$1"
   local event_type="$2"
   local data="$3"
-  curl -s -o /tmp/bi_body.txt -w "%{http_code}" \
+  api_curl -o /tmp/bi_body.txt -w "%{http_code}" \
     -X POST "$TARGET/event" \
     -H "Content-Type: application/json" \
     -d "{\"sessionId\":\"$SESSION_ID\",\"gameId\":\"$game_id\",\"eventType\":\"$event_type\",\"timestamp\":$NOW_MS,\"data\":$data}"
@@ -106,7 +123,7 @@ check "POST /event (attempt)" "$RESP" "$BODY" "201" '"ok"'
 # ── 4. Select games ───────────────────────────────────────────────────────────
 echo ""
 echo "4. Game selection (LLM)"
-RESP=$(curl -s -o /tmp/bi_body.txt -w "%{http_code}" \
+RESP=$(api_curl -o /tmp/bi_body.txt -w "%{http_code}" \
   -X POST "$TARGET/select-games" \
   -H "Content-Type: application/json" \
   -d '{
@@ -124,7 +141,7 @@ check "POST /select-games" "$RESP" "$BODY" "200" '"selectedIds"'
 # ── 5. Career report (LLM — slowest, ~10-15s) ─────────────────────────────
 echo ""
 echo "5. Career report (LLM) — may take up to 90s..."
-RESP=$(curl -s -o /tmp/bi_body.txt -w "%{http_code}" --max-time 120 \
+RESP=$(api_curl -o /tmp/bi_body.txt -w "%{http_code}" --max-time 120 \
   -X POST "$TARGET/career-report" \
   -H "Content-Type: application/json" \
   -d "{
@@ -147,7 +164,7 @@ check "POST /career-report" "$RESP" "$BODY" "200" '"aiReport"'
 # ── 6. Cache hit (repeat career-report, should be instant) ────────────────
 echo ""
 echo "6. Career report cache hit"
-RESP=$(curl -s -o /tmp/bi_body.txt -w "%{http_code}" --max-time 10 \
+RESP=$(api_curl -o /tmp/bi_body.txt -w "%{http_code}" --max-time 10 \
   -X POST "$TARGET/career-report" \
   -H "Content-Type: application/json" \
   -d "{
@@ -169,7 +186,7 @@ check "POST /career-report (cached)" "$RESP" "$BODY" "200" '"aiReport"'
 # ── 7. Validation — bad event payload ─────────────────────────────────────
 echo ""
 echo "7. Input validation"
-RESP=$(curl -s -o /tmp/bi_body.txt -w "%{http_code}" \
+RESP=$(api_curl -o /tmp/bi_body.txt -w "%{http_code}" \
   -X POST "$TARGET/event" \
   -H "Content-Type: application/json" \
   -d '{"sessionId":"not-a-uuid","gameId":"x","eventType":"y","timestamp":0,"data":{}}')

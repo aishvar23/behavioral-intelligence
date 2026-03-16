@@ -7,7 +7,8 @@
 # ---------------------------------------------------------------------------
 
 param(
-  [string]$Target = ""
+  [string]$Target = "",
+  [string]$ApiKey = $env:BI_API_KEY
 )
 
 # -- Target URL ---------------------------------------------------------------
@@ -23,6 +24,7 @@ if ($Target -eq "local") {
 }
 
 Write-Host "Target: $BaseUrl"
+if ($ApiKey) { Write-Host "Auth:   X-API-Key set" } else { Write-Host "Auth:   none (local dev)" }
 Write-Host ("-" * 50)
 
 $Pass = 0
@@ -37,10 +39,12 @@ function Invoke-Endpoint {
     [int]$TimeoutSec = 30
   )
   try {
+    $headers = @{ "Content-Type" = "application/json" }
+    if ($script:ApiKey) { $headers["X-API-Key"] = $script:ApiKey }
     $params = @{
       Method          = $Method
       Uri             = $Url
-      Headers         = @{ "Content-Type" = "application/json" }
+      Headers         = $headers
       TimeoutSec      = $TimeoutSec
       UseBasicParsing = $true
     }

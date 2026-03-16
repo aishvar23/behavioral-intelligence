@@ -1,8 +1,14 @@
 import axios from 'axios';
 import { UserProfile, GameResult } from '../navigation/AppNavigator';
-import { API_BASE_URL } from '../config';
+import { API_BASE_URL, API_SECRET_KEY } from '../config';
 
 const BASE_URL = API_BASE_URL;
+
+// Attach API key to every request so the backend can reject unauthenticated callers.
+// Absent in local dev (API_SECRET_KEY is empty string) — backend skips the check too.
+if (API_SECRET_KEY) {
+  axios.defaults.headers.common['X-API-Key'] = API_SECRET_KEY;
+}
 
 export interface GameEvent {
   sessionId: string;

@@ -25,3 +25,8 @@ const DEBUG_ENV: Env = 'local';
 const RELEASE_ENV: Env = 'dev';
 
 export const API_BASE_URL = __DEV__ ? URLS[DEBUG_ENV] : URLS[RELEASE_ENV];
+
+// Shared secret sent as X-API-Key on every request.
+// Empty string in local dev — backend skips the check when API_SECRET_KEY is unset.
+// For release builds, replace with the real key (or inject via CI).
+export const API_SECRET_KEY = __DEV__ ? '' : 'REPLACE_WITH_REAL_KEY';
