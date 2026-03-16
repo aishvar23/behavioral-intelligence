@@ -1,10 +1,8 @@
 import axios from 'axios';
 import { UserProfile, GameResult } from '../navigation/AppNavigator';
+import { API_BASE_URL } from '../config';
 
-// __DEV__ is true for debug builds (local dev), false for release builds
-const BASE_URL = __DEV__
-  ? 'http://10.0.2.2:3000'                         // local backend (Android emulator)
-  : 'https://bi-backend-dev.azurewebsites.net';     // release builds → Azure dev
+const BASE_URL = API_BASE_URL;
 
 export interface GameEvent {
   sessionId: string;
