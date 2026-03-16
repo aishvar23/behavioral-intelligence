@@ -47,14 +47,27 @@ jobs:
           KUDU_PASS: ${{ secrets.AZURE_KUDU_PASS }}
           APP_HOSTNAME: ${{ secrets.AZURE_APP_HOSTNAME }}
         run: |
-          # Upload zip (async — returns 202 immediately)
-          HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-            --max-time 120 \
-            -u "$KUDU_USER:$KUDU_PASS" \
-            -T deploy.zip \
-            "https://$APP_HOSTNAME/api/zipdeploy?isAsync=true")
-          echo "Upload HTTP: $HTTP"
-          if [ "$HTTP" != "202" ] && [ "$HTTP" != "200" ]; then exit 1; fi
+          # Upload zip — retry up to 5 times to handle 409 (lock held by prior deployment)
+          for attempt in $(seq 1 5); do
+            HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+              --max-time 120 \
+              -u "$KUDU_USER:$KUDU_PASS" \
+              -T deploy.zip \
+              "https://$APP_HOSTNAME/api/zipdeploy?isAsync=true")
+            echo "Upload attempt $attempt: HTTP $HTTP"
+            if [ "$HTTP" = "202" ] || [ "$HTTP" = "200" ]; then break; fi
+            if [ "$HTTP" = "409" ]; then
+              echo "Kudu locked (409) — waiting 30s for prior deployment to finish..."
+              sleep 30
+            else
+              echo "Unexpected HTTP $HTTP — aborting."
+              exit 1
+            fi
+            if [ "$attempt" = "5" ]; then
+              echo "Upload failed after 5 attempts."
+              exit 1
+            fi
+          done
 
           # Poll until complete (max 5 min)
           for i in $(seq 1 20); do
