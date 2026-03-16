@@ -10,7 +10,7 @@ param(
   [string]$Target = ""
 )
 
-# ── Target URL ───────────────────────────────────────────────────────────────
+# -- Target URL ---------------------------------------------------------------
 $DevUrl   = "https://bi-backend-dev.azurewebsites.net"
 $LocalUrl = "http://localhost:3000"
 
@@ -23,12 +23,12 @@ if ($Target -eq "local") {
 }
 
 Write-Host "Target: $BaseUrl"
-Write-Host ("─" * 50)
+Write-Host ("-" * 50)
 
 $Pass = 0
 $Fail = 0
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
+# -- Helpers ------------------------------------------------------------------
 function Invoke-Endpoint {
   param(
     [string]$Method,
@@ -37,10 +37,10 @@ function Invoke-Endpoint {
   )
   try {
     $params = @{
-      Method  = $Method
-      Uri     = $Url
-      Headers = @{ "Content-Type" = "application/json" }
-      TimeoutSec = 30
+      Method          = $Method
+      Uri             = $Url
+      Headers         = @{ "Content-Type" = "application/json" }
+      TimeoutSec      = 30
       UseBasicParsing = $true
     }
     if ($null -ne $Body) {
@@ -85,13 +85,13 @@ function Check {
   }
 }
 
-# ── 1. Health ────────────────────────────────────────────────────────────────
+# -- 1. Health ----------------------------------------------------------------
 Write-Host ""
 Write-Host "1. Health check"
 $r = Invoke-Endpoint -Method GET -Url "$BaseUrl/health"
 Check -Label "GET /health" -Status $r.Status -Body $r.Body -ExpectStatus 200 -ExpectBody '"status"'
 
-# ── 2. Session ───────────────────────────────────────────────────────────────
+# -- 2. Session ---------------------------------------------------------------
 Write-Host ""
 Write-Host "2. Session creation"
 $r = Invoke-Endpoint -Method POST -Url "$BaseUrl/session"
@@ -101,12 +101,12 @@ $sessionData = $r.Body | ConvertFrom-Json -ErrorAction SilentlyContinue
 $SessionId   = $sessionData.sessionId
 
 if (-not $SessionId) {
-  Write-Host "FAIL  Could not extract sessionId — stopping"
+  Write-Host "FAIL  Could not extract sessionId - stopping"
   exit 1
 }
 Write-Host "      sessionId: $SessionId"
 
-# ── 3. Post events ───────────────────────────────────────────────────────────
+# -- 3. Post events -----------------------------------------------------------
 Write-Host ""
 Write-Host "3. Event logging"
 $NowMs = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
@@ -131,7 +131,7 @@ Check -Label "POST /event (explore)" -Status $r.Status -Body $r.Body -ExpectStat
 $r = Post-Event -GameId "hidden-pattern"     -EventType "attempt"  -Data @{ correct = $true; timeMs = 1200 }
 Check -Label "POST /event (attempt)" -Status $r.Status -Body $r.Body -ExpectStatus 201 -ExpectBody '"ok"'
 
-# ── 4. Select games ───────────────────────────────────────────────────────────
+# -- 4. Select games ----------------------------------------------------------
 Write-Host ""
 Write-Host "4. Game selection (LLM)"
 $r = Invoke-Endpoint -Method POST -Url "$BaseUrl/select-games" -Body @{
@@ -139,32 +139,32 @@ $r = Invoke-Endpoint -Method POST -Url "$BaseUrl/select-games" -Body @{
     age             = "28"
     occupation      = "engineer"
     occupationTitle = "Software Engineer"
-    occupationEmoji = "💻"
+    occupationEmoji = "engineer"
     interests       = "problem solving, systems design"
   }
 }
 Check -Label "POST /select-games" -Status $r.Status -Body $r.Body -ExpectStatus 200 -ExpectBody '"games"'
 
-# ── 5. Career report (LLM — slowest, ~10-15s) ─────────────────────────────
+# -- 5. Career report (LLM - slowest, ~10-15s) --------------------------------
 Write-Host ""
-Write-Host "5. Career report (LLM) — may take up to 20s..."
+Write-Host "5. Career report (LLM) - may take up to 20s..."
 $r = Invoke-Endpoint -Method POST -Url "$BaseUrl/career-report" -Body @{
   sessionId   = $SessionId
   userProfile = @{
     age             = "28"
     occupation      = "engineer"
     occupationTitle = "Software Engineer"
-    occupationEmoji = "💻"
+    occupationEmoji = "engineer"
     interests       = "problem solving, systems design"
   }
   gameResults = @(
-    @{ configId = "exploration-island"; gameType = "exploration"; title = "Exploration Island"; emoji = "🏝️"; score = 72 },
-    @{ configId = "hidden-pattern";     gameType = "pattern";     title = "Hidden Pattern";    emoji = "🔍"; score = 85 }
+    @{ configId = "exploration-island"; gameType = "exploration"; title = "Exploration Island"; emoji = "island"; score = 72 },
+    @{ configId = "hidden-pattern";     gameType = "pattern";     title = "Hidden Pattern";    emoji = "search"; score = 85 }
   )
 }
 Check -Label "POST /career-report" -Status $r.Status -Body $r.Body -ExpectStatus 200 -ExpectBody '"aiReport"'
 
-# ── 6. Cache hit ──────────────────────────────────────────────────────────────
+# -- 6. Cache hit -------------------------------------------------------------
 Write-Host ""
 Write-Host "6. Career report cache hit"
 $r = Invoke-Endpoint -Method POST -Url "$BaseUrl/career-report" -Body @{
@@ -173,16 +173,16 @@ $r = Invoke-Endpoint -Method POST -Url "$BaseUrl/career-report" -Body @{
     age             = "28"
     occupation      = "engineer"
     occupationTitle = "Software Engineer"
-    occupationEmoji = "💻"
+    occupationEmoji = "engineer"
     interests       = "problem solving, systems design"
   }
   gameResults = @(
-    @{ configId = "exploration-island"; gameType = "exploration"; title = "Exploration Island"; emoji = "🏝️"; score = 72 }
+    @{ configId = "exploration-island"; gameType = "exploration"; title = "Exploration Island"; emoji = "island"; score = 72 }
   )
 }
 Check -Label "POST /career-report (cached)" -Status $r.Status -Body $r.Body -ExpectStatus 200 -ExpectBody '"aiReport"'
 
-# ── 7. Input validation ───────────────────────────────────────────────────────
+# -- 7. Input validation ------------------------------------------------------
 Write-Host ""
 Write-Host "7. Input validation"
 $r = Invoke-Endpoint -Method POST -Url "$BaseUrl/event" -Body @{
@@ -194,11 +194,11 @@ $r = Invoke-Endpoint -Method POST -Url "$BaseUrl/event" -Body @{
 }
 Check -Label "POST /event bad uuid -> 400" -Status $r.Status -Body $r.Body -ExpectStatus 400 -ExpectBody '"error"'
 
-# ── Summary ───────────────────────────────────────────────────────────────────
+# -- Summary ------------------------------------------------------------------
 Write-Host ""
-Write-Host ("═" * 50)
+Write-Host ("=" * 50)
 Write-Host "Results: $Pass passed, $Fail failed"
-Write-Host ("═" * 50)
+Write-Host ("=" * 50)
 
 if ($Fail -gt 0) {
   exit 1
