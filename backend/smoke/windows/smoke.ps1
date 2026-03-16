@@ -50,8 +50,13 @@ function Invoke-Endpoint {
     $response = Invoke-WebRequest @params -ErrorAction Stop
     return @{ Status = [int]$response.StatusCode; Body = $response.Content }
   } catch {
-    $statusCode = [int]$_.Exception.Response.StatusCode.value__
-    $errorBody  = $_.ErrorDetails.Message
+    if ($_.Exception.Response) {
+      $statusCode = [int]$_.Exception.Response.StatusCode.value__
+      $errorBody  = $_.ErrorDetails.Message
+    } else {
+      $statusCode = 0
+      $errorBody  = "No response: $($_.Exception.Message)"
+    }
     return @{ Status = $statusCode; Body = $errorBody }
   }
 }
@@ -148,8 +153,8 @@ Check -Label "POST /select-games" -Status $r.Status -Body $r.Body -ExpectStatus 
 
 # -- 5. Career report (LLM - slowest, ~10-15s) --------------------------------
 Write-Host ""
-Write-Host "5. Career report (LLM) - may take up to 40s..."
-$r = Invoke-Endpoint -Method POST -Url "$BaseUrl/career-report" -TimeoutSec 60 -Body @{
+Write-Host "5. Career report (LLM) - may take up to 90s..."
+$r = Invoke-Endpoint -Method POST -Url "$BaseUrl/career-report" -TimeoutSec 120 -Body @{
   sessionId   = $SessionId
   userProfile = @{
     age             = "28"
@@ -168,7 +173,7 @@ Check -Label "POST /career-report" -Status $r.Status -Body $r.Body -ExpectStatus
 # -- 6. Cache hit -------------------------------------------------------------
 Write-Host ""
 Write-Host "6. Career report cache hit"
-$r = Invoke-Endpoint -Method POST -Url "$BaseUrl/career-report" -Body @{
+$r = Invoke-Endpoint -Method POST -Url "$BaseUrl/career-report" -TimeoutSec 120 -Body @{
   sessionId   = $SessionId
   userProfile = @{
     age             = "28"

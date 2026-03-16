@@ -123,8 +123,8 @@ check "POST /select-games" "$RESP" "$BODY" "200" '"selectedIds"'
 
 # ── 5. Career report (LLM — slowest, ~10-15s) ─────────────────────────────
 echo ""
-echo "5. Career report (LLM) — may take up to 20s..."
-RESP=$(curl -s -o /tmp/bi_body.txt -w "%{http_code}" --max-time 30 \
+echo "5. Career report (LLM) — may take up to 90s..."
+RESP=$(curl -s -o /tmp/bi_body.txt -w "%{http_code}" --max-time 120 \
   -X POST "$TARGET/career-report" \
   -H "Content-Type: application/json" \
   -d "{
