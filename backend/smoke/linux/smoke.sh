@@ -119,7 +119,7 @@ RESP=$(curl -s -o /tmp/bi_body.txt -w "%{http_code}" \
     }
   }')
 BODY=$(cat /tmp/bi_body.txt)
-check "POST /select-games" "$RESP" "$BODY" "200" '"games"'
+check "POST /select-games" "$RESP" "$BODY" "200" '"selectedIds"'
 
 # ── 5. Career report (LLM — slowest, ~10-15s) ─────────────────────────────
 echo ""

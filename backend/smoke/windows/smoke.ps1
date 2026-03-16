@@ -33,14 +33,15 @@ function Invoke-Endpoint {
   param(
     [string]$Method,
     [string]$Url,
-    [hashtable]$Body = $null
+    [hashtable]$Body = $null,
+    [int]$TimeoutSec = 30
   )
   try {
     $params = @{
       Method          = $Method
       Uri             = $Url
       Headers         = @{ "Content-Type" = "application/json" }
-      TimeoutSec      = 30
+      TimeoutSec      = $TimeoutSec
       UseBasicParsing = $true
     }
     if ($null -ne $Body) {
@@ -143,12 +144,12 @@ $r = Invoke-Endpoint -Method POST -Url "$BaseUrl/select-games" -Body @{
     interests       = "problem solving, systems design"
   }
 }
-Check -Label "POST /select-games" -Status $r.Status -Body $r.Body -ExpectStatus 200 -ExpectBody '"games"'
+Check -Label "POST /select-games" -Status $r.Status -Body $r.Body -ExpectStatus 200 -ExpectBody '"selectedIds"'
 
 # -- 5. Career report (LLM - slowest, ~10-15s) --------------------------------
 Write-Host ""
-Write-Host "5. Career report (LLM) - may take up to 20s..."
-$r = Invoke-Endpoint -Method POST -Url "$BaseUrl/career-report" -Body @{
+Write-Host "5. Career report (LLM) - may take up to 40s..."
+$r = Invoke-Endpoint -Method POST -Url "$BaseUrl/career-report" -TimeoutSec 60 -Body @{
   sessionId   = $SessionId
   userProfile = @{
     age             = "28"
