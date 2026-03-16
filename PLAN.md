@@ -55,10 +55,12 @@
 ### Security & Config
 
 - [ ] Move all secrets to `.env` (dev) / Key Vault references (prod) — no hardcoded values
-- [ ] Add `helmet` — sets secure HTTP headers
-- [ ] Add `cors` — whitelist only the mobile app origin (for future web client) or leave open for mobile
-- [ ] Add `express-rate-limit` on `POST /event` (e.g. 60 req/min) and `POST /career-report` (e.g. 5 req/min)
-- [ ] Add request validation with `zod` on all POST endpoints
+- [x] Add `helmet` — sets secure HTTP headers
+- [x] Add `cors` — whitelist only the mobile app origin (for future web client) or leave open for mobile
+- [x] Add `express-rate-limit` on `POST /event` (e.g. 60 req/min) and `POST /career-report` (e.g. 5 req/min)
+- [x] Add global IP rate limiter — 120 req/min across all routes
+- [x] Add request validation with `zod` on all POST endpoints
+- [x] Add `X-API-Key` middleware — backend rejects unauthenticated callers; mobile injects key on every request; skipped in local dev when `API_SECRET_KEY` is unset (`feature/auth` branch — pending merge)
 
 ```typescript
 // Example: event schema validation
