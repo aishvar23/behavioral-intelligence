@@ -227,10 +227,13 @@ Respond with valid JSON only (no markdown):
     const message = await withRetry(() => client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 300,
-      messages: [{ role: 'user', content: prompt }],
-    }, { timeout: LLM_TIMEOUT_MS }));
+      messages: [
+        { role: 'user', content: prompt },
+        { role: 'assistant', content: '{' },
+      ],
+    }), { timeout: LLM_TIMEOUT_MS });
 
-    const raw = message.content[0].type === 'text' ? message.content[0].text : '';
+    const raw = '{' + (message.content[0].type === 'text' ? message.content[0].text : '');
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     const text = jsonMatch ? jsonMatch[0] : raw.trim();
     const parsed = JSON.parse(text);
@@ -416,8 +419,11 @@ Respond with valid JSON only (no markdown, no code fences):
     const message = await withRetry(() => client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
-      messages: [{ role: 'user', content: prompt }],
-    }, { timeout: LLM_TIMEOUT_MS }));
+      messages: [
+        { role: 'user', content: prompt },
+        { role: 'assistant', content: '{' },
+      ],
+    }), { timeout: LLM_TIMEOUT_MS });
     const latencyMs = Date.now() - t0;
 
     if (sessionId) {
@@ -430,7 +436,7 @@ Respond with valid JSON only (no markdown, no code fences):
       });
     }
 
-    const raw = message.content[0].type === 'text' ? message.content[0].text : '';
+    const raw = '{' + (message.content[0].type === 'text' ? message.content[0].text : '');
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     const text = jsonMatch ? jsonMatch[0] : raw.trim();
 
