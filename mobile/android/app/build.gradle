@@ -90,10 +90,12 @@ android {
             keyPassword 'android'
         }
         release {
-            storeFile file(BI_STORE_FILE)
-            storePassword BI_STORE_PASSWORD
-            keyAlias BI_KEY_ALIAS
-            keyPassword BI_KEY_PASSWORD
+            if (project.hasProperty('BI_STORE_FILE')) {
+                storeFile file(BI_STORE_FILE)
+                storePassword BI_STORE_PASSWORD
+                keyAlias BI_KEY_ALIAS
+                keyPassword BI_KEY_PASSWORD
+            }
         }
     }
     buildTypes {
