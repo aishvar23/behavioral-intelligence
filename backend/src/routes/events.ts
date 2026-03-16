@@ -227,12 +227,12 @@ router.get('/report/:sessionId', async (req: Request, res: Response) => {
 // POST /select-games — LLM picks 3 assessment games based on user profile + occupation
 router.post('/select-games', async (req: Request, res: Response) => {
   try {
-    const { userProfile } = req.body;
+    const { userProfile, pool } = req.body;
     if (!userProfile || !userProfile.occupationTitle) {
       return res.status(400).json({ error: 'Missing userProfile' });
     }
 
-    const result = await selectGamesForUser(userProfile);
+    const result = await selectGamesForUser(userProfile, Array.isArray(pool) ? pool : undefined);
     return res.json(result);
   } catch (err) {
     console.error('POST /select-games error:', err);

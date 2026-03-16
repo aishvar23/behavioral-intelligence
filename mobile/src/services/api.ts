@@ -76,8 +76,8 @@ export interface GameSelectionResult {
   reasoning: string;
 }
 
-export async function selectGames(userProfile: UserProfile): Promise<GameSelectionResult> {
-  const response = await axios.post(`${BASE_URL}/select-games`, { userProfile });
+export async function selectGames(userProfile: UserProfile, pool: string[]): Promise<GameSelectionResult> {
+  const response = await axios.post(`${BASE_URL}/select-games`, { userProfile, pool });
   return response.data;
 }
 

@@ -21,6 +21,7 @@ import {
   getOccupationsByCategory,
 } from '../data/occupations';
 import { GAME_CONFIGS } from '../data/gameCatalog';
+import { OCCUPATION_GAME_POOLS, GENERAL_POOL } from '../data/occupationGamePools';
 import { selectGames } from '../services/api';
 import { startSession } from '../services/session';
 
@@ -77,7 +78,8 @@ export default function UserProfileScreen({ navigation }: Props) {
     };
 
     try {
-      const { selectedIds, reasoning } = await selectGames(profile);
+      const pool = OCCUPATION_GAME_POOLS[selectedOccupation] ?? GENERAL_POOL;
+      const { selectedIds, reasoning } = await selectGames(profile, pool);
       setSelectionReasoning(reasoning);
 
       const sessionId = startSession();
