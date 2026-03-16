@@ -250,6 +250,27 @@ router.post('/career-report', careerReportLimiter, async (req: Request, res: Res
 
   const { sessionId, userProfile, gameResults } = parseResult.data;
 
+  // ── Cache check ────────────────────────────────────────────────────────────
+  if (isPostgres()) {
+    const pool = getPgPool();
+    const cached = await pool.query(
+      'SELECT career_report FROM reports WHERE session_id = $1 AND career_report IS NOT NULL',
+      [sessionId]
+    );
+    if (cached.rows.length > 0) {
+      return res.json(cached.rows[0].career_report);
+    }
+  } else {
+    const db = getDb();
+    const cached = db
+      .prepare('SELECT career_report FROM reports WHERE session_id = ? AND career_report IS NOT NULL')
+      .get(sessionId) as { career_report: string } | undefined;
+    if (cached) {
+      return res.json(JSON.parse(cached.career_report));
+    }
+  }
+
+  // ── Fetch events ───────────────────────────────────────────────────────────
   let events: Array<{ game_id: string; event_type: string; timestamp: number; data: Record<string, unknown> }>;
 
   if (isPostgres()) {
@@ -282,8 +303,8 @@ router.post('/career-report', careerReportLimiter, async (req: Request, res: Res
   const gameBehaviorData = extractStructuredBehaviorData(events, gameResults);
 
   try {
-    const llmResult = await generateCareerReport(traits, userProfile, gameResults, gameBehaviorData);
-    return res.json({
+    const llmResult = await generateCareerReport(traits, userProfile, gameResults, gameBehaviorData, sessionId);
+    const response = {
       traits,
       gameResults,
       thinkingStyle: llmResult.thinkingStyle,
@@ -292,7 +313,27 @@ router.post('/career-report', careerReportLimiter, async (req: Request, res: Res
       aiRecommendedCareers: llmResult.aiRecommendedCareers,
       observations: llmResult.observations,
       skillDevelopment: llmResult.skillDevelopment,
-    });
+    };
+
+    // ── Store full report for caching ─────────────────────────────────────
+    if (isPostgres()) {
+      const pool = getPgPool();
+      await pool.query(
+        `INSERT INTO reports (session_id, traits, ai_report, thinking_style, career_report, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (session_id) DO UPDATE
+           SET career_report = EXCLUDED.career_report, created_at = EXCLUDED.created_at`,
+        [sessionId, traits, llmResult.aiReport, llmResult.thinkingStyle, response, Date.now()]
+      );
+    } else {
+      const db = getDb();
+      db.prepare(
+        `INSERT OR REPLACE INTO reports (session_id, traits, ai_report, thinking_style, career_report, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)`
+      ).run(sessionId, JSON.stringify(traits), llmResult.aiReport, llmResult.thinkingStyle, JSON.stringify(response), Date.now());
+    }
+
+    return res.json(response);
   } catch (err) {
     console.error('Career report failed:', err);
     return res.status(500).json({ error: 'Failed to generate career report' });

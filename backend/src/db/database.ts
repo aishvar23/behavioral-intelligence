@@ -29,12 +29,23 @@ function initSchema(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id);
 
     CREATE TABLE IF NOT EXISTS reports (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id     TEXT    NOT NULL UNIQUE,
+      traits         TEXT    NOT NULL,
+      ai_report      TEXT    NOT NULL,
+      thinking_style TEXT    NOT NULL,
+      career_report  TEXT,
+      created_at     INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS llm_calls (
       id            INTEGER PRIMARY KEY AUTOINCREMENT,
-      session_id    TEXT    NOT NULL UNIQUE,
-      traits        TEXT    NOT NULL,
-      ai_report     TEXT    NOT NULL,
-      thinking_style TEXT   NOT NULL,
-      created_at    INTEGER NOT NULL
+      session_id    TEXT    NOT NULL,
+      latency_ms    INTEGER NOT NULL,
+      input_tokens  INTEGER NOT NULL,
+      output_tokens INTEGER NOT NULL,
+      cost_usd      REAL    NOT NULL,
+      timestamp     INTEGER NOT NULL
     );
   `);
 }
@@ -50,4 +61,34 @@ export function getPgPool(): Pool {
 
 export function isPostgres(): boolean {
   return process.env.NODE_ENV === 'production' && !!process.env.DATABASE_URL;
+}
+
+export interface LlmCallLog {
+  sessionId: string;
+  latencyMs: number;
+  inputTokens: number;
+  outputTokens: number;
+  costUsd: number;
+}
+
+export async function logLlmCall(log: LlmCallLog): Promise<void> {
+  const ts = Date.now();
+  try {
+    if (isPostgres()) {
+      await getPgPool().query(
+        `INSERT INTO llm_calls (session_id, latency_ms, input_tokens, output_tokens, cost_usd, timestamp)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [log.sessionId, log.latencyMs, log.inputTokens, log.outputTokens, log.costUsd, ts]
+      );
+    } else {
+      getDb()
+        .prepare(
+          `INSERT INTO llm_calls (session_id, latency_ms, input_tokens, output_tokens, cost_usd, timestamp)
+           VALUES (?, ?, ?, ?, ?, ?)`
+        )
+        .run(log.sessionId, log.latencyMs, log.inputTokens, log.outputTokens, log.costUsd, ts);
+    }
+  } catch (err) {
+    console.error('logLlmCall failed:', err);
+  }
 }

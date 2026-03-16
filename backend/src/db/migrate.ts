@@ -31,6 +31,11 @@ async function migrate() {
       )
     `);
 
+    // Add career_report column if this is a pre-existing reports table
+    await client.query(`
+      ALTER TABLE reports ADD COLUMN IF NOT EXISTS career_report JSONB
+    `);
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS llm_calls (
         id            SERIAL PRIMARY KEY,

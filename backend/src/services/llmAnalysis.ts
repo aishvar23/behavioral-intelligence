@@ -1,6 +1,32 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { TraitScores } from './traitEngine';
 import { GameBehaviorData } from './behavioralSignals';
+import { logLlmCall } from '../db/database';
+
+// Claude Sonnet 4.6 pricing (per million tokens)
+const INPUT_COST_PER_M  = 3.0;
+const OUTPUT_COST_PER_M = 15.0;
+
+function calcCost(inputTokens: number, outputTokens: number): number {
+  return (inputTokens * INPUT_COST_PER_M + outputTokens * OUTPUT_COST_PER_M) / 1_000_000;
+}
+
+async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 2): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (attempt < maxAttempts) {
+        await new Promise(r => setTimeout(r, attempt * 1000));
+      }
+    }
+  }
+  throw lastErr;
+}
+
+const LLM_TIMEOUT_MS = 15_000;
 
 export interface UserProfile {
   age: string;
@@ -198,11 +224,11 @@ Respond with valid JSON only (no markdown):
 {"selectedIds": ["id_1", "id_2", "id_3"], "reasoning": "One or two sentences explaining why these 3 games best assess a ${userProfile.occupationTitle}"}`;
 
   try {
-    const message = await client.messages.create({
+    const message = await withRetry(() => client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 300,
       messages: [{ role: 'user', content: prompt }],
-    });
+    }, { timeout: LLM_TIMEOUT_MS }));
 
     const raw = message.content[0].type === 'text' ? message.content[0].text : '';
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
@@ -243,11 +269,11 @@ Respond with a JSON object with exactly two keys:
 
 Return only valid JSON, no markdown.`;
 
-  const message = await client.messages.create({
+  const message = await withRetry(() => client.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 512,
     messages: [{ role: 'user', content: prompt }],
-  });
+  }, { timeout: LLM_TIMEOUT_MS }));
 
   const raw = message.content[0].type === 'text' ? message.content[0].text : '';
   const jsonMatch = raw.match(/\{[\s\S]*\}/);
@@ -292,7 +318,8 @@ export async function generateCareerReport(
   traits: TraitScores,
   userProfile: UserProfile,
   gameResults: GameResult[],
-  gameBehaviorData?: GameBehaviorData
+  gameBehaviorData?: GameBehaviorData,
+  sessionId?: string
 ): Promise<FullLLMResult> {
   // Build per-game performance lines with score context
   const scoredGames = gameResults.map(g => {
@@ -385,11 +412,23 @@ Respond with valid JSON only (no markdown, no code fences):
 }`;
 
   try {
-    const message = await client.messages.create({
+    const t0 = Date.now();
+    const message = await withRetry(() => client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       messages: [{ role: 'user', content: prompt }],
-    });
+    }, { timeout: LLM_TIMEOUT_MS }));
+    const latencyMs = Date.now() - t0;
+
+    if (sessionId) {
+      void logLlmCall({
+        sessionId,
+        latencyMs,
+        inputTokens: message.usage.input_tokens,
+        outputTokens: message.usage.output_tokens,
+        costUsd: calcCost(message.usage.input_tokens, message.usage.output_tokens),
+      });
+    }
 
     const raw = message.content[0].type === 'text' ? message.content[0].text : '';
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
