@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { logEvent } from '../../services/api';
 
-type Variant = 'deduction' | 'patterns' | 'verbal' | 'debugging' | 'systems' | 'boolean' | 'priority';
+type Variant = 'deduction' | 'patterns' | 'verbal' | 'debugging' | 'systems' | 'boolean' | 'priority' | 'clinical' | 'medical_ethics' | 'financial_analysis' | 'risk_assessment' | 'legal_reasoning' | 'pedagogy' | 'behavioral_judgment' | 'engineering_analysis' | 'scientific_method' | 'creative_judgment';
 
 interface Question {
   prompt: string;
@@ -100,6 +100,126 @@ const QUESTIONS: Record<Variant, Question[]> = {
     { prompt: 'A feature works 99% of the time. The 1% failure causes data loss. Ship it?', options: ['No — data loss is never acceptable, fix first', 'Yes — 99% is good enough', 'Yes — users can recover manually', 'Yes — log it and fix next sprint'], answer: 0 },
     { prompt: 'Technical debt is accumulating fast. Best approach?', options: ['Allocate regular refactoring time each sprint', 'Ignore it until the system breaks', 'Rewrite everything at once', 'Only add features, never refactor'], answer: 0 },
     { prompt: 'A stakeholder requests a feature with no specification. Your first step?', options: ['Clarify requirements and expected outcomes', 'Start coding immediately', 'Decline the request', 'Copy a competitor\'s implementation'], answer: 0 },
+  ],
+  clinical: [
+    { prompt: 'A patient has fever, stiff neck, and sensitivity to light. Most urgent concern?', options: ['Bacterial meningitis', 'Common migraine', 'Viral flu', 'Dehydration'], answer: 0 },
+    { prompt: 'A drug has a narrow therapeutic index. This means:', options: ['The effective dose is close to the toxic dose', 'The drug works for a narrow group of patients', 'It must be taken in small amounts', 'It has few side effects'], answer: 0 },
+    { prompt: 'A patient\'s symptoms worsen after treatment. First step?', options: ['Reassess the diagnosis', 'Increase the dose', 'Stop all treatment', 'Refer immediately'], answer: 0 },
+    { prompt: 'Two patients have the same symptoms but different responses to the same drug. Most likely reason?', options: ['Genetic or metabolic differences', 'Different room temperatures', 'One patient is older', 'The drug batch was faulty'], answer: 0 },
+    { prompt: 'A child presents with a rash that started on the face and moved downward. This pattern suggests:', options: ['A systemic viral illness like measles', 'A local allergic reaction', 'A fungal infection', 'Heat rash'], answer: 0 },
+    { prompt: 'Post-surgical patient develops sudden shortness of breath and leg swelling. Priority concern?', options: ['Pulmonary embolism', 'Anxiety attack', 'Fluid overload', 'Asthma flare'], answer: 0 },
+    { prompt: 'A patient reports taking herb supplements. Before prescribing, you should check:', options: ['Potential drug-herb interactions', 'The cost of the herbs', 'Whether the patient believes in medicine', 'The herb\'s country of origin'], answer: 0 },
+    { prompt: 'Blood pressure is 160/100 on three separate visits. This is classified as:', options: ['Hypertension requiring treatment', 'Normal variation', 'White coat syndrome', 'A one-time measurement error'], answer: 0 },
+    { prompt: 'An elderly patient is confused and has a UTI. The confusion is most likely:', options: ['Delirium triggered by infection', 'Alzheimer\'s onset', 'Drug side effect', 'Sleep deprivation'], answer: 0 },
+    { prompt: 'A test has 95% sensitivity. A negative result means:', options: ['It is very unlikely the disease is present', 'The disease is definitely absent', 'The test was inaccurate', 'A second test is required'], answer: 0 },
+  ],
+  medical_ethics: [
+    { prompt: 'A patient refuses a life-saving treatment. You should:', options: ['Respect their informed decision if they have capacity', 'Proceed without consent', 'Seek a court order immediately', 'Involve family to override them'], answer: 0 },
+    { prompt: 'A colleague is impaired at work and poses risk to patients. You should:', options: ['Report through the appropriate professional channel', 'Cover for them this once', 'Confront them publicly', 'Do nothing — it\'s not your responsibility'], answer: 0 },
+    { prompt: 'A terminally ill patient asks you to hasten death. Best response?', options: ['Discuss palliative options and legal limits clearly', 'Immediately comply', 'Refuse to discuss it', 'Discharge the patient'], answer: 0 },
+    { prompt: 'A minor requests confidential treatment without parental consent. You should:', options: ['Assess maturity and legal guidelines for the jurisdiction', 'Always inform parents', 'Always keep it secret', 'Refuse treatment'], answer: 0 },
+    { prompt: 'Limited ICU beds, two equally critical patients. The ethical framework that guides allocation is:', options: ['Utilitarian and fairness principles', 'First come first served only', 'Whichever patient is younger', 'Whichever patient can pay'], answer: 0 },
+    { prompt: 'A patient\'s family asks you not to tell the patient their terminal diagnosis. You should:', options: ['Assess patient\'s right to know and discuss with family', 'Always follow family wishes', 'Always tell the patient immediately', 'Discharge to avoid the conflict'], answer: 0 },
+    { prompt: 'A patient gives consent but clearly does not understand the procedure. Valid consent requires:', options: ['Capacity, information, and voluntariness', 'A signature only', 'Family approval', 'Written form only'], answer: 0 },
+    { prompt: 'A pharmaceutical company offers you a trip to sponsor your research. You should:', options: ['Disclose the conflict of interest and evaluate independently', 'Accept — it\'s standard practice', 'Reject all future collaboration', 'Let a colleague handle it'], answer: 0 },
+    { prompt: 'You make a medical error that causes minor harm. Best action?', options: ['Disclose to the patient, document, and report', 'Keep it private to avoid liability', 'Tell only close colleagues', 'Wait to see if symptoms appear'], answer: 0 },
+    { prompt: 'Resource-limited setting: who gets priority for a scarce vaccine?', options: ['Those who will benefit most and spread risk to others', 'Wealthiest patients', 'Youngest patients only', 'Whoever asks first'], answer: 0 },
+  ],
+  financial_analysis: [
+    { prompt: 'A stock P/E ratio is 50, while the industry average is 20. This suggests:', options: ['The stock may be overvalued or high growth expected', 'The stock is definitely a good buy', 'The company has low earnings', 'The industry is declining'], answer: 0 },
+    { prompt: 'Compound interest on £1000 at 10% for 2 years gives:', options: ['£1210', '£1200', '£1100', '£1020'], answer: 0 },
+    { prompt: 'A company has high revenue but negative cash flow. This most likely means:', options: ['Cash is tied up in receivables or investment', 'The company is profitable', 'Revenue figures are wrong', 'The company has no expenses'], answer: 0 },
+    { prompt: 'Diversification in a portfolio reduces:', options: ['Unsystematic (specific) risk', 'Systematic (market) risk', 'Inflation risk', 'Currency risk'], answer: 0 },
+    { prompt: 'The yield curve inverts. Historically this signals:', options: ['A potential recession ahead', 'Strong economic growth', 'Rising inflation', 'Central bank rate cuts'], answer: 0 },
+    { prompt: 'Project A: £50k profit, 2 years. Project B: £50k profit, 5 years. Assuming equal risk:', options: ['Project A is better due to time value of money', 'Project B is better — same profit', 'They are equal', 'Project B has lower risk'], answer: 0 },
+    { prompt: 'Beta of 1.5 means the stock:', options: ['Moves 1.5× the market — higher risk and return potential', 'Has 50% more earnings than the market', 'Is 50% more volatile than a bond', 'Tracks the market exactly'], answer: 0 },
+    { prompt: 'A company\'s debt-to-equity ratio increases sharply. This may indicate:', options: ['Increased financial risk and leverage', 'Better profitability', 'Reduced operating costs', 'Higher dividends ahead'], answer: 0 },
+    { prompt: 'NPV of a project is negative. You should:', options: ['Reject the project — it destroys value', 'Accept if IRR is positive', 'Accept if payback period is short', 'Always accept if cash flow exists'], answer: 0 },
+    { prompt: 'Inflation rises faster than wages. Real purchasing power:', options: ['Falls — people can buy less', 'Rises — prices are higher', 'Stays the same', 'Depends on the tax rate'], answer: 0 },
+  ],
+  risk_assessment: [
+    { prompt: 'An event has 10% probability of causing £1M loss. Expected loss is:', options: ['£100,000', '£10,000', '£1,000,000', '£90,000'], answer: 0 },
+    { prompt: 'Two independent risks each have 20% probability. Probability both occur:', options: ['4%', '40%', '20%', '36%'], answer: 0 },
+    { prompt: 'A system has three components. If any one fails, the system fails. All have 90% reliability. System reliability is:', options: ['72.9%', '90%', '27%', '97%'], answer: 0 },
+    { prompt: 'High impact, low probability risk — appropriate response?', options: ['Accept with contingency plan or insure', 'Ignore — it\'s unlikely', 'Treat it as the top priority', 'Eliminate the entire project'], answer: 0 },
+    { prompt: 'A medical test shows 99% accuracy. In a population where 1% has the disease, a positive test more likely means:', options: ['The person probably doesn\'t have the disease (base rate effect)', 'The person definitely has the disease', 'The test is unreliable', '50/50 chance'], answer: 0 },
+    { prompt: 'Risk mitigation reduces the probability of a risk. Risk transfer shifts:', options: ['The financial consequence to another party', 'The probability to zero', 'The cause of the risk', 'The timeline of the risk'], answer: 0 },
+    { prompt: 'A business has one client generating 90% of revenue. Primary risk is:', options: ['Concentration risk — single point of failure', 'Revenue risk — too much income', 'Operational risk', 'Regulatory risk'], answer: 0 },
+    { prompt: 'Residual risk is:', options: ['Risk remaining after controls are applied', 'The original risk before assessment', 'Risk that cannot be measured', 'Accepted risk only'], answer: 0 },
+    { prompt: 'Which risk management strategy accepts a risk and prepares for its consequences?', options: ['Risk acceptance / contingency planning', 'Risk avoidance', 'Risk transfer', 'Risk elimination'], answer: 0 },
+    { prompt: 'A coin is flipped 10 times and lands heads each time. Probability of heads on flip 11:', options: ['50% — each flip is independent', 'Less than 50% — due for tails', 'More than 50% — on a streak', '0% — statistically impossible'], answer: 0 },
+  ],
+  legal_reasoning: [
+    { prompt: 'A contract requires both offer and acceptance. An offer is made but not accepted. The contract is:', options: ['Not formed — no binding agreement', 'Valid — offer alone suffices', 'Voidable by either party', 'Automatically accepted after 30 days'], answer: 0 },
+    { prompt: 'Precedent (stare decisis) means courts:', options: ['Follow rulings from higher courts in similar cases', 'Create new laws independently', 'Ignore prior decisions', 'Only apply written statutes'], answer: 0 },
+    { prompt: 'Beyond reasonable doubt is the standard in:', options: ['Criminal trials', 'Civil disputes', 'Contract negotiations', 'Regulatory hearings'], answer: 0 },
+    { prompt: 'A witness testifies to something they heard someone else say in court. This is generally:', options: ['Hearsay and may be inadmissible', 'Always admissible', 'Direct evidence', 'The strongest form of evidence'], answer: 0 },
+    { prompt: 'Mens rea in criminal law refers to:', options: ['The mental intent to commit a crime', 'The physical act of the crime', 'The victim\'s role', 'The punishment phase'], answer: 0 },
+    { prompt: 'A party breaches a contract. The innocent party can claim damages that:', options: ['Put them in the position they would have been in if performed', 'Punish the breaching party', 'Always equal the contract value', 'Cover only out-of-pocket costs'], answer: 0 },
+    { prompt: 'Duty of care in negligence requires showing:', options: ['A foreseeable relationship where one owes care to another', 'Any harm was caused', 'An intentional act', 'A written agreement'], answer: 0 },
+    { prompt: 'In statutory interpretation, courts first look at:', options: ['The plain meaning of the words in the statute', 'Legislative history', 'Similar foreign laws', 'The judge\'s personal view'], answer: 0 },
+    { prompt: 'An injunction is a court order that:', options: ['Compels or prevents a specific action', 'Awards financial damages', 'Ends a criminal prosecution', 'Transfers property rights'], answer: 0 },
+    { prompt: 'Double jeopardy protects an accused from:', options: ['Being tried twice for the same offence after acquittal', 'Being charged with multiple crimes at once', 'Self-incrimination', 'Unreasonable search'], answer: 0 },
+  ],
+  pedagogy: [
+    { prompt: 'A student consistently fails tests but participates well in class. Best first step?', options: ['Investigate whether tests reflect their actual understanding', 'Label them a poor student', 'Exclude them from further tests', 'Focus only on test preparation'], answer: 0 },
+    { prompt: 'Formative assessment is primarily used to:', options: ['Monitor learning and adjust teaching', 'Grade students at year end', 'Compare students to each other', 'Measure school performance'], answer: 0 },
+    { prompt: 'A student with a learning difficulty needs support. Best approach?', options: ['Universal Design for Learning with tailored scaffolding', 'Separate them from the class', 'Reduce their workload permanently', 'Assign extra homework'], answer: 0 },
+    { prompt: 'Bloom\'s Taxonomy places which skill at the highest level?', options: ['Creating and evaluating', 'Remembering and recalling', 'Understanding', 'Applying'], answer: 0 },
+    { prompt: 'A class is disengaged during a lesson. Best immediate response?', options: ['Change the activity format and check for understanding', 'Continue — distractions are normal', 'Punish the class', 'End the lesson early'], answer: 0 },
+    { prompt: 'Spaced repetition improves long-term retention because:', options: ['Revisiting content across time strengthens memory consolidation', 'Cramming is more efficient', 'It reduces the total study time', 'It tests students more frequently'], answer: 0 },
+    { prompt: 'A parent disagrees with your grading of their child. You should:', options: ['Explain your criteria clearly with evidence', 'Change the grade to avoid conflict', 'Refuse to discuss it', 'Escalate to the principal immediately'], answer: 0 },
+    { prompt: 'Differentiated instruction means:', options: ['Adapting content, process, or product to individual learner needs', 'Teaching different subjects simultaneously', 'Using different teachers for different students', 'Grouping all advanced students together'], answer: 0 },
+    { prompt: 'Zone of Proximal Development (Vygotsky) refers to:', options: ['Tasks a learner can do with guidance but not yet independently', 'Work that is too easy', 'The learner\'s maximum potential', 'Work outside the curriculum'], answer: 0 },
+    { prompt: 'A student plagiarises an assignment. Best response?', options: ['Discuss academic integrity, assign a consequence, and resubmit', 'Fail the student for the whole course immediately', 'Ignore it — it was minor', 'Only warn verbally with no record'], answer: 0 },
+  ],
+  behavioral_judgment: [
+    { prompt: 'A client discloses intent to harm a specific person. You must:', options: ['Breach confidentiality to protect the third party', 'Keep it confidential — therapy is private', 'End the session immediately', 'Report only after the harm occurs'], answer: 0 },
+    { prompt: 'Cognitive dissonance occurs when:', options: ['A person holds conflicting beliefs and experiences discomfort', 'A person has consistent beliefs', 'A person forgets prior experiences', 'A person learns quickly'], answer: 0 },
+    { prompt: 'A client makes slow progress in therapy. Most appropriate response?', options: ['Re-evaluate the treatment approach with the client', 'Conclude therapy is ineffective and discharge', 'Increase session frequency immediately', 'Change diagnosis'], answer: 0 },
+    { prompt: 'Confirmation bias means people tend to:', options: ['Seek information that confirms their existing beliefs', 'Change their mind when shown evidence', 'Prefer complex explanations', 'Remember negative events more clearly'], answer: 0 },
+    { prompt: 'An employee is consistently late but performs well. The manager should:', options: ['Have a private conversation to understand the cause', 'Publicly reprimand them', 'Immediately place them on a performance plan', 'Ignore it since performance is good'], answer: 0 },
+    { prompt: 'Fundamental attribution error is when we:', options: ['Over-attribute others\' behaviour to character, not circumstance', 'Blame ourselves for others\' actions', 'Assume everyone behaves like us', 'Underestimate our own abilities'], answer: 0 },
+    { prompt: 'A group always agrees with the leader without questioning. This is called:', options: ['Groupthink', 'Conformity bias', 'Social loafing', 'Authority bias'], answer: 0 },
+    { prompt: 'A person avoids going to a doctor because they fear bad news. This is:', options: ['Avoidance coping — harmful in the long term', 'Effective stress management', 'Rational risk assessment', 'Normal behaviour with no impact'], answer: 0 },
+    { prompt: 'Intrinsic motivation is driven by:', options: ['Personal interest and satisfaction', 'External rewards and praise', 'Fear of punishment', 'Social pressure'], answer: 0 },
+    { prompt: 'A client from a different culture has different norms around eye contact. You should:', options: ['Adapt your expectations to their cultural context', 'Insist on standard eye contact', 'Document it as a social deficit', 'End the session'], answer: 0 },
+  ],
+  engineering_analysis: [
+    { prompt: 'A bridge design shows excessive deflection under load. Most likely issue?', options: ['Insufficient material stiffness or cross-section', 'Too many support points', 'The load calculations are wrong', 'The bridge is too short'], answer: 0 },
+    { prompt: 'A pipe carrying fluid suddenly narrows. What happens to flow velocity?', options: ['It increases — conservation of mass', 'It decreases', 'It stays the same', 'It reverses'], answer: 0 },
+    { prompt: 'A metal rod expands when heated. To accommodate this in design, engineers use:', options: ['Expansion joints or gaps', 'Stronger bolts', 'Thicker material', 'Cooling systems only'], answer: 0 },
+    { prompt: 'Factor of safety of 3 means the design can handle:', options: ['3× the expected maximum load', 'The load with 3% margin', '3 times the material cost', 'Failure at 1/3 of the design load'], answer: 0 },
+    { prompt: 'A motor runs at 80% efficiency. If input power is 100W, useful output is:', options: ['80W', '20W', '100W', '120W'], answer: 0 },
+    { prompt: 'Stress concentration is highest:', options: ['At sharp corners or sudden geometry changes', 'At the centre of a uniform cross-section', 'At low-stress regions', 'At the point of maximum length'], answer: 0 },
+    { prompt: 'A component fails after many cycles at loads below its static strength. This is:', options: ['Fatigue failure', 'Brittle fracture', 'Creep', 'Corrosion failure'], answer: 0 },
+    { prompt: 'A beam fixed at both ends versus simply supported — under the same load, the fixed beam:', options: ['Deflects less — end fixity adds stiffness', 'Deflects more', 'Deflects the same', 'Fails at lower loads'], answer: 0 },
+    { prompt: 'Redundancy in structural design means:', options: ['Multiple load paths so one failure doesn\'t collapse the system', 'Using excess materials', 'Over-engineering every component', 'Designing for zero failure probability'], answer: 0 },
+    { prompt: 'A pressure vessel is rated at 10 bar but a weld is showing cracks. Priority action?', options: ['Take it out of service and inspect', 'Monitor from a distance', 'Reduce pressure by 10% and continue', 'Repair while in service'], answer: 0 },
+  ],
+  scientific_method: [
+    { prompt: 'A study shows correlation between ice cream sales and drowning deaths. This means:', options: ['A confounding variable (summer) explains both', 'Ice cream causes drowning', 'Drowning causes ice cream sales', 'The data is fabricated'], answer: 0 },
+    { prompt: 'A p-value of 0.03 means:', options: ['If the null hypothesis is true, this result occurs 3% of the time by chance', 'There is a 97% chance the hypothesis is correct', 'The effect size is meaningful', 'The study is 97% accurate'], answer: 0 },
+    { prompt: 'A double-blind trial means:', options: ['Neither participants nor researchers know who receives treatment', 'Only participants are unaware', 'Only researchers are unaware', 'The data is collected twice'], answer: 0 },
+    { prompt: 'A study has high internal validity but low external validity. This means:', options: ['Results are accurate within the study but may not generalise broadly', 'The study is not valid', 'Results generalise well but the study is internally flawed', 'Both the design and generalisability are strong'], answer: 0 },
+    { prompt: 'Control group in an experiment is used to:', options: ['Provide a baseline without the variable being tested', 'Test the opposite hypothesis', 'Double the sample size', 'Test multiple variables simultaneously'], answer: 0 },
+    { prompt: 'Replication in science is important because:', options: ['It confirms results are reliable and not due to chance', 'It proves the original researcher was wrong', 'It is required by law', 'It generates more data regardless of outcome'], answer: 0 },
+    { prompt: 'A sample size of 10 shows strong results. Before concluding:', options: ['Check whether the sample is large enough to be statistically reliable', 'Publish immediately', 'Assume results are definitive', 'Expand to 100 participants to confirm the same result'], answer: 0 },
+    { prompt: 'Peer review in research serves to:', options: ['Evaluate quality and validity before publication', 'Guarantee the research is correct', 'Decide on funding allocation', 'Replace the editorial process'], answer: 0 },
+    { prompt: 'An outlier in data should be:', options: ['Investigated for cause before deciding to include or exclude', 'Always removed', 'Always kept', 'Averaged with adjacent values'], answer: 0 },
+    { prompt: 'Type I error in hypothesis testing is:', options: ['Rejecting a true null hypothesis (false positive)', 'Accepting a false null hypothesis', 'A calculation mistake', 'A sampling error'], answer: 0 },
+  ],
+  creative_judgment: [
+    { prompt: 'A client dislikes your creative concept but cannot articulate why. Best response?', options: ['Ask open questions to uncover their underlying concerns', 'Defend your concept with evidence', 'Immediately redesign everything', 'Present three alternatives without discussion'], answer: 0 },
+    { prompt: 'A design must work for colorblind users. The most important consideration is:', options: ['Using contrast and shape — not colour alone — to convey meaning', 'Using only black and white', 'Adding a colour-blind mode as an afterthought', 'Asking colourblind users to adjust their device settings'], answer: 0 },
+    { prompt: 'A headline must convey urgency and trust simultaneously. The tension here is:', options: ['Emotional impact vs. credibility — both are valid goals', 'Click-bait vs. no engagement', 'Long vs. short copy', 'Colour vs. typography'], answer: 0 },
+    { prompt: 'A story structure that builds tension before resolution follows:', options: ['The narrative arc: setup, conflict, climax, resolution', 'A list format', 'Reverse chronological order', 'A data-first approach'], answer: 0 },
+    { prompt: 'A user interface is beautiful but users cannot find key features. The priority issue is:', options: ['Usability over aesthetics — form follows function', 'Aesthetics — users adapt over time', 'Adding a tutorial', 'Simplifying the colour palette'], answer: 0 },
+    { prompt: 'A brand\'s visual identity is inconsistent across channels. This primarily damages:', options: ['Brand recognition and trust', 'SEO ranking', 'Customer service quality', 'Product pricing'], answer: 0 },
+    { prompt: 'When editing a 10-minute video down to 3 minutes, you should cut:', options: ['Any content that doesn\'t serve the core message', 'The beginning — start in the middle', 'All pauses and silences regardless of context', 'The ending — leave viewers wanting more'], answer: 0 },
+    { prompt: 'A journalist has a strong story but only one anonymous source. They should:', options: ['Seek corroboration or additional sources before publishing', 'Publish immediately — the story matters', 'Reveal the source to verify', 'Drop the story entirely'], answer: 0 },
+    { prompt: 'White space in graphic design primarily serves to:', options: ['Guide the eye and improve readability', 'Fill empty areas with content', 'Make a design look unfinished', 'Reduce printing costs'], answer: 0 },
+    { prompt: 'A campaign tests well in focus groups but fails in the market. Most likely reason?', options: ['Focus groups don\'t replicate real buying behaviour', 'The product was poor quality', 'The market research firm was unreliable', 'The campaign ran too long'], answer: 0 },
   ],
 };
 
@@ -212,26 +332,26 @@ export default function LogicDeductionGame({ sessionId, onComplete, config }: Pr
     }, 1000);
   }
 
-  const gameTitle = variant === 'deduction' ? '🔎 Logic Deduction'
-    : variant === 'patterns' ? '🔲 Abstract Patterns'
-    : variant === 'verbal' ? '💬 Word Logic'
-    : variant === 'debugging' ? '🐛 Debug Scenarios'
-    : variant === 'systems' ? '🏗️ Systems Thinking'
-    : variant === 'boolean' ? '⚙️ Boolean Logic'
-    : '⚖️ Engineering Decisions';
-  const gameDesc = variant === 'deduction'
-    ? 'Each puzzle has one logically correct conclusion. Think carefully.'
-    : variant === 'patterns'
-    ? 'Identify the rule and find the missing number.'
-    : variant === 'verbal'
-    ? 'Word analogies and odd-one-out puzzles.'
-    : variant === 'debugging'
-    ? 'Real software debugging scenarios. Identify the root cause.'
-    : variant === 'systems'
-    ? 'Architecture and systems decisions. Think about scale and trade-offs.'
-    : variant === 'boolean'
-    ? 'Logical conditions and boolean expressions. Think precisely.'
-    : 'Real-world engineering trade-offs. What would you do?';
+  const VARIANT_META: Record<Variant, { title: string; desc: string }> = {
+    deduction:            { title: '🔎 Logic Deduction',       desc: 'Each puzzle has one logically correct conclusion. Think carefully.' },
+    patterns:             { title: '🔲 Abstract Patterns',     desc: 'Identify the rule and find the missing number.' },
+    verbal:               { title: '💬 Word Logic',            desc: 'Word analogies and odd-one-out puzzles.' },
+    debugging:            { title: '🐛 Debug Scenarios',       desc: 'Real software debugging scenarios. Identify the root cause.' },
+    systems:              { title: '🏗️ Systems Thinking',      desc: 'Architecture and systems decisions. Think about scale and trade-offs.' },
+    boolean:              { title: '⚙️ Boolean Logic',         desc: 'Logical conditions and boolean expressions. Think precisely.' },
+    priority:             { title: '⚖️ Engineering Decisions', desc: 'Real-world engineering trade-offs. What would you do?' },
+    clinical:             { title: '🩺 Clinical Reasoning',    desc: 'Diagnose from symptoms. Medical reasoning under uncertainty.' },
+    medical_ethics:       { title: '⚕️ Medical Ethics',        desc: 'Healthcare ethics dilemmas — patient rights and professional duty.' },
+    financial_analysis:   { title: '📊 Financial Analysis',   desc: 'Financial ratios, investment trade-offs, and market signals.' },
+    risk_assessment:      { title: '🎲 Risk Assessment',       desc: 'Probability reasoning and risk management decisions.' },
+    legal_reasoning:      { title: '⚖️ Legal Reasoning',       desc: 'Case analysis, legal principles, and evidence evaluation.' },
+    pedagogy:             { title: '📚 Teaching Judgment',     desc: 'Classroom decisions, learning theory, and student support.' },
+    behavioral_judgment:  { title: '🧠 Behavioral Insight',   desc: 'Human behaviour, psychology, and social reasoning.' },
+    engineering_analysis: { title: '🔧 Engineering Analysis', desc: 'Structural, mechanical, and physical engineering problems.' },
+    scientific_method:    { title: '🔬 Scientific Method',     desc: 'Research design, hypothesis testing, and data interpretation.' },
+    creative_judgment:    { title: '🎨 Creative Judgment',    desc: 'Creative and editorial decisions — design, narrative, communication.' },
+  };
+  const { title: gameTitle, desc: gameDesc } = VARIANT_META[variant] ?? VARIANT_META.deduction;
 
   return (
     <View style={styles.container}>

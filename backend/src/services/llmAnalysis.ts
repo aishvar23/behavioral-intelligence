@@ -132,6 +132,16 @@ LOGICAL REASONING — measures deductive reasoning, verbal reasoning, abstractio
   logic_debugging       | "Debug Scenarios"        | Real software bug diagnosis from symptoms. Root cause analysis.
   logic_boolean         | "Boolean Logic"          | Conditional expressions, truth tables, short-circuit reasoning.
   logic_priority        | "Engineering Decisions"  | Engineering trade-offs under constraint. Prioritisation and judgment.
+  logic_clinical          | "Clinical Reasoning"    | Medical diagnosis from symptoms. Clinical reasoning under uncertainty.
+  logic_medical_ethics    | "Medical Ethics"        | Healthcare ethics dilemmas — consent, duty of care, resource allocation.
+  logic_financial_analysis| "Financial Analysis"    | Financial ratios, NPV, investment and valuation decisions.
+  logic_risk_assessment   | "Risk Assessment"       | Probability, expected value, risk mitigation strategies.
+  logic_legal_reasoning   | "Legal Reasoning"       | Case analysis, legal principles, evidence and precedent.
+  logic_pedagogy          | "Teaching Judgment"     | Classroom decisions, differentiated instruction, learning theory.
+  logic_behavioral        | "Behavioral Insight"    | Psychology, human behaviour, social and motivational reasoning.
+  logic_engineering_analysis| "Engineering Analysis"| Structural, mechanical and physical engineering problem solving.
+  logic_scientific_method | "Scientific Method"     | Hypothesis testing, research design, data interpretation.
+  logic_creative_judgment | "Creative Judgment"     | Design, editorial, and creative communication decisions.
 
 REACTION & INHIBITION — measures processing speed, impulse control, focus:
   reaction_basic        | "Quick Tap"              | Tap on stimulus appearance. Pure reaction speed.
@@ -177,6 +187,16 @@ const GAME_DESCRIPTIONS: Record<string, string> = {
   logic_debugging:        'LOGIC       | "Debug Scenarios"         | Real software bug diagnosis. Root cause analysis.',
   logic_boolean:          'LOGIC       | "Boolean Logic"           | Conditional logic, truth tables, short-circuit evaluation.',
   logic_priority:         'LOGIC       | "Engineering Decisions"   | Engineering trade-offs under constraint. Prioritisation.',
+  logic_clinical:             'LOGIC       | "Clinical Reasoning"      | Medical diagnosis from symptoms. Clinical reasoning.',
+  logic_medical_ethics:       'LOGIC       | "Medical Ethics"          | Healthcare ethics — consent, duty, resource allocation.',
+  logic_financial_analysis:   'LOGIC       | "Financial Analysis"      | Financial ratios, NPV, investment decisions.',
+  logic_risk_assessment:      'LOGIC       | "Risk Assessment"         | Probability, expected value, risk mitigation.',
+  logic_legal_reasoning:      'LOGIC       | "Legal Reasoning"         | Case analysis, legal principles, evidence.',
+  logic_pedagogy:             'LOGIC       | "Teaching Judgment"       | Classroom decisions, learning theory, student support.',
+  logic_behavioral:           'LOGIC       | "Behavioral Insight"      | Psychology, human behaviour, social reasoning.',
+  logic_engineering_analysis: 'LOGIC       | "Engineering Analysis"    | Structural, mechanical, physical engineering problems.',
+  logic_scientific_method:    'LOGIC       | "Scientific Method"       | Research design, hypothesis testing, data interpretation.',
+  logic_creative_judgment:    'LOGIC       | "Creative Judgment"       | Design, editorial, and creative communication decisions.',
   reaction_basic:         'REACTION    | "Quick Tap"               | Pure reaction speed. Processing speed.',
   reaction_inhibition:    'REACTION    | "Stop & Go"               | Tap green, resist red. Impulse control + focus.',
   reaction_speed:         'REACTION    | "Speed Challenge"         | Multi-target rapid tap. Speed + accuracy.',

@@ -214,6 +214,66 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     description: 'Real-world engineering trade-offs under time and resource pressure.',
     config: { variant: 'priority' },
   },
+  logic_clinical: {
+    id: 'logic_clinical', type: 'logic',
+    title: 'Clinical Reasoning', emoji: '🩺', difficulty: 'hard',
+    description: 'Diagnose from symptoms and clinical signals — medical reasoning under uncertainty.',
+    config: { variant: 'clinical' },
+  },
+  logic_medical_ethics: {
+    id: 'logic_medical_ethics', type: 'logic',
+    title: 'Medical Ethics', emoji: '⚕️', difficulty: 'medium',
+    description: 'Complex healthcare ethics dilemmas — patient rights, consent, and professional duty.',
+    config: { variant: 'medical_ethics' },
+  },
+  logic_financial_analysis: {
+    id: 'logic_financial_analysis', type: 'logic',
+    title: 'Financial Analysis', emoji: '📊', difficulty: 'hard',
+    description: 'Analyse financial ratios, investment trade-offs, and market signals.',
+    config: { variant: 'financial_analysis' },
+  },
+  logic_risk_assessment: {
+    id: 'logic_risk_assessment', type: 'logic',
+    title: 'Risk Assessment', emoji: '🎲', difficulty: 'hard',
+    description: 'Probability reasoning, expected value, and risk management decisions.',
+    config: { variant: 'risk_assessment' },
+  },
+  logic_legal_reasoning: {
+    id: 'logic_legal_reasoning', type: 'logic',
+    title: 'Legal Reasoning', emoji: '⚖️', difficulty: 'hard',
+    description: 'Case analysis, legal principles, and evidence evaluation.',
+    config: { variant: 'legal_reasoning' },
+  },
+  logic_pedagogy: {
+    id: 'logic_pedagogy', type: 'logic',
+    title: 'Teaching Judgment', emoji: '📚', difficulty: 'medium',
+    description: 'Classroom decisions, learning theory, and student support scenarios.',
+    config: { variant: 'pedagogy' },
+  },
+  logic_behavioral: {
+    id: 'logic_behavioral', type: 'logic',
+    title: 'Behavioral Insight', emoji: '🧠', difficulty: 'medium',
+    description: 'Human behaviour, psychology principles, and social reasoning.',
+    config: { variant: 'behavioral_judgment' },
+  },
+  logic_engineering_analysis: {
+    id: 'logic_engineering_analysis', type: 'logic',
+    title: 'Engineering Analysis', emoji: '🔧', difficulty: 'hard',
+    description: 'Structural, mechanical, and physical engineering problem solving.',
+    config: { variant: 'engineering_analysis' },
+  },
+  logic_scientific_method: {
+    id: 'logic_scientific_method', type: 'logic',
+    title: 'Scientific Method', emoji: '🔬', difficulty: 'hard',
+    description: 'Research design, hypothesis testing, and data interpretation.',
+    config: { variant: 'scientific_method' },
+  },
+  logic_creative_judgment: {
+    id: 'logic_creative_judgment', type: 'logic',
+    title: 'Creative Judgment', emoji: '🎨', difficulty: 'medium',
+    description: 'Creative and editorial decisions — design, narrative, and communication.',
+    config: { variant: 'creative_judgment' },
+  },
 
   // ── Reaction variants (3) — new game type ────────────────────────────────
   reaction_basic: {
