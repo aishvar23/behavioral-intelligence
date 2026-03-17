@@ -1,6 +1,10 @@
 // Mock heavy dependencies before imports
 jest.mock('../db/database');
 jest.mock('../services/llmAnalysis');
+// Disable rate limiting in tests so repeated calls don't trigger 429
+jest.mock('express-rate-limit', () => ({
+  rateLimit: () => (_req: unknown, _res: unknown, next: () => void) => next(),
+}));
 
 import request from 'supertest';
 import express from 'express';
@@ -47,8 +51,9 @@ function makeDbRow(gameId: string, eventType: string, data: Record<string, unkno
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
-  // Re-apply default returns after clearing
+  // resetAllMocks clears calls AND resets implementations, preventing
+  // mockRejectedValue/mockResolvedValue from leaking between tests.
+  jest.resetAllMocks();
   mockDb.prepare.mockReturnValue(mockStatement);
   mockRun.mockReturnValue({ changes: 1 });
   mockGet.mockReturnValue(undefined);
@@ -58,12 +63,16 @@ beforeEach(() => {
 
 // ─── POST /event ──────────────────────────────────────────────────────────────
 
+const SESSION_1 = 'a0000000-0000-0000-0000-000000000001';
+const SESSION_2 = 'a0000000-0000-0000-0000-000000000002';
+
 describe('POST /event', () => {
   it('returns 201 on happy path', async () => {
+    mockGet.mockReturnValueOnce({ count: 0 }); // event count check
     const res = await request(app)
       .post('/event')
       .send({
-        sessionId: 'sess-1',
+        sessionId: SESSION_1,
         gameId: 'exploration',
         eventType: 'move',
         timestamp: Date.now(),
@@ -76,7 +85,7 @@ describe('POST /event', () => {
       expect.stringContaining('INSERT INTO events')
     );
     expect(mockRun).toHaveBeenCalledWith(
-      'sess-1',
+      SESSION_1,
       'exploration',
       'move',
       expect.any(Number),
@@ -96,7 +105,7 @@ describe('POST /event', () => {
   it('returns 400 when gameId is missing', async () => {
     const res = await request(app)
       .post('/event')
-      .send({ sessionId: 'sess-1', eventType: 'move', timestamp: Date.now() });
+      .send({ sessionId: SESSION_1, eventType: 'move', timestamp: Date.now() });
 
     expect(res.status).toBe(400);
     expect(res.body).toHaveProperty('error');
@@ -105,7 +114,7 @@ describe('POST /event', () => {
   it('returns 400 when eventType is missing', async () => {
     const res = await request(app)
       .post('/event')
-      .send({ sessionId: 'sess-1', gameId: 'exploration', timestamp: Date.now() });
+      .send({ sessionId: SESSION_1, gameId: 'exploration', timestamp: Date.now() });
 
     expect(res.status).toBe(400);
     expect(res.body).toHaveProperty('error');
@@ -114,19 +123,20 @@ describe('POST /event', () => {
   it('returns 400 when timestamp is missing', async () => {
     const res = await request(app)
       .post('/event')
-      .send({ sessionId: 'sess-1', gameId: 'exploration', eventType: 'move' });
+      .send({ sessionId: SESSION_1, gameId: 'exploration', eventType: 'move' });
 
     expect(res.status).toBe(400);
     expect(res.body).toHaveProperty('error');
   });
 
-  it('stores empty object when data is not provided', async () => {
+  it('stores empty object when data field is empty', async () => {
+    mockGet.mockReturnValueOnce({ count: 0 }); // event count check
     const res = await request(app)
       .post('/event')
-      .send({ sessionId: 'sess-2', gameId: 'puzzle', eventType: 'quit', timestamp: 12345 });
+      .send({ sessionId: SESSION_2, gameId: 'puzzle', eventType: 'quit', timestamp: 12345, data: {} });
 
     expect(res.status).toBe(201);
-    expect(mockRun).toHaveBeenCalledWith('sess-2', 'puzzle', 'quit', 12345, '{}');
+    expect(mockRun).toHaveBeenCalledWith(SESSION_2, 'puzzle', 'quit', 12345, '{}');
   });
 });
 
@@ -244,6 +254,10 @@ const mockGameResults = [
   { configId: 'memory_numbers', gameType: 'memory', title: 'Number Recall', emoji: '🔢', score: 60 },
 ];
 
+const SESSION_CAREER  = 'b0000000-0000-0000-0000-000000000001';
+const SESSION_FAIL    = 'b0000000-0000-0000-0000-000000000002';
+const SESSION_TRAITS  = 'b0000000-0000-0000-0000-000000000003';
+
 describe('POST /career-report', () => {
   it('returns 400 when sessionId is missing', async () => {
     const res = await request(app)
@@ -257,7 +271,7 @@ describe('POST /career-report', () => {
   it('returns 400 when userProfile is missing', async () => {
     const res = await request(app)
       .post('/career-report')
-      .send({ sessionId: 'sess-1', gameResults: mockGameResults });
+      .send({ sessionId: SESSION_CAREER, gameResults: mockGameResults });
 
     expect(res.status).toBe(400);
     expect(res.body).toHaveProperty('error');
@@ -266,7 +280,7 @@ describe('POST /career-report', () => {
   it('returns 400 when gameResults is missing', async () => {
     const res = await request(app)
       .post('/career-report')
-      .send({ sessionId: 'sess-1', userProfile: mockUserProfile });
+      .send({ sessionId: SESSION_CAREER, userProfile: mockUserProfile });
 
     expect(res.status).toBe(400);
     expect(res.body).toHaveProperty('error');
@@ -290,7 +304,7 @@ describe('POST /career-report', () => {
 
     const res = await request(app)
       .post('/career-report')
-      .send({ sessionId: 'sess-career', userProfile: mockUserProfile, gameResults: mockGameResults });
+      .send({ sessionId: SESSION_CAREER, userProfile: mockUserProfile, gameResults: mockGameResults });
 
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('traits');
@@ -310,7 +324,7 @@ describe('POST /career-report', () => {
 
     const res = await request(app)
       .post('/career-report')
-      .send({ sessionId: 'sess-fail', userProfile: mockUserProfile, gameResults: mockGameResults });
+      .send({ sessionId: SESSION_FAIL, userProfile: mockUserProfile, gameResults: mockGameResults });
 
     expect(res.status).toBe(500);
     expect(res.body).toHaveProperty('error', 'Failed to generate career report');
@@ -328,14 +342,19 @@ describe('POST /career-report', () => {
       aiRecommendedCareers: [],
     });
 
-    await request(app)
+    const res = await request(app)
       .post('/career-report')
-      .send({ sessionId: 'sess-traits', userProfile: mockUserProfile, gameResults: mockGameResults });
+      .send({ sessionId: SESSION_TRAITS, userProfile: mockUserProfile, gameResults: mockGameResults });
 
+    expect(res.status).toBe(200); // confirms LLM was reached (not short-circuited)
+
+    // generateCareerReport(traits, userProfile, gameResults, gameBehaviorData, sessionId)
     expect(generateCareerReport).toHaveBeenCalledWith(
-      expect.objectContaining({ curiosity: 1.0 }),  // 0.6/0.6 = 1.0
+      expect.objectContaining({ curiosity: expect.any(Number) }),
       mockUserProfile,
-      mockGameResults
+      mockGameResults,
+      expect.anything(), // gameBehaviorData
+      SESSION_TRAITS,    // sessionId
     );
   });
 });

@@ -132,18 +132,16 @@ describe('calculateTraits', () => {
     });
 
     it('returns 0.5 when no puzzle events at all', () => {
-      // No puzzle events → moves=0, quit=false, solved=false → clamp(0/100)=0
-      // Wait: with no puzzle events moves=0, not solved, not quit → clamp(0/100) = 0
+      // No puzzle/logic/reaction events → persistence defaults to 0.5
       const traits = calculateTraits([]);
-      expect(traits.persistence).toBe(0);
+      expect(traits.persistence).toBe(0.5);
     });
 
     it('ignores non-puzzle game events', () => {
-      // exploration solved should not count
+      // exploration events don't affect puzzle persistence → defaults to 0.5
       const events = [makeEvent('exploration', 'solved', {})];
       const traits = calculateTraits(events);
-      // No puzzle events → clamp(0/100) = 0
-      expect(traits.persistence).toBe(0);
+      expect(traits.persistence).toBe(0.5);
     });
   });
 
