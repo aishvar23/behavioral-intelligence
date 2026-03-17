@@ -48,6 +48,12 @@ function initSchema(db: Database.Database) {
       timestamp     INTEGER NOT NULL
     );
   `);
+
+  // Migrations for existing databases — add columns that may be missing
+  const existingCols = (db.pragma('table_info(reports)') as Array<{ name: string }>).map(c => c.name);
+  if (!existingCols.includes('career_report')) {
+    db.exec('ALTER TABLE reports ADD COLUMN career_report TEXT');
+  }
 }
 
 let pgPool: Pool | undefined;
