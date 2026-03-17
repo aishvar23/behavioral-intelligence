@@ -195,7 +195,7 @@ export default function GameScreen({ navigation, route }: Props) {
         <LogicDeductionGame
           sessionId={sessionId}
           onComplete={handleGameComplete}
-          config={{ variant: (cfg.variant as 'deduction' | 'patterns' | 'verbal' | 'debugging' | 'systems' | 'boolean' | 'priority' | 'clinical' | 'medical_ethics' | 'financial_analysis' | 'risk_assessment' | 'legal_reasoning' | 'pedagogy' | 'behavioral_judgment' | 'engineering_analysis' | 'scientific_method' | 'creative_judgment') ?? 'deduction' }}
+          config={{ variant: (cfg.variant as 'deduction' | 'patterns' | 'verbal' | 'boolean' | 'quantitative' | 'spatial' | 'situational' | 'attention') ?? 'deduction' }}
         />
       )}
       {current.gameType === 'reaction' && (

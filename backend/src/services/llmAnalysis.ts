@@ -87,7 +87,9 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 // Full 36-game catalog used as context in the report prompt.
 // For game selection, a focused per-occupation subset is passed instead.
 const GAME_CATALOG_FOR_LLM = `
-Available assessment games (36 total, across 6 types):
+NOTE: Select games based on the COGNITIVE TRAITS required for the occupation (curiosity, precision, memory, analytical thinking, spatial reasoning, speed) — not on job-specific knowledge. All games use abstract content anyone can attempt.
+
+Available assessment games (across 6 types):
 
 EXPLORATION — measures curiosity, risk tolerance, strategic navigation:
   exploration_standard  | "Exploration Island"     | 8×8 fog grid, 30 moves. Rewards + traps.
@@ -121,27 +123,15 @@ MEMORY — measures working memory, spatial recall, numerical retention:
   memory_faces          | "Name & Context"         | Associate names with faces. Social/associative memory.
   memory_code           | "Code Recall"            | Symbolic/code-like patterns. Abstract working memory.
 
-LOGICAL REASONING — measures deductive reasoning, verbal reasoning, abstraction:
-  logic_deduction       | "Logic Deduction"        | Classical if-then deduction. Logical analysis.
-  logic_patterns        | "Abstract Patterns"      | Number/abstract sequence rules. Abstraction.
-  logic_verbal          | "Word Logic"             | Verbal analogies, odd-one-out. Verbal reasoning.
-  logic_diagnostic      | "Diagnostic Reasoning"   | Elimination-based deduction. Clinical/investigative logic.
-  logic_ethical         | "Ethics Dilemma"         | Competing values reasoning. Moral and contextual judgment.
-  logic_financial       | "Financial Logic"        | ROI, risk-reward, compound scenarios. Quantitative logic.
-  logic_systems         | "Systems Thinking"       | Cause-effect chains. Complex interdependency reasoning.
-  logic_debugging       | "Debug Scenarios"        | Real software bug diagnosis from symptoms. Root cause analysis.
-  logic_boolean         | "Boolean Logic"          | Conditional expressions, truth tables, short-circuit reasoning.
-  logic_priority        | "Engineering Decisions"  | Engineering trade-offs under constraint. Prioritisation and judgment.
-  logic_clinical          | "Clinical Reasoning"    | Medical diagnosis from symptoms. Clinical reasoning under uncertainty.
-  logic_medical_ethics    | "Medical Ethics"        | Healthcare ethics dilemmas — consent, duty of care, resource allocation.
-  logic_financial_analysis| "Financial Analysis"    | Financial ratios, NPV, investment and valuation decisions.
-  logic_risk_assessment   | "Risk Assessment"       | Probability, expected value, risk mitigation strategies.
-  logic_legal_reasoning   | "Legal Reasoning"       | Case analysis, legal principles, evidence and precedent.
-  logic_pedagogy          | "Teaching Judgment"     | Classroom decisions, differentiated instruction, learning theory.
-  logic_behavioral        | "Behavioral Insight"    | Psychology, human behaviour, social and motivational reasoning.
-  logic_engineering_analysis| "Engineering Analysis"| Structural, mechanical and physical engineering problem solving.
-  logic_scientific_method | "Scientific Method"     | Hypothesis testing, research design, data interpretation.
-  logic_creative_judgment | "Creative Judgment"     | Design, editorial, and creative communication decisions.
+LOGICAL REASONING — measures deductive reasoning, abstract thinking, numerical reasoning, spatial cognition:
+  logic_deduction    | "Logic Deduction"      | Classical if-then deduction. Analytical reasoning.
+  logic_patterns     | "Abstract Patterns"    | Number/abstract sequence rules. Abstraction.
+  logic_verbal       | "Word Logic"           | Verbal analogies, odd-one-out. Verbal reasoning.
+  logic_boolean      | "Boolean Logic"        | Conditional expressions, truth tables. Precise logical thinking.
+  logic_quantitative | "Quantitative Logic"   | Numerical reasoning — ratios, rates, probability.
+  logic_spatial      | "Spatial Reasoning"    | Shape rotation, geometry, spatial visualisation.
+  logic_situational  | "Situational Judgment" | Abstract judgment calls under ambiguity and constraint.
+  logic_attention    | "Attention to Detail"  | Error detection, anomaly spotting, pattern accuracy.
 
 REACTION & INHIBITION — measures processing speed, impulse control, focus:
   reaction_basic        | "Quick Tap"              | Tap on stimulus appearance. Pure reaction speed.
@@ -177,26 +167,14 @@ const GAME_DESCRIPTIONS: Record<string, string> = {
   memory_sequential:      'MEMORY      | "Procedure Recall"        | Ordered steps. Procedural memory under load.',
   memory_faces:           'MEMORY      | "Name & Context"          | Name-face association. Social/associative memory.',
   memory_code:            'MEMORY      | "Code Recall"             | Symbolic patterns. Abstract working memory.',
-  logic_deduction:        'LOGIC       | "Logic Deduction"         | If-then deduction. Analytical logic.',
-  logic_patterns:         'LOGIC       | "Abstract Patterns"       | Abstract sequence rules. Abstraction.',
-  logic_verbal:           'LOGIC       | "Word Logic"              | Verbal analogies. Verbal reasoning.',
-  logic_diagnostic:       'LOGIC       | "Diagnostic Reasoning"    | Elimination-based deduction. Investigative logic.',
-  logic_ethical:          'LOGIC       | "Ethics Dilemma"          | Competing values. Moral and contextual judgment.',
-  logic_financial:        'LOGIC       | "Financial Logic"         | ROI, risk-reward scenarios. Quantitative logic.',
-  logic_systems:          'LOGIC       | "Systems Thinking"        | Cause-effect chains. Complex interdependency reasoning.',
-  logic_debugging:        'LOGIC       | "Debug Scenarios"         | Real software bug diagnosis. Root cause analysis.',
-  logic_boolean:          'LOGIC       | "Boolean Logic"           | Conditional logic, truth tables, short-circuit evaluation.',
-  logic_priority:         'LOGIC       | "Engineering Decisions"   | Engineering trade-offs under constraint. Prioritisation.',
-  logic_clinical:             'LOGIC       | "Clinical Reasoning"      | Medical diagnosis from symptoms. Clinical reasoning.',
-  logic_medical_ethics:       'LOGIC       | "Medical Ethics"          | Healthcare ethics — consent, duty, resource allocation.',
-  logic_financial_analysis:   'LOGIC       | "Financial Analysis"      | Financial ratios, NPV, investment decisions.',
-  logic_risk_assessment:      'LOGIC       | "Risk Assessment"         | Probability, expected value, risk mitigation.',
-  logic_legal_reasoning:      'LOGIC       | "Legal Reasoning"         | Case analysis, legal principles, evidence.',
-  logic_pedagogy:             'LOGIC       | "Teaching Judgment"       | Classroom decisions, learning theory, student support.',
-  logic_behavioral:           'LOGIC       | "Behavioral Insight"      | Psychology, human behaviour, social reasoning.',
-  logic_engineering_analysis: 'LOGIC       | "Engineering Analysis"    | Structural, mechanical, physical engineering problems.',
-  logic_scientific_method:    'LOGIC       | "Scientific Method"       | Research design, hypothesis testing, data interpretation.',
-  logic_creative_judgment:    'LOGIC       | "Creative Judgment"       | Design, editorial, and creative communication decisions.',
+  logic_deduction:    'LOGIC | "Logic Deduction"       | Classical if-then deduction. Analytical reasoning.',
+  logic_patterns:     'LOGIC | "Abstract Patterns"     | Abstract sequence rules. Pattern abstraction.',
+  logic_verbal:       'LOGIC | "Word Logic"            | Verbal analogies and odd-one-out. Verbal reasoning.',
+  logic_boolean:      'LOGIC | "Boolean Logic"         | Conditional logic and truth tables. Precise thinking.',
+  logic_quantitative: 'LOGIC | "Quantitative Logic"    | Numerical reasoning — ratios, rates, probability.',
+  logic_spatial:      'LOGIC | "Spatial Reasoning"     | Shape rotation, geometry, spatial visualisation.',
+  logic_situational:  'LOGIC | "Situational Judgment"  | Abstract judgment under ambiguity and constraint.',
+  logic_attention:    'LOGIC | "Attention to Detail"   | Error detection, anomaly spotting, accuracy under load.',
   reaction_basic:         'REACTION    | "Quick Tap"               | Pure reaction speed. Processing speed.',
   reaction_inhibition:    'REACTION    | "Stop & Go"               | Tap green, resist red. Impulse control + focus.',
   reaction_speed:         'REACTION    | "Speed Challenge"         | Multi-target rapid tap. Speed + accuracy.',
