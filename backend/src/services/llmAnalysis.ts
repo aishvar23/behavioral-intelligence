@@ -432,7 +432,7 @@ Respond with valid JSON only (no markdown, no code fences):
       });
     }
 
-    const raw = '{' + (message.content[0].type === 'text' ? message.content[0].text : '');
+    const raw = message.content[0].type === 'text' ? message.content[0].text : '';
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     const text = jsonMatch ? jsonMatch[0] : raw.trim();
 
