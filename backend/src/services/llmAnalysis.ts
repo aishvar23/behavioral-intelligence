@@ -231,7 +231,7 @@ Respond with valid JSON only (no markdown):
         { role: 'user', content: prompt },
         { role: 'assistant', content: '{' },
       ],
-    }), { timeout: LLM_TIMEOUT_MS });
+    }));
 
     const raw = '{' + (message.content[0].type === 'text' ? message.content[0].text : '');
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
@@ -423,7 +423,7 @@ Respond with valid JSON only (no markdown, no code fences):
         { role: 'user', content: prompt },
         { role: 'assistant', content: '{' },
       ],
-    }), { timeout: LLM_TIMEOUT_MS });
+    }));
     const latencyMs = Date.now() - t0;
 
     if (sessionId) {
