@@ -10,11 +10,13 @@ on:
       - 'backend/**'
       - '.github/workflows/deploy-backend.yml'
 
-# Cancel any in-progress deployment for the same branch when a new push arrives.
-# This prevents two runs from racing to deploy simultaneously and causing 409 locks.
+# Serialize deployments per branch — only one runs at a time, others queue.
+# cancel-in-progress: false is intentional: cancelling a run kills the GitHub
+# runner but NOT the in-flight Kudu upload, which leaves the deployment lock
+# held and causes 409s for the next run. Queuing avoids all of this.
 concurrency:
   group: deploy-${{ github.ref_name }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
