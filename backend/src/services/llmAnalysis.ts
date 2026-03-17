@@ -463,7 +463,7 @@ Respond with valid JSON only (no markdown, no code fences):
 
       return {
         thinkingStyle: parsed.thinkingStyle ?? 'Adaptive thinker with room to demonstrate full potential.',
-        aiReport: parsed.report ?? parsed.aiReport ?? 'Analysis unavailable.',
+        aiReport: parsed.report ?? parsed.aiReport ?? parsed.analysis ?? parsed.summary ?? parsed.behavioralAnalysis ?? 'Analysis unavailable.',
         occupationFit: parsed.occupationFit ?? {
           occupation: userProfile.occupationTitle,
           rating: 'low',

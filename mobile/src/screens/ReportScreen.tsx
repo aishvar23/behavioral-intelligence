@@ -159,7 +159,7 @@ export default function ReportScreen({ navigation, route }: Props) {
       {/* Trait Bars */}
       <Text style={styles.sectionHeading}>Behavioral Traits</Text>
       <View style={styles.traitsSection}>
-        {Object.entries(report.traits).map(([key, value]) => {
+        {Object.entries(typeof report.traits === 'string' ? JSON.parse(report.traits) : report.traits).map(([key, value]) => {
           const meta = TRAIT_META[key] ?? { label: key, color: '#9999cc', emoji: '📊' };
           const pct = Math.round(value * 100);
           return (
@@ -188,7 +188,11 @@ export default function ReportScreen({ navigation, route }: Props) {
       {/* Behavioral Analysis */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Behavioral Analysis</Text>
-        <Text style={styles.sectionBody}>{report.aiReport}</Text>
+        <Text style={styles.sectionBody}>
+          {typeof report.aiReport === 'string' && !report.aiReport.trimStart().startsWith('{')
+            ? report.aiReport
+            : 'Analysis could not be displayed. Please retake the assessment.'}
+        </Text>
       </View>
 
       {/* Occupation Fit */}
