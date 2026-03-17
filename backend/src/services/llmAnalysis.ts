@@ -129,6 +129,9 @@ LOGICAL REASONING — measures deductive reasoning, verbal reasoning, abstractio
   logic_ethical         | "Ethics Dilemma"         | Competing values reasoning. Moral and contextual judgment.
   logic_financial       | "Financial Logic"        | ROI, risk-reward, compound scenarios. Quantitative logic.
   logic_systems         | "Systems Thinking"       | Cause-effect chains. Complex interdependency reasoning.
+  logic_debugging       | "Debug Scenarios"        | Real software bug diagnosis from symptoms. Root cause analysis.
+  logic_boolean         | "Boolean Logic"          | Conditional expressions, truth tables, short-circuit reasoning.
+  logic_priority        | "Engineering Decisions"  | Engineering trade-offs under constraint. Prioritisation and judgment.
 
 REACTION & INHIBITION — measures processing speed, impulse control, focus:
   reaction_basic        | "Quick Tap"              | Tap on stimulus appearance. Pure reaction speed.
@@ -171,6 +174,9 @@ const GAME_DESCRIPTIONS: Record<string, string> = {
   logic_ethical:          'LOGIC       | "Ethics Dilemma"          | Competing values. Moral and contextual judgment.',
   logic_financial:        'LOGIC       | "Financial Logic"         | ROI, risk-reward scenarios. Quantitative logic.',
   logic_systems:          'LOGIC       | "Systems Thinking"        | Cause-effect chains. Complex interdependency reasoning.',
+  logic_debugging:        'LOGIC       | "Debug Scenarios"         | Real software bug diagnosis. Root cause analysis.',
+  logic_boolean:          'LOGIC       | "Boolean Logic"           | Conditional logic, truth tables, short-circuit evaluation.',
+  logic_priority:         'LOGIC       | "Engineering Decisions"   | Engineering trade-offs under constraint. Prioritisation.',
   reaction_basic:         'REACTION    | "Quick Tap"               | Pure reaction speed. Processing speed.',
   reaction_inhibition:    'REACTION    | "Stop & Go"               | Tap green, resist red. Impulse control + focus.',
   reaction_speed:         'REACTION    | "Speed Challenge"         | Multi-target rapid tap. Speed + accuracy.',

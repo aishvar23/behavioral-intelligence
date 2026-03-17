@@ -9,9 +9,12 @@
 export const OCCUPATION_GAME_POOLS: Record<string, string[]> = {
   // ── Technology ──────────────────────────────────────────────────────────────
   software_engineer: [
-    'exploration_systematic', 'pattern_standard', 'pattern_logic', 'pattern_advanced',
-    'puzzle_standard', 'puzzle_strategic', 'puzzle_analytical', 'memory_code',
-    'logic_deduction', 'logic_systems', 'reaction_basic', 'reaction_inhibition',
+    'exploration_systematic', 'exploration_data',
+    'pattern_standard', 'pattern_logic', 'pattern_adaptive',
+    'puzzle_analytical', 'puzzle_precise',
+    'memory_code', 'memory_sequential',
+    'logic_debugging', 'logic_systems', 'logic_boolean', 'logic_priority',
+    'reaction_basic',
   ],
   data_scientist: [
     'exploration_data', 'exploration_systematic', 'pattern_standard', 'pattern_financial',

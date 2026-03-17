@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { logEvent } from '../../services/api';
 
-type Variant = 'deduction' | 'patterns' | 'verbal';
+type Variant = 'deduction' | 'patterns' | 'verbal' | 'debugging' | 'systems' | 'boolean' | 'priority';
 
 interface Question {
   prompt: string;
@@ -52,6 +52,54 @@ const QUESTIONS: Record<Variant, Question[]> = {
     { prompt: 'Clock is to Time as Thermometer is to __', options: ['Temperature', 'Heat', 'Weather', 'Degrees'], answer: 0 },
     { prompt: 'Eye is to See as Ear is to __', options: ['Hear', 'Sound', 'Listen', 'Music'], answer: 0 },
     { prompt: 'Odd one out:', options: ['Pyramid', 'Circle', 'Square', 'Triangle'], answer: 0 },
+  ],
+  debugging: [
+    { prompt: 'A for loop runs from i=0 to i<=10. How many times does it execute?', options: ['11', '10', '9', '12'], answer: 0 },
+    { prompt: 'An array has 5 elements. What is the valid index range?', options: ['0 to 4', '1 to 5', '0 to 5', '1 to 4'], answer: 0 },
+    { prompt: 'A function fails only on the 100th call. Most likely cause?', options: ['A race condition or state accumulation', 'A syntax error', 'A compiler bug', 'An off-by-one error'], answer: 0 },
+    { prompt: 'Code works in dev but fails in production. Most likely cause?', options: ['Different environment variables or config', 'The code has syntax errors', 'The server is too fast', 'Tests were not run'], answer: 0 },
+    { prompt: 'After adding feature X, unrelated feature Y breaks. This suggests:', options: ['A shared dependency between X and Y', 'Feature Y was always broken', 'The deployment failed', 'The tests are wrong'], answer: 0 },
+    { prompt: 'API returns 200 OK but data is wrong. The bug is most likely in:', options: ['The business logic or data layer', 'The HTTP headers', 'The network routing', 'The DNS configuration'], answer: 0 },
+    { prompt: 'A recursive function never returns. The most likely missing element is:', options: ['A base case', 'A return type', 'A loop variable', 'A parameter'], answer: 0 },
+    { prompt: 'Memory usage grows every hour with no new users. This indicates:', options: ['A memory leak', 'High CPU usage', 'A network issue', 'A caching problem'], answer: 0 },
+    { prompt: 'A variable declared inside a loop — what happens each iteration?', options: ['It is re-initialised fresh', 'It retains its previous value', 'It causes a compile error', 'It is shared globally'], answer: 0 },
+    { prompt: 'An app crashes only on Android, not iOS. You should first check:', options: ['Platform-specific code and API differences', 'The server logs', 'The database schema', 'The CSS styling'], answer: 0 },
+  ],
+  systems: [
+    { prompt: 'A microservice failure brings down the whole app. Best architectural fix?', options: ['Circuit breakers and fallback responses', 'Faster servers', 'More microservices', 'Better logging'], answer: 0 },
+    { prompt: 'A cache cuts DB queries by 80% but users see stale data. The trade-off is:', options: ['Speed vs. data freshness', 'Cost vs. reliability', 'Security vs. performance', 'Latency vs. bandwidth'], answer: 0 },
+    { prompt: 'As user count grows 10×, the bottleneck will be the component that:', options: ['Cannot scale horizontally', 'Runs the fastest queries', 'Has the most code', 'Uses the least memory'], answer: 0 },
+    { prompt: 'Two services write to the same table with no coordination. This risks:', options: ['Data corruption or race conditions', 'Faster writes', 'Better throughput', 'Simpler architecture'], answer: 0 },
+    { prompt: 'You add an external API call to every page load. This creates:', options: ['A hard dependency — external failure breaks your app', 'Faster pages', 'Lower server costs', 'Better SEO'], answer: 0 },
+    { prompt: 'Logging every event in real-time slows the main app. Best fix:', options: ['Log asynchronously via a queue', 'Remove all logging', 'Log to the same database', 'Add more CPU'], answer: 0 },
+    { prompt: 'A monolith is split into 50 microservices. The new primary challenge is:', options: ['Service communication complexity', 'Simpler deployments', 'Less code to maintain', 'Faster development'], answer: 0 },
+    { prompt: 'Deployments fail during peak traffic. Root cause is most likely:', options: ['No zero-downtime deployment strategy', 'Slow developer internet', 'Wrong timezone', 'Compiler errors'], answer: 0 },
+    { prompt: 'Which principle says each component should fail without cascading?', options: ['Fault isolation / bulkhead pattern', 'DRY (Don\'t Repeat Yourself)', 'SOLID principles', 'Agile methodology'], answer: 0 },
+    { prompt: 'A single database handles all reads and writes at scale. First optimisation?', options: ['Read replicas to offload read queries', 'Delete old data', 'Upgrade the database version', 'Add more indexes to every table'], answer: 0 },
+  ],
+  boolean: [
+    { prompt: 'NOT (A AND B) equals:', options: ['NOT A OR NOT B', 'NOT A AND NOT B', 'A OR B', 'NOT A AND B'], answer: 0 },
+    { prompt: 'if (age >= 18 AND hasID == true) — age is 16. Result?', options: ['Access denied regardless of ID', 'Access allowed with ID', 'Depends on other conditions', 'Age check is skipped'], answer: 0 },
+    { prompt: 'A OR (B AND C) — if A is true, the result is:', options: ['Always true', 'Depends on B and C', 'Always false', 'Undefined'], answer: 0 },
+    { prompt: 'if (isAdmin || canEdit) — a non-admin with edit rights gets:', options: ['Access', 'Blocked', 'Admin rights', 'An error'], answer: 0 },
+    { prompt: 'XOR (Exclusive OR) is true when:', options: ['Inputs differ — one true, one false', 'Both inputs are true', 'Both inputs are false', 'At least one is true'], answer: 0 },
+    { prompt: '!(true && false) evaluates to:', options: ['true', 'false', 'null', 'error'], answer: 0 },
+    { prompt: 'Short-circuit evaluation means:', options: ['The second condition is skipped when the first decides the result', 'Both conditions always evaluate', 'Only the last condition matters', 'Conditions run in reverse'], answer: 0 },
+    { prompt: 'A AND B is true only when:', options: ['Both A and B are true', 'At least one is true', 'Only A is true', 'Only B is true'], answer: 0 },
+    { prompt: 'p → q (if p then q). p is false. The implication is:', options: ['True regardless of q', 'False regardless of q', 'Undefined', 'Only true if q is also false'], answer: 0 },
+    { prompt: 'if (x != null && x.value > 0) — why check x != null first?', options: ['To prevent a crash when accessing x.value on null', 'null is always greater than 0', 'Both sides always evaluate', 'x.value defaults to 0'], answer: 0 },
+  ],
+  priority: [
+    { prompt: 'A critical security vulnerability is found. A promised feature is due tomorrow. You:', options: ['Patch the vulnerability first', 'Deliver the feature first', 'Do both simultaneously', 'Escalate next week'], answer: 0 },
+    { prompt: 'Fix a bug affecting 500 users, add a nice-to-have feature, or refactor old code — best order?', options: ['Bug fix → refactor → feature', 'Feature → bug fix → refactor', 'Refactor → bug fix → feature', 'All at once'], answer: 0 },
+    { prompt: 'Halfway through a sprint, requirements change significantly. Best response?', options: ['Discuss impact with team, adjust scope', 'Ignore the change and deliver as planned', 'Restart from scratch', 'Accept all changes without adjusting deadline'], answer: 0 },
+    { prompt: 'A quick hack fixes the bug today; a proper fix takes 3 days. Production is affected. You:', options: ['Quick fix now, proper fix tracked as a ticket', 'Wait 3 days for the proper fix only', 'Do nothing until told', 'Roll back the whole release'], answer: 0 },
+    { prompt: 'Two engineers disagree on architecture. Who decides?', options: ['Discuss trade-offs, decide based on requirements', 'Most senior person always decides', 'Flip a coin', 'Escalate immediately to management'], answer: 0 },
+    { prompt: 'You must estimate a task you have never done before. Best approach?', options: ['Break into sub-tasks and estimate each', 'Refuse to estimate', 'Say 1 week for everything', 'Copy someone else\'s estimate'], answer: 0 },
+    { prompt: 'A code review reveals a colleague\'s PR has a subtle bug. You:', options: ['Comment clearly on the PR with an explanation', 'Merge it and fix later', 'Reject without explanation', 'Rewrite their code yourself'], answer: 0 },
+    { prompt: 'A feature works 99% of the time. The 1% failure causes data loss. Ship it?', options: ['No — data loss is never acceptable, fix first', 'Yes — 99% is good enough', 'Yes — users can recover manually', 'Yes — log it and fix next sprint'], answer: 0 },
+    { prompt: 'Technical debt is accumulating fast. Best approach?', options: ['Allocate regular refactoring time each sprint', 'Ignore it until the system breaks', 'Rewrite everything at once', 'Only add features, never refactor'], answer: 0 },
+    { prompt: 'A stakeholder requests a feature with no specification. Your first step?', options: ['Clarify requirements and expected outcomes', 'Start coding immediately', 'Decline the request', 'Copy a competitor\'s implementation'], answer: 0 },
   ],
 };
 
@@ -164,12 +212,26 @@ export default function LogicDeductionGame({ sessionId, onComplete, config }: Pr
     }, 1000);
   }
 
-  const gameTitle = variant === 'deduction' ? '🔎 Logic Deduction' : variant === 'patterns' ? '🔲 Abstract Patterns' : '💬 Word Logic';
+  const gameTitle = variant === 'deduction' ? '🔎 Logic Deduction'
+    : variant === 'patterns' ? '🔲 Abstract Patterns'
+    : variant === 'verbal' ? '💬 Word Logic'
+    : variant === 'debugging' ? '🐛 Debug Scenarios'
+    : variant === 'systems' ? '🏗️ Systems Thinking'
+    : variant === 'boolean' ? '⚙️ Boolean Logic'
+    : '⚖️ Engineering Decisions';
   const gameDesc = variant === 'deduction'
     ? 'Each puzzle has one logically correct conclusion. Think carefully.'
     : variant === 'patterns'
     ? 'Identify the rule and find the missing number.'
-    : 'Word analogies and odd-one-out puzzles.';
+    : variant === 'verbal'
+    ? 'Word analogies and odd-one-out puzzles.'
+    : variant === 'debugging'
+    ? 'Real software debugging scenarios. Identify the root cause.'
+    : variant === 'systems'
+    ? 'Architecture and systems decisions. Think about scale and trade-offs.'
+    : variant === 'boolean'
+    ? 'Logical conditions and boolean expressions. Think precisely.'
+    : 'Real-world engineering trade-offs. What would you do?';
 
   return (
     <View style={styles.container}>

@@ -190,6 +190,30 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     description: 'Verbal analogies, odd-one-out, language-based reasoning.',
     config: { variant: 'verbal' },
   },
+  logic_debugging: {
+    id: 'logic_debugging', type: 'logic',
+    title: 'Debug Scenarios', emoji: '🐛', difficulty: 'hard',
+    description: 'Real software bugs — identify the root cause from symptoms.',
+    config: { variant: 'debugging' },
+  },
+  logic_systems: {
+    id: 'logic_systems', type: 'logic',
+    title: 'Systems Thinking', emoji: '🏗️', difficulty: 'hard',
+    description: 'Architectural trade-offs and cause-effect chains at scale.',
+    config: { variant: 'systems' },
+  },
+  logic_boolean: {
+    id: 'logic_boolean', type: 'logic',
+    title: 'Boolean Logic', emoji: '⚙️', difficulty: 'medium',
+    description: 'Logical conditions, short-circuit evaluation, and truth tables.',
+    config: { variant: 'boolean' },
+  },
+  logic_priority: {
+    id: 'logic_priority', type: 'logic',
+    title: 'Engineering Decisions', emoji: '⚖️', difficulty: 'medium',
+    description: 'Real-world engineering trade-offs under time and resource pressure.',
+    config: { variant: 'priority' },
+  },
 
   // ── Reaction variants (3) — new game type ────────────────────────────────
   reaction_basic: {
