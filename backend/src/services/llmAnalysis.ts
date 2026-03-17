@@ -223,7 +223,7 @@ export async function selectGamesForUser(
     : ALL_VALID_GAME_IDS;
 
   const poolCatalog = validIds
-    .map(id => `  ${GAME_DESCRIPTIONS[id]}`)
+    .map(id => `  ${id} | ${GAME_DESCRIPTIONS[id]}`)
     .join('\n');
 
   const prompt = `You are an expert behavioral assessment designer for a cognitive intelligence platform.
@@ -236,6 +236,7 @@ USER PROFILE:
 - Areas of Interest: ${userProfile.interests}
 
 Available games for this occupation (${validIds.length} options):
+Format: ID | TYPE | TITLE | DESCRIPTION
 ${poolCatalog}
 
 Your task: Select exactly 3 games from the list above that will best reveal the cognitive and behavioral traits most critical for success as a ${userProfile.occupationTitle}.
@@ -244,10 +245,10 @@ Rules:
 1. Diversity — pick games from DIFFERENT types (EXPLORATION / PATTERN / PUZZLE / MEMORY / LOGIC / REACTION)
 2. Relevance — prioritise games measuring skills most important for ${userProfile.occupationTitle}
 3. Age context — consider the user's age (${userProfile.age}) and stated interests in your reasoning
-4. Only pick IDs that appear in the list above
+4. Use ONLY the exact ID strings from the leftmost column above
 
 Respond with valid JSON only (no markdown):
-{"selectedIds": ["id_1", "id_2", "id_3"], "reasoning": "One or two sentences explaining why these 3 games best assess a ${userProfile.occupationTitle}"}`;
+{"selectedIds": ["exact_id_1", "exact_id_2", "exact_id_3"], "reasoning": "One or two sentences explaining why these 3 games best assess a ${userProfile.occupationTitle}"}`;
 
   try {
     const message = await withRetry(() => client.messages.create({
@@ -262,8 +263,11 @@ Respond with valid JSON only (no markdown):
     const text = jsonMatch ? jsonMatch[0] : raw.trim();
     const parsed = JSON.parse(text);
 
-    const ids: string[] = (parsed.selectedIds ?? []).filter((id: string) => validIds.includes(id)).slice(0, 3);
+    const returned: string[] = parsed.selectedIds ?? [];
+    const ids: string[] = returned.filter((id: string) => validIds.includes(id)).slice(0, 3);
+    console.log('[selectGames] LLM returned:', returned, '| valid pool size:', validIds.length, '| accepted:', ids);
     if (ids.length < 3) {
+      console.warn('[selectGames] Falling back — only', ids.length, 'valid IDs from LLM response');
       return { selectedIds: FALLBACK_GAMES, reasoning: 'Standard assessment selected.' };
     }
     return { selectedIds: ids, reasoning: parsed.reasoning ?? '' };
