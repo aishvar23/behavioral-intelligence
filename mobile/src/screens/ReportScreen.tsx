@@ -204,6 +204,14 @@ export default function ReportScreen({ navigation, route }: Props) {
         </Text>
       </View>
 
+      {/* Progress vs Previous Sessions */}
+      {report.progressSummary && (
+        <View style={[styles.section, styles.progressSection]}>
+          <Text style={styles.sectionTitle}>Progress Since Last Session</Text>
+          <Text style={styles.sectionBody}>{report.progressSummary}</Text>
+        </View>
+      )}
+
       {/* Occupation Fit */}
       {report.occupationFit && (
         <>
@@ -321,6 +329,7 @@ const styles = StyleSheet.create({
   section: { backgroundColor: '#16213e', borderRadius: 14, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#2a2a5e' },
   sectionTitle: { color: '#5c6bc0', fontSize: 11, fontWeight: '700', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 },
   sectionBody: { color: '#c0c0ee', fontSize: 14, lineHeight: 22 },
+  progressSection: { borderColor: '#5c6bc0', borderWidth: 1.5 },
   // Occupation fit card
   fitCard: { backgroundColor: '#16213e', borderRadius: 14, padding: 16, marginBottom: 20, borderWidth: 1.5 },
   fitHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },

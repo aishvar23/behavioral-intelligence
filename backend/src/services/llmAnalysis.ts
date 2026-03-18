@@ -76,6 +76,7 @@ export interface TraitHistoryEntry {
 export interface FullLLMResult {
   thinkingStyle: string;
   aiReport: string;
+  progressSummary?: string;
   occupationFit: OccupationFit;
   aiRecommendedCareers: CareerRecommendation[];
   observations: GameObservation[];
@@ -445,11 +446,13 @@ Then compare the observed game behaviors to those inferred traits.
 4. DEVELOP — Identify 1–2 areas that may need development based on observed data.
 5. SUGGEST — Give age-appropriate skill-building activities for this user.
    Age group: ${ageGroup}.
+6. PROGRESS — Only if historical data is present above: note 1–2 traits that improved since previous sessions and 1 that still needs work. If no history, omit this field entirely.
 
 Respond with valid JSON only (no markdown, no code fences):
 {
   "thinkingStyle": "≤12 words describing their cognitive approach based on observed behavior",
   "report": "2–3 sentences: key observed behaviors → relation to ${userProfile.occupationTitle} → one strength and one area to develop",
+  "progressSummary": "Only include if historical data was provided: 1–2 sentences on trait improvement trends vs previous sessions. Omit this key entirely if no history.",
   "observations": [
     {
       "game": "game title",
@@ -522,6 +525,7 @@ Respond with valid JSON only (no markdown, no code fences):
       return {
         thinkingStyle: parsed.thinkingStyle ?? 'Adaptive thinker with room to demonstrate full potential.',
         aiReport: parsed.report ?? parsed.aiReport ?? parsed.analysis ?? parsed.summary ?? parsed.behavioralAnalysis ?? 'Analysis unavailable.',
+        progressSummary: parsed.progressSummary ?? undefined,
         occupationFit: parsed.occupationFit ?? {
           occupation: userProfile.occupationTitle,
           rating: 'low',

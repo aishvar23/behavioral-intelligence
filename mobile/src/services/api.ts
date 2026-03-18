@@ -68,6 +68,7 @@ export interface FullReport {
   gameResults: GameResult[];
   thinkingStyle: string;
   aiReport: string;
+  progressSummary?: string;
   occupationFit: OccupationFit;
   aiRecommendedCareers: CareerRecommendation[];
   observations?: GameObservation[];

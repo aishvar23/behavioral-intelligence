@@ -327,6 +327,7 @@ router.post('/career-report', careerReportLimiter, async (req: Request, res: Res
       gameResults,
       thinkingStyle: llmResult.thinkingStyle,
       aiReport: llmResult.aiReport,
+      progressSummary: llmResult.progressSummary,
       occupationFit: llmResult.occupationFit,
       aiRecommendedCareers: llmResult.aiRecommendedCareers,
       observations: llmResult.observations,
