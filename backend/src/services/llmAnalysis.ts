@@ -481,7 +481,7 @@ Respond with valid JSON only (no markdown, no code fences):
     const t0 = Date.now();
     const message = await withRetry(() => client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 1024,
+      max_tokens: 2048,
       system: 'You are a JSON API. Respond only with valid JSON. No prose, no markdown, no code fences.',
       messages: [{ role: 'user', content: prompt }],
     }));
@@ -503,6 +503,7 @@ Respond with valid JSON only (no markdown, no code fences):
 
     try {
       const parsed = JSON.parse(text);
+      console.log('[careerReport] JSON parsed OK — stop_reason:', message.stop_reason, 'output_tokens:', message.usage.output_tokens);
       // Normalise recommendedCareers rating values to what the frontend expects
       const normaliseRating = (r: string): CareerRecommendation['rating'] => {
         if (r === 'strong_match') return 'highly_recommended';
@@ -535,6 +536,7 @@ Respond with valid JSON only (no markdown, no code fences):
         skillDevelopment: parsed.skillDevelopment ?? [],
       };
     } catch {
+      console.error('[careerReport] JSON.parse failed — stop_reason:', message.stop_reason, 'output_tokens:', message.usage.output_tokens, 'raw snippet:', text.slice(0, 200));
       return {
         thinkingStyle: 'Adaptive thinker with room to demonstrate full potential.',
         aiReport: text,
