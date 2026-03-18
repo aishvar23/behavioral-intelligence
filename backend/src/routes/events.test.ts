@@ -249,7 +249,7 @@ const mockUserProfile = {
 };
 
 const mockGameResults = [
-  { configId: 'logic_deduction', gameType: 'logic', title: 'Logic Deduction', emoji: '🔎', score: 85 },
+  { configId: 'matrix_standard', gameType: 'matrix', title: 'Pattern Matrix', emoji: '🔲', score: 85 },
   { configId: 'pattern_advanced', gameType: 'pattern', title: 'Advanced Patterns', emoji: '🔮', score: 70 },
   { configId: 'memory_numbers', gameType: 'memory', title: 'Number Recall', emoji: '🔢', score: 60 },
 ];
@@ -288,7 +288,7 @@ describe('POST /career-report', () => {
 
   it('returns full career report on valid request', async () => {
     mockAll.mockReturnValue([
-      makeDbRow('logic_deduction', 'question_answer', { correct: true, timeSpent: 10 }),
+      makeDbRow('matrix_standard', 'option_selected', { correct: true, responseTime: 8000 }),
       makeDbRow('pattern_advanced', 'correct_guess', { adaptationRound: 2 }),
     ]);
 

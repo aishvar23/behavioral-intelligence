@@ -17,6 +17,11 @@ import ImpossiblePuzzle from '../components/games/ImpossiblePuzzle';
 import MemorySequenceGame from '../components/games/MemorySequenceGame';
 import LogicDeductionGame from '../components/games/LogicDeductionGame';
 import ReactionTestGame from '../components/games/ReactionTestGame';
+import StroopGame from '../components/games/StroopGame';
+import MatrixPuzzleGame from '../components/games/MatrixPuzzleGame';
+import MentalRotationGame from '../components/games/MentalRotationGame';
+import DotEstimationGame from '../components/games/DotEstimationGame';
+import VisualSearchGame from '../components/games/VisualSearchGame';
 import { GAME_CONFIGS } from '../data/gameCatalog';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Game'>;
@@ -75,6 +80,51 @@ const GAME_RULES: Record<string, { summary: string; bullets: string[] }> = {
       'For Stop & Go: tap green, do NOT tap red',
       'Faster correct responses score more points',
       '10 rounds in total',
+    ],
+  },
+  stroop: {
+    summary: 'A color word appears in a mismatching ink color — tap the ink color.',
+    bullets: [
+      'Ignore what the word says — focus on the color it\'s written in',
+      'Tap the matching color button as fast as you can',
+      'You lose points for wrong answers or timing out',
+      '20 trials in total',
+    ],
+  },
+  matrix: {
+    summary: 'A 3×3 grid of shapes with one cell missing — find the pattern and complete it.',
+    bullets: [
+      'Each row and column follows a consistent rule',
+      'Study both the shapes and background colors',
+      'Pick the correct missing piece from 4 options',
+      '6 rounds with 20 seconds each',
+    ],
+  },
+  spatial: {
+    summary: 'A shape is shown — pick the option that is the same shape, just rotated.',
+    bullets: [
+      'The target shape can be rotated in any direction',
+      'Watch out for mirror images — they don\'t count!',
+      'Different base shapes are also shown as distractors',
+      '8 rounds with 12 seconds each',
+    ],
+  },
+  estimation: {
+    summary: 'Two groups of dots flash briefly — tap the side with more dots.',
+    bullets: [
+      'Dots flash for less than a second — use instinct, not counting',
+      'Then tap LEFT or RIGHT to pick the larger group',
+      'Harder rounds have closer ratios (e.g. 16 vs 20)',
+      '14 trials in total',
+    ],
+  },
+  search: {
+    summary: 'A 5×5 grid of symbols appears — find and tap the odd ones out.',
+    bullets: [
+      'Most symbols are the same — a few are subtly different',
+      'The target symbol is shown above the grid',
+      'Wrong taps subtract 3 points — be precise',
+      '8 rounds with 30 seconds each',
     ],
   },
 };
@@ -205,6 +255,21 @@ export default function GameScreen({ navigation, route }: Props) {
           onComplete={handleGameComplete}
           config={{ variant: (cfg.variant as 'basic' | 'inhibition' | 'speed') ?? 'basic' }}
         />
+      )}
+      {current.gameType === 'stroop' && (
+        <StroopGame sessionId={sessionId} onComplete={handleGameComplete} />
+      )}
+      {current.gameType === 'matrix' && (
+        <MatrixPuzzleGame sessionId={sessionId} onComplete={handleGameComplete} />
+      )}
+      {current.gameType === 'spatial' && (
+        <MentalRotationGame sessionId={sessionId} onComplete={handleGameComplete} />
+      )}
+      {current.gameType === 'estimation' && (
+        <DotEstimationGame sessionId={sessionId} onComplete={handleGameComplete} />
+      )}
+      {current.gameType === 'search' && (
+        <VisualSearchGame sessionId={sessionId} onComplete={handleGameComplete} />
       )}
 
       {/* Rules tooltip modal */}

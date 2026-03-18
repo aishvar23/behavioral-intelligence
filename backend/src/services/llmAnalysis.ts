@@ -130,15 +130,18 @@ MEMORY — measures working memory, spatial recall, numerical retention:
   memory_faces          | "Name & Context"         | Associate names with faces. Social/associative memory.
   memory_code           | "Code Recall"            | Symbolic/code-like patterns. Abstract working memory.
 
-LOGICAL REASONING — measures deductive reasoning, abstract thinking, numerical reasoning, spatial cognition:
-  logic_deduction    | "Logic Deduction"      | Classical if-then deduction. Analytical reasoning.
-  logic_patterns     | "Abstract Patterns"    | Number/abstract sequence rules. Abstraction.
+VERBAL / SITUATIONAL REASONING — measures judgment, verbal reasoning (text-based MCQ):
   logic_verbal       | "Word Logic"           | Verbal analogies, odd-one-out. Verbal reasoning.
-  logic_boolean      | "Boolean Logic"        | Conditional expressions, truth tables. Precise logical thinking.
-  logic_quantitative | "Quantitative Logic"   | Numerical reasoning — ratios, rates, probability.
-  logic_spatial      | "Spatial Reasoning"    | Shape rotation, geometry, spatial visualisation.
   logic_situational  | "Situational Judgment" | Abstract judgment calls under ambiguity and constraint.
-  logic_attention    | "Attention to Detail"  | Error detection, anomaly spotting, pattern accuracy.
+
+COGNITIVE INTERACTIVE GAMES — measures analytical thinking, impulse control, attention, spatial reasoning:
+  stroop_classic       | "Color Conflict"     | Color word shown in mismatching ink — tap ink color. Impulse control + processing speed.
+  matrix_standard      | "Pattern Matrix"     | 3×3 Raven-style grid, find the missing piece. Analytical thinking + learning speed.
+  matrix_advanced      | "Advanced Matrix"    | Harder Raven-style matrices. Deep analytical reasoning.
+  spatial_rotation     | "Mental Rotation"    | Pick the correctly rotated shape from 4 options. Spatial reasoning + systematic thinking.
+  dot_estimation       | "Dot Sense"          | Flash two dot groups — tap the larger side. Numerical intuition + processing speed.
+  visual_search_standard | "Symbol Hunt"      | 5×5 grid, find the odd-one-out symbols. Attention to detail + processing speed.
+  visual_search_hard   | "Symbol Hunt Pro"    | Harder visual search with more similar pairs. High attention to detail.
 
 REACTION & INHIBITION — measures processing speed, impulse control, focus:
   reaction_basic        | "Quick Tap"              | Tap on stimulus appearance. Pure reaction speed.
@@ -174,14 +177,15 @@ const GAME_DESCRIPTIONS: Record<string, string> = {
   memory_sequential:      'MEMORY      | "Procedure Recall"        | Ordered steps. Procedural memory under load.',
   memory_faces:           'MEMORY      | "Name & Context"          | Name-face association. Social/associative memory.',
   memory_code:            'MEMORY      | "Code Recall"             | Symbolic patterns. Abstract working memory.',
-  logic_deduction:    'LOGIC | "Logic Deduction"       | Classical if-then deduction. Analytical reasoning.',
-  logic_patterns:     'LOGIC | "Abstract Patterns"     | Abstract sequence rules. Pattern abstraction.',
-  logic_verbal:       'LOGIC | "Word Logic"            | Verbal analogies and odd-one-out. Verbal reasoning.',
-  logic_boolean:      'LOGIC | "Boolean Logic"         | Conditional logic and truth tables. Precise thinking.',
-  logic_quantitative: 'LOGIC | "Quantitative Logic"    | Numerical reasoning — ratios, rates, probability.',
-  logic_spatial:      'LOGIC | "Spatial Reasoning"     | Shape rotation, geometry, spatial visualisation.',
-  logic_situational:  'LOGIC | "Situational Judgment"  | Abstract judgment under ambiguity and constraint.',
-  logic_attention:    'LOGIC | "Attention to Detail"   | Error detection, anomaly spotting, accuracy under load.',
+  logic_verbal:            'LOGIC    | "Word Logic"              | Verbal analogies and odd-one-out. Verbal reasoning.',
+  logic_situational:       'LOGIC    | "Situational Judgment"    | Abstract judgment under ambiguity and constraint.',
+  stroop_classic:          'STROOP   | "Color Conflict"          | Tap ink color, ignore word. Impulse control + processing speed.',
+  matrix_standard:         'MATRIX   | "Pattern Matrix"          | 3×3 Raven-style grid, missing piece. Analytical thinking + learning speed.',
+  matrix_advanced:         'MATRIX   | "Advanced Matrix"         | Harder Raven matrices. Deep analytical reasoning.',
+  spatial_rotation:        'SPATIAL  | "Mental Rotation"         | Pick the rotated shape. Spatial reasoning + systematic thinking.',
+  dot_estimation:          'ESTIM    | "Dot Sense"               | Flash two dot groups, tap larger. Numerical intuition + processing speed.',
+  visual_search_standard:  'SEARCH   | "Symbol Hunt"             | 5×5 grid, find odd-one-out. Attention to detail + processing speed.',
+  visual_search_hard:      'SEARCH   | "Symbol Hunt Pro"         | Harder visual search. High attention to detail.',
   reaction_basic:         'REACTION    | "Quick Tap"               | Pure reaction speed. Processing speed.',
   reaction_inhibition:    'REACTION    | "Stop & Go"               | Tap green, resist red. Impulse control + focus.',
   reaction_speed:         'REACTION    | "Speed Challenge"         | Multi-target rapid tap. Speed + accuracy.',
@@ -196,7 +200,7 @@ export interface GameSelectionResult {
 
 const ALL_VALID_GAME_IDS = Object.keys(GAME_DESCRIPTIONS);
 
-const FALLBACK_GAMES = ['pattern_standard', 'puzzle_standard', 'logic_deduction'];
+const FALLBACK_GAMES = ['pattern_standard', 'puzzle_standard', 'matrix_standard'];
 
 export async function selectGamesForUser(
   userProfile: UserProfile,

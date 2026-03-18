@@ -1,7 +1,8 @@
 /**
  * Trait Engine
  * Derives personality/cognitive trait scores from raw game events.
- * Supports all 6 game types: exploration, pattern, puzzle, memory, logic, reaction.
+ * Supports all 11 game types: exploration, pattern, puzzle, memory, logic, reaction,
+ * stroop, matrix, spatial, estimation, search.
  */
 
 export interface TraitScores {
@@ -40,11 +41,13 @@ const MEMORY_IDS = [
   'memory_colors', 'memory_numbers', 'memory_positions',
   'memory_sequential', 'memory_faces', 'memory_code',
 ];
-const LOGIC_IDS = [
-  'logic_deduction', 'logic_patterns', 'logic_verbal', 'logic_boolean',
-  'logic_quantitative', 'logic_spatial', 'logic_situational', 'logic_attention',
-];
+const LOGIC_IDS = ['logic_verbal', 'logic_situational'];
 const REACTION_IDS = ['reaction_basic', 'reaction_inhibition', 'reaction_speed'];
+const STROOP_IDS = ['stroop', 'stroop_classic'];
+const MATRIX_IDS = ['matrix_puzzle', 'matrix_standard', 'matrix_advanced'];
+const SPATIAL_IDS = ['spatial_rotation', 'spatial'];
+const ESTIMATION_IDS = ['dot_estimation'];
+const SEARCH_IDS = ['visual_search', 'visual_search_standard', 'visual_search_hard'];
 
 export function calculateTraits(events: GameEvent[]): TraitScores {
   const explorationEvents = events.filter(e => EXPLORATION_IDS.includes(e.game_id));
@@ -53,6 +56,11 @@ export function calculateTraits(events: GameEvent[]): TraitScores {
   const memoryEvents      = events.filter(e => MEMORY_IDS.includes(e.game_id));
   const logicEvents       = events.filter(e => LOGIC_IDS.includes(e.game_id));
   const reactionEvents    = events.filter(e => REACTION_IDS.includes(e.game_id));
+  const stroopEvents      = events.filter(e => STROOP_IDS.includes(e.game_id));
+  const matrixEvents      = events.filter(e => MATRIX_IDS.includes(e.game_id));
+  const spatialEvents     = events.filter(e => SPATIAL_IDS.includes(e.game_id));
+  const estimationEvents  = events.filter(e => ESTIMATION_IDS.includes(e.game_id));
+  const searchEvents      = events.filter(e => SEARCH_IDS.includes(e.game_id));
 
   // ── curiosity: exploration coverage ───────────────────────────────────────
   const curiosity = explorationEvents.length > 0 ? calcCuriosity(explorationEvents) : 0.5;
@@ -75,27 +83,39 @@ export function calculateTraits(events: GameEvent[]): TraitScores {
     risk_tolerance = risk_tolerance !== null ? (risk_tolerance + rr) / 2 : rr;
   }
 
-  // ── learning_speed: pattern adaptation + memory learning + logic accuracy ─
+  // ── learning_speed: pattern adaptation + memory learning + matrix accuracy ─
   let learning_speed: number | null = patternEvents.length > 0 ? calcLearningSpeed(patternEvents) : null;
   if (memoryEvents.length > 0) {
     const ml = calcLearningFromMemory(memoryEvents);
     learning_speed = learning_speed !== null ? (learning_speed + ml) / 2 : ml;
   }
-  if (logicEvents.length > 0) {
-    const ll = calcAccuracyFromLogic(logicEvents);
-    learning_speed = learning_speed !== null ? (learning_speed + ll) / 2 : ll;
+  if (matrixEvents.length > 0) {
+    const ml = calcAccuracyFromOptions(matrixEvents);
+    learning_speed = learning_speed !== null ? (learning_speed + ml) / 2 : ml;
   }
 
   // ── working_memory: memory game recall accuracy ───────────────────────────
   const working_memory = memoryEvents.length > 0 ? calcWorkingMemory(memoryEvents) : 0.5;
 
-  // ── processing_speed: reaction response times ─────────────────────────────
-  const processing_speed = reactionEvents.length > 0 ? calcProcessingSpeed(reactionEvents) : 0.5;
+  // ── processing_speed: reaction + stroop + estimation response times ────────
+  let processing_speed: number | null = reactionEvents.length > 0 ? calcProcessingSpeed(reactionEvents) : null;
+  if (stroopEvents.length > 0) {
+    const sp = calcProcessingSpeedFromStroop(stroopEvents);
+    processing_speed = processing_speed !== null ? (processing_speed + sp) / 2 : sp;
+  }
+  if (estimationEvents.length > 0) {
+    const ep = calcProcessingSpeedFromEstimation(estimationEvents);
+    processing_speed = processing_speed !== null ? (processing_speed + ep) / 2 : ep;
+  }
 
-  // ── impulse_control: nogo inhibition accuracy ─────────────────────────────
-  const impulse_control = reactionEvents.length > 0 ? calcImpulseControl(reactionEvents) : 0.5;
+  // ── impulse_control: nogo inhibition + stroop accuracy ────────────────────
+  let impulse_control: number | null = reactionEvents.length > 0 ? calcImpulseControl(reactionEvents) : null;
+  if (stroopEvents.length > 0) {
+    const si = calcImpulseControlFromStroop(stroopEvents);
+    impulse_control = impulse_control !== null ? (impulse_control + si) / 2 : si;
+  }
 
-  // ── analytical_thinking: logic correctness + pattern accuracy ─────────────
+  // ── analytical_thinking: logic + pattern + matrix + estimation accuracy ────
   let analytical_thinking: number | null = null;
   if (logicEvents.length > 0) {
     analytical_thinking = calcAccuracyFromLogic(logicEvents);
@@ -104,18 +124,26 @@ export function calculateTraits(events: GameEvent[]): TraitScores {
     const pa = calcPatternAccuracy(patternEvents);
     analytical_thinking = analytical_thinking !== null ? (analytical_thinking + pa) / 2 : pa;
   }
+  if (matrixEvents.length > 0) {
+    const ma = calcAccuracyFromOptions(matrixEvents);
+    analytical_thinking = analytical_thinking !== null ? (analytical_thinking + ma) / 2 : ma;
+  }
+  if (estimationEvents.length > 0) {
+    const ea = calcAccuracyFromOptions(estimationEvents);
+    analytical_thinking = analytical_thinking !== null ? (analytical_thinking + ea) / 2 : ea;
+  }
 
-  // ── attention_to_detail: puzzle efficiency + logic accuracy ───────────────
+  // ── attention_to_detail: puzzle efficiency + search accuracy ──────────────
   let attention_to_detail: number | null = null;
   if (puzzleEvents.length > 0) {
     attention_to_detail = calcAttentionFromPuzzle(puzzleEvents);
   }
-  if (logicEvents.length > 0) {
-    const la = calcAccuracyFromLogic(logicEvents);
-    attention_to_detail = attention_to_detail !== null ? (attention_to_detail + la) / 2 : la;
+  if (searchEvents.length > 0) {
+    const sa = calcAttentionFromSearch(searchEvents);
+    attention_to_detail = attention_to_detail !== null ? (attention_to_detail + sa) / 2 : sa;
   }
 
-  // ── systematic_thinking: exploration coverage per move + puzzle efficiency ─
+  // ── systematic_thinking: exploration coverage + puzzle efficiency + spatial ─
   let systematic_thinking: number | null = null;
   if (explorationEvents.length > 0) {
     systematic_thinking = calcSystematicFromExploration(explorationEvents);
@@ -124,6 +152,10 @@ export function calculateTraits(events: GameEvent[]): TraitScores {
     const sp = calcSystematicFromPuzzle(puzzleEvents);
     systematic_thinking = systematic_thinking !== null ? (systematic_thinking + sp) / 2 : sp;
   }
+  if (spatialEvents.length > 0) {
+    const sv = calcAccuracyFromOptions(spatialEvents);
+    systematic_thinking = systematic_thinking !== null ? (systematic_thinking + sv) / 2 : sv;
+  }
 
   return {
     curiosity:           clamp(curiosity),
@@ -131,8 +163,8 @@ export function calculateTraits(events: GameEvent[]): TraitScores {
     risk_tolerance:      clamp(risk_tolerance ?? 0.5),
     learning_speed:      clamp(learning_speed ?? 0.5),
     working_memory:      clamp(working_memory),
-    processing_speed:    clamp(processing_speed),
-    impulse_control:     clamp(impulse_control),
+    processing_speed:    clamp(processing_speed ?? 0.5),
+    impulse_control:     clamp(impulse_control ?? 0.5),
     analytical_thinking: clamp(analytical_thinking ?? 0.5),
     attention_to_detail: clamp(attention_to_detail ?? 0.5),
     systematic_thinking: clamp(systematic_thinking ?? 0.5),
@@ -273,6 +305,48 @@ function calcSystematicFromPuzzle(events: GameEvent[]): number {
   if (!solved) return 0.2;
   // Optimal ~20 moves; methodical solvers ~30–50; random solvers ~100+
   return clamp(1 - Math.max(0, moves - 20) / 80);
+}
+
+// ── New cognitive game calculators ──────────────────────────────────────────
+
+// Generic option-selection accuracy (matrix, spatial, estimation)
+function calcAccuracyFromOptions(events: GameEvent[]): number {
+  const selections = events.filter(e => e.event_type === 'option_selected' || e.event_type === 'group_selected');
+  if (selections.length === 0) return 0.5;
+  return selections.filter(e => e.data.correct).length / selections.length;
+}
+
+function calcProcessingSpeedFromStroop(events: GameEvent[]): number {
+  const correct = events.filter(e => e.event_type === 'color_tapped' && e.data.correct);
+  if (correct.length === 0) return 0.5;
+  const avgTime = correct.reduce((sum, e) => sum + ((e.data.responseTime as number) ?? 2000), 0) / correct.length;
+  // 500ms → 1.0, 3500ms → 0.0
+  return clamp(1 - (avgTime - 500) / 3000);
+}
+
+function calcProcessingSpeedFromEstimation(events: GameEvent[]): number {
+  const correct = events.filter(e => e.event_type === 'group_selected' && e.data.correct);
+  if (correct.length === 0) return 0.5;
+  const avgTime = correct.reduce((sum, e) => sum + ((e.data.responseTime as number) ?? 1500), 0) / correct.length;
+  // 300ms → 1.0, 3000ms → 0.0
+  return clamp(1 - (avgTime - 300) / 2700);
+}
+
+function calcImpulseControlFromStroop(events: GameEvent[]): number {
+  const taps = events.filter(e => e.event_type === 'color_tapped');
+  if (taps.length === 0) return 0.5;
+  const accuracy = taps.filter(e => e.data.correct).length / taps.length;
+  // Stroop requires overriding the automatic word-reading response — accuracy is the primary signal
+  return clamp(accuracy);
+}
+
+function calcAttentionFromSearch(events: GameEvent[]): number {
+  const taps = events.filter(e => e.event_type === 'target_tapped');
+  if (taps.length === 0) return 0.5;
+  const correct = taps.filter(e => e.data.correct).length;
+  const wrong = taps.filter(e => !e.data.correct).length;
+  // Reward correct finds, penalise wrong taps heavily
+  return clamp((correct - wrong * 2) / Math.max(correct + wrong, 1));
 }
 
 function clamp(v: number, min = 0, max = 1): number {

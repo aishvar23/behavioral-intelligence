@@ -6,7 +6,7 @@
  * near-unlimited variety. Add more GameConfig entries to scale toward 50,000+ configs.
  */
 
-export type GameType = 'exploration' | 'pattern' | 'puzzle' | 'memory' | 'logic' | 'reaction';
+export type GameType = 'exploration' | 'pattern' | 'puzzle' | 'memory' | 'logic' | 'reaction' | 'stroop' | 'matrix' | 'spatial' | 'estimation' | 'search';
 
 export interface GameConfig {
   id: string;
@@ -171,42 +171,12 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     config: { variant: 'code' },
   },
 
-  // ── Logic variants (8) — abstract cognitive reasoning ────────────────────
-  logic_deduction: {
-    id: 'logic_deduction', type: 'logic',
-    title: 'Logic Deduction', emoji: '🔎', difficulty: 'hard',
-    description: 'Solve deductive reasoning puzzles — tests analytical thinking.',
-    config: { variant: 'deduction' },
-  },
-  logic_patterns: {
-    id: 'logic_patterns', type: 'logic',
-    title: 'Abstract Patterns', emoji: '🔲', difficulty: 'medium',
-    description: 'Identify the rule in number and abstract sequences.',
-    config: { variant: 'patterns' },
-  },
+  // ── Logic variants (2) — text-based reasoning (MCQ) ─────────────────────
   logic_verbal: {
     id: 'logic_verbal', type: 'logic',
     title: 'Word Logic', emoji: '💬', difficulty: 'medium',
     description: 'Verbal analogies, odd-one-out, language-based reasoning.',
     config: { variant: 'verbal' },
-  },
-  logic_boolean: {
-    id: 'logic_boolean', type: 'logic',
-    title: 'Boolean Logic', emoji: '⚙️', difficulty: 'medium',
-    description: 'Logical conditions, short-circuit evaluation, and truth tables.',
-    config: { variant: 'boolean' },
-  },
-  logic_quantitative: {
-    id: 'logic_quantitative', type: 'logic',
-    title: 'Quantitative Logic', emoji: '🔢', difficulty: 'medium',
-    description: 'Numerical reasoning — ratios, rates, probability and arithmetic.',
-    config: { variant: 'quantitative' },
-  },
-  logic_spatial: {
-    id: 'logic_spatial', type: 'logic',
-    title: 'Spatial Reasoning', emoji: '🔷', difficulty: 'medium',
-    description: 'Visualise shapes, rotations and spatial relationships.',
-    config: { variant: 'spatial' },
   },
   logic_situational: {
     id: 'logic_situational', type: 'logic',
@@ -214,11 +184,57 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     description: 'Abstract judgment calls under ambiguity — no domain knowledge needed.',
     config: { variant: 'situational' },
   },
-  logic_attention: {
-    id: 'logic_attention', type: 'logic',
-    title: 'Attention to Detail', emoji: '🔍', difficulty: 'medium',
-    description: 'Spot errors, anomalies and deviations under time pressure.',
-    config: { variant: 'attention' },
+
+  // ── Stroop variants (1) — impulse control + processing speed ─────────────
+  stroop_classic: {
+    id: 'stroop_classic', type: 'stroop',
+    title: 'Color Conflict', emoji: '🎨', difficulty: 'medium',
+    description: 'A color word appears in a mismatching ink color. Tap the ink color — not what the word says.',
+    config: {},
+  },
+
+  // ── Matrix variants (2) — analytical thinking + learning speed ───────────
+  matrix_standard: {
+    id: 'matrix_standard', type: 'matrix',
+    title: 'Pattern Matrix', emoji: '🔲', difficulty: 'medium',
+    description: 'A 3×3 grid of shapes with one cell missing. Find the rule and complete the pattern.',
+    config: {},
+  },
+  matrix_advanced: {
+    id: 'matrix_advanced', type: 'matrix',
+    title: 'Advanced Matrix', emoji: '🧩', difficulty: 'hard',
+    description: 'More complex Raven-style pattern matrices requiring deeper analytical reasoning.',
+    config: { advanced: true },
+  },
+
+  // ── Spatial variants (1) — spatial reasoning + systematic thinking ────────
+  spatial_rotation: {
+    id: 'spatial_rotation', type: 'spatial',
+    title: 'Mental Rotation', emoji: '🔷', difficulty: 'medium',
+    description: 'A shape is shown. Pick the option that is the same shape, just rotated — not mirrored.',
+    config: {},
+  },
+
+  // ── Estimation variants (1) — numerical intuition + processing speed ──────
+  dot_estimation: {
+    id: 'dot_estimation', type: 'estimation',
+    title: 'Dot Sense', emoji: '⚫', difficulty: 'medium',
+    description: 'Two groups of dots flash briefly. Tap the side with more dots — use instinct, not counting.',
+    config: {},
+  },
+
+  // ── Visual search variants (2) — attention to detail + processing speed ───
+  visual_search_standard: {
+    id: 'visual_search_standard', type: 'search',
+    title: 'Symbol Hunt', emoji: '🔍', difficulty: 'medium',
+    description: 'A grid of symbols — most are identical, a few are different. Find and tap the odd ones out.',
+    config: {},
+  },
+  visual_search_hard: {
+    id: 'visual_search_hard', type: 'search',
+    title: 'Symbol Hunt Pro', emoji: '🕵️', difficulty: 'hard',
+    description: 'Harder symbol search with more visually similar pairs under tighter time pressure.',
+    config: { hard: true },
   },
 
   // ── Reaction variants (3) — new game type ────────────────────────────────
