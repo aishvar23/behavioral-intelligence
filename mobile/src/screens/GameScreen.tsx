@@ -80,7 +80,7 @@ const GAME_RULES: Record<string, { summary: string; bullets: string[] }> = {
 };
 
 export default function GameScreen({ navigation, route }: Props) {
-  const { sessionId, userProfile, gameQueue, currentIndex, completedScores } = route.params;
+  const { sessionId, userProfile, gameQueue, currentIndex, completedScores, userId } = route.params;
   const current = gameQueue[currentIndex];
   const completedRef = useRef(false); // guard against onComplete firing more than once
   const [showTooltip, setShowTooltip] = useState(false);
@@ -117,13 +117,14 @@ export default function GameScreen({ navigation, route }: Props) {
         gameQueue,
         currentIndex: currentIndex + 1,
         completedScores: newScores,
+        userId,
       });
     } else {
       const gameResults: GameResult[] = gameQueue.map((item, i) => ({
         ...item,
         score: newScores[i],
       }));
-      navigation.replace('Report', { sessionId, userProfile, gameResults });
+      navigation.replace('Report', { sessionId, userProfile, gameResults, userId });
     }
   }
 

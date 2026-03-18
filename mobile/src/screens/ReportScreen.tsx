@@ -16,10 +16,16 @@ import CareerCard from '../components/report/CareerCard';
 type Props = NativeStackScreenProps<RootStackParamList, 'Report'>;
 
 const TRAIT_META: Record<string, { label: string; color: string; emoji: string }> = {
-  curiosity:       { label: 'Curiosity',       color: '#42a5f5', emoji: '🔭' },
-  persistence:     { label: 'Persistence',     color: '#66bb6a', emoji: '💪' },
-  risk_tolerance:  { label: 'Risk Tolerance',  color: '#ef5350', emoji: '⚡' },
-  learning_speed:  { label: 'Learning Speed',  color: '#ab47bc', emoji: '🧠' },
+  curiosity:           { label: 'Curiosity',           color: '#42a5f5', emoji: '🔭' },
+  persistence:         { label: 'Persistence',         color: '#66bb6a', emoji: '💪' },
+  risk_tolerance:      { label: 'Risk Tolerance',      color: '#ef5350', emoji: '⚡' },
+  learning_speed:      { label: 'Learning Speed',      color: '#ab47bc', emoji: '🧠' },
+  working_memory:      { label: 'Working Memory',      color: '#26c6da', emoji: '🗃️' },
+  processing_speed:    { label: 'Processing Speed',    color: '#ffa726', emoji: '⚡' },
+  impulse_control:     { label: 'Impulse Control',     color: '#ec407a', emoji: '🛑' },
+  analytical_thinking: { label: 'Analytical Thinking', color: '#7e57c2', emoji: '🔎' },
+  attention_to_detail: { label: 'Attention to Detail', color: '#26a69a', emoji: '🔍' },
+  systematic_thinking: { label: 'Systematic Thinking', color: '#8d6e63', emoji: '📐' },
 };
 
 const FIT_COLORS: Record<string, string> = {
@@ -40,7 +46,7 @@ const LOADING_MESSAGES = [
 const REPORT_PIN = '0987654321';
 
 export default function ReportScreen({ navigation, route }: Props) {
-  const { sessionId, userProfile, gameResults } = route.params;
+  const { sessionId, userProfile, gameResults, userId } = route.params;
   const [report, setReport] = useState<FullReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMsg, setLoadingMsg] = useState(LOADING_MESSAGES[0]);
@@ -58,7 +64,7 @@ export default function ReportScreen({ navigation, route }: Props) {
       setLoadingMsg(LOADING_MESSAGES[msgIndex]);
     }, 2500);
 
-    getCareerReport(sessionId, userProfile, gameResults)
+    getCareerReport(sessionId, userProfile, gameResults, userId)
       .then(setReport)
       .catch(() => setError('Failed to load your report. Please try again.'))
       .finally(() => { setLoading(false); clearInterval(interval); });
@@ -135,9 +141,12 @@ export default function ReportScreen({ navigation, route }: Props) {
         <View style={styles.profileInfo}>
           <Text style={styles.profileName}>{userProfile.occupationTitle}</Text>
           <Text style={styles.profileMeta}>
-            {userProfile.age !== 'Not specified' ? `Age ${userProfile.age}` : ''}
-            {userProfile.age !== 'Not specified' && userProfile.interests !== 'Not specified' ? '  ·  ' : ''}
-            {userProfile.interests !== 'Not specified' ? userProfile.interests : ''}
+            {[
+              userProfile.userName,
+              userProfile.age !== 'Not specified' ? `Age ${userProfile.age}` : null,
+              userProfile.country !== 'Not specified' ? userProfile.country : null,
+              userProfile.lifeStage !== 'Not specified' ? userProfile.lifeStage : null,
+            ].filter(Boolean).join('  ·  ')}
           </Text>
         </View>
       </View>

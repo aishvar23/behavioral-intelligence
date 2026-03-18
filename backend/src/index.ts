@@ -24,6 +24,7 @@ import morgan from 'morgan';
 import compression from 'compression';
 import { v4 as uuid } from 'uuid';
 import eventsRouter from './routes/events';
+import usersRouter from './routes/users';
 import fs from 'fs';
 import path from 'path';
 
@@ -51,6 +52,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use('/', eventsRouter);
+app.use('/', usersRouter);
 
 app.get('/health', (_req, res) => res.json({
   status: 'ok',

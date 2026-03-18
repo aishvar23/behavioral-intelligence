@@ -67,6 +67,12 @@ export interface SkillDevelopment {
   activities: string[];
 }
 
+export interface TraitHistoryEntry {
+  traits: TraitScores;
+  occupation: string;
+  createdAt: number;
+}
+
 export interface FullLLMResult {
   thinkingStyle: string;
   aiReport: string;
@@ -257,12 +263,9 @@ Respond with valid JSON only (no markdown):
 
 export async function generateBehaviorReport(traits: TraitScores): Promise<LLMResult> {
   const traitJson = JSON.stringify(
-    {
-      curiosity: traits.curiosity.toFixed(2),
-      persistence: traits.persistence.toFixed(2),
-      risk_tolerance: traits.risk_tolerance.toFixed(2),
-      learning_speed: traits.learning_speed.toFixed(2),
-    },
+    Object.fromEntries(
+      Object.entries(traits).map(([k, v]) => [k, (v as number).toFixed(2)])
+    ),
     null,
     2
   );
@@ -282,7 +285,7 @@ Return only valid JSON, no markdown.`;
     model: 'claude-sonnet-4-6',
     max_tokens: 512,
     messages: [{ role: 'user', content: prompt }],
-  }, { timeout: LLM_TIMEOUT_MS }));
+  }));
 
   const raw = message.content[0].type === 'text' ? message.content[0].text : '';
   const jsonMatch = raw.match(/\{[\s\S]*\}/);
@@ -323,12 +326,51 @@ function overallEngagementLabel(avgPct: number): string {
   return 'Poor — insufficient data to confirm cognitive fit for demanding roles';
 }
 
+function buildHistoricalContext(history: TraitHistoryEntry[]): string {
+  if (history.length === 0) return '';
+
+  // Average all past traits
+  const keys = Object.keys(history[0].traits) as (keyof TraitScores)[];
+  const avg: Record<string, number> = {};
+  for (const k of keys) {
+    avg[k] = history.reduce((sum, h) => sum + h.traits[k], 0) / history.length;
+  }
+
+  const avgLine = keys.map(k => `${k.replace(/_/g, ' ')}: ${avg[k].toFixed(2)}`).join(' | ');
+  const occupations = [...new Set(history.map(h => h.occupation))].join(', ');
+
+  let trendNote = '';
+  if (history.length >= 2) {
+    // history is DESC (most recent first), so [0] = latest previous, [length-1] = oldest
+    const latest = history[0].traits;
+    const oldest = history[history.length - 1].traits;
+    const delta = keys
+      .map(k => {
+        const d = latest[k] - oldest[k];
+        if (Math.abs(d) >= 0.05) {
+          return `${k.replace(/_/g, ' ')} ${d > 0 ? '+' : ''}${d.toFixed(2)}`;
+        }
+        return null;
+      })
+      .filter(Boolean);
+    if (delta.length > 0) {
+      trendNote = `\nTrend (oldest → most recent previous session): ${delta.join(', ')}`;
+    }
+  }
+
+  return `\n═══ HISTORICAL CONTEXT (${history.length} previous session${history.length > 1 ? 's' : ''}) ═══
+Average traits from prior assessments: ${avgLine}
+Previous occupations assessed: ${occupations}${trendNote}
+NOTE: Compare current session scores to this baseline when assessing growth or consistency.\n`;
+}
+
 export async function generateCareerReport(
   traits: TraitScores,
   userProfile: UserProfile,
   gameResults: GameResult[],
   gameBehaviorData?: GameBehaviorData,
-  sessionId?: string
+  sessionId?: string,
+  traitHistory?: TraitHistoryEntry[]
 ): Promise<FullLLMResult> {
   // Build per-game performance lines with score context
   const scoredGames = gameResults.map(g => {
@@ -359,17 +401,32 @@ export async function generateCareerReport(
       : 'adult (age 20+): suggest professional certifications, open-source contributions, portfolio projects, and specialised courses'
     : 'age unknown: give generally applicable suggestions';
 
+  const historicalContext = buildHistoricalContext(traitHistory ?? []);
+
+  const traitLine = [
+    `Curiosity: ${traits.curiosity.toFixed(2)}`,
+    `Persistence: ${traits.persistence.toFixed(2)}`,
+    `Risk Tolerance: ${traits.risk_tolerance.toFixed(2)}`,
+    `Learning Speed: ${traits.learning_speed.toFixed(2)}`,
+    `Working Memory: ${traits.working_memory.toFixed(2)}`,
+    `Processing Speed: ${traits.processing_speed.toFixed(2)}`,
+    `Impulse Control: ${traits.impulse_control.toFixed(2)}`,
+    `Analytical Thinking: ${traits.analytical_thinking.toFixed(2)}`,
+    `Attention to Detail: ${traits.attention_to_detail.toFixed(2)}`,
+    `Systematic Thinking: ${traits.systematic_thinking.toFixed(2)}`,
+  ].join(' | ');
+
   const prompt = `You are a behavioral assessment assistant for a career exploration platform.
 
 The user is ${userProfile.age} years old and wants to become a ${userProfile.occupationTitle}.
-They played ${gameResults.length} short cognitive games (2–3 minutes total). These provide WEAK behavioral signals — not definitive proof — about curiosity, persistence, analytical thinking, and risk tolerance.
+They played ${gameResults.length} short cognitive games (2–3 minutes total). These provide WEAK behavioral signals — not definitive proof — about cognitive traits.
 Do NOT make strong personality judgments. Use language like "this suggests…" or "this may indicate…" — never "you are…".
-
+${historicalContext}
 ═══ BEHAVIORAL DATA (raw signals from game events) ═══
 ${behaviorJson}
 
 ═══ TRAIT SCORES (0 = low, 1 = high) ═══
-Curiosity: ${traits.curiosity.toFixed(2)} | Persistence: ${traits.persistence.toFixed(2)} | Risk Tolerance: ${traits.risk_tolerance.toFixed(2)} | Learning Speed: ${traits.learning_speed.toFixed(2)}
+${traitLine}
 
 ═══ GAME PERFORMANCE ═══
 ${gamePerformance}
@@ -377,7 +434,7 @@ Overall engagement: ${avgPct}% — ${overallEngagement}
 
 ═══ OCCUPATION CONTEXT ═══
 The user wants to become a ${userProfile.occupationTitle}.
-First, infer the core cognitive traits needed for this occupation (e.g. a software engineer needs analytical thinking, persistence, pattern recognition; a designer needs creativity and risk tolerance; a doctor needs memory, logic, and calm under pressure).
+First, infer the core cognitive traits needed for this occupation from the 10 measured traits above (curiosity, persistence, risk tolerance, learning speed, working memory, processing speed, impulse control, analytical thinking, attention to detail, systematic thinking).
 Then compare the observed game behaviors to those inferred traits.
 
 ═══ YOUR TASK ═══

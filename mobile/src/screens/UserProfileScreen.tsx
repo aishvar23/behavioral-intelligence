@@ -22,7 +22,7 @@ import {
 } from '../data/occupations';
 import { GAME_CONFIGS } from '../data/gameCatalog';
 import { OCCUPATION_GAME_POOLS, GENERAL_POOL } from '../data/occupationGamePools';
-import { selectGames } from '../services/api';
+import { selectGames, registerUser } from '../services/api';
 import { startSession } from '../services/session';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'UserProfile'>;
@@ -31,8 +31,13 @@ const CATEGORIES_ORDER: OccupationCategory[] = [
   'technology', 'healthcare', 'business', 'education', 'legal', 'engineering', 'science', 'creative',
 ];
 
+const LIFE_STAGES = ['Student', 'Graduate', 'Early Career', 'Mid Career', 'Career Change', 'Exploring'];
+
 export default function UserProfileScreen({ navigation }: Props) {
+  const [userName, setUserName] = useState('');
   const [age, setAge] = useState('');
+  const [country, setCountry] = useState('');
+  const [lifeStage, setLifeStage] = useState('');
   const [interests, setInterests] = useState('');
   const [selectedOccupation, setSelectedOccupation] = useState<string | null>(null);
   const [occupationTitle, setOccupationTitle] = useState('');
@@ -40,7 +45,6 @@ export default function UserProfileScreen({ navigation }: Props) {
   const [showPicker, setShowPicker] = useState(false);
   const [search, setSearch] = useState('');
   const [selecting, setSelecting] = useState(false);
-  const [selectionReasoning, setSelectionReasoning] = useState('');
   const [error, setError] = useState('');
 
   const byCategory = useMemo(() => getOccupationsByCategory(), []);
@@ -59,18 +63,24 @@ export default function UserProfileScreen({ navigation }: Props) {
     setSelectedOccupation(id);
     setOccupationTitle(title);
     setOccupationEmoji(emoji);
-    setSelectionReasoning(''); // clear previous reasoning when occupation changes
     setShowPicker(false);
     setSearch('');
   }
 
   async function handleStart() {
     if (!selectedOccupation || selecting) return;
+    if (!userName.trim()) {
+      setError('Please enter a username to track your progress across sessions.');
+      return;
+    }
     setError('');
     setSelecting(true);
 
     const profile: UserProfile = {
+      userName: userName.trim(),
       age: age.trim() || 'Not specified',
+      country: country.trim() || 'Not specified',
+      lifeStage: lifeStage || 'Not specified',
       occupation: selectedOccupation,
       occupationTitle,
       occupationEmoji,
@@ -78,9 +88,18 @@ export default function UserProfileScreen({ navigation }: Props) {
     };
 
     try {
+      // Register / update user in DB to enable multi-session tracking
+      let userId: number | undefined;
+      try {
+        const userResult = await registerUser(profile.userName, profile.age, profile.country, profile.lifeStage);
+        userId = userResult.userId;
+      } catch {
+        // Non-fatal — continue without history tracking if registration fails
+        console.warn('User registration failed — proceeding without history');
+      }
+
       const pool = OCCUPATION_GAME_POOLS[selectedOccupation] ?? GENERAL_POOL;
-      const { selectedIds, reasoning } = await selectGames(profile, pool);
-      setSelectionReasoning(reasoning);
+      const { selectedIds } = await selectGames(profile, pool);
 
       const sessionId = startSession();
       const gameQueue = selectedIds.map(id => {
@@ -94,14 +113,13 @@ export default function UserProfileScreen({ navigation }: Props) {
         };
       });
 
-      // replace (not navigate) so UserProfile is removed from the stack —
-      // prevents the Android back button from returning to this screen mid-assessment
       navigation.replace('Game', {
         sessionId,
         userProfile: profile,
         gameQueue,
         currentIndex: 0,
         completedScores: [],
+        userId,
       });
     } catch {
       setError('Could not connect to the server. Please check your connection and try again.');
@@ -124,6 +142,22 @@ export default function UserProfileScreen({ navigation }: Props) {
                 We'll select the right games for your occupation and generate a personalised behavioral report.
               </Text>
 
+              {/* Username */}
+              <Text style={styles.label}>
+                Username <Text style={styles.required}>*</Text>
+              </Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. alex_2025"
+                placeholderTextColor="#5555aa"
+                value={userName}
+                onChangeText={setUserName}
+                autoCapitalize="none"
+                autoCorrect={false}
+                maxLength={50}
+              />
+              <Text style={styles.fieldNote}>Used to track your progress across sessions. Never shared externally.</Text>
+
               {/* Age */}
               <Text style={styles.label}>Your Age</Text>
               <TextInput
@@ -135,6 +169,34 @@ export default function UserProfileScreen({ navigation }: Props) {
                 onChangeText={setAge}
                 maxLength={3}
               />
+
+              {/* Country */}
+              <Text style={styles.label}>Country</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. United Kingdom"
+                placeholderTextColor="#5555aa"
+                value={country}
+                onChangeText={setCountry}
+                maxLength={60}
+              />
+
+              {/* Life Stage */}
+              <Text style={styles.label}>Current Life Stage</Text>
+              <View style={styles.pillsRow}>
+                {LIFE_STAGES.map(stage => (
+                  <TouchableOpacity
+                    key={stage}
+                    style={[styles.pill, lifeStage === stage && styles.pillSelected]}
+                    onPress={() => setLifeStage(stage === lifeStage ? '' : stage)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.pillText, lifeStage === stage && styles.pillTextSelected]}>
+                      {stage}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
               {/* Occupation */}
               <Text style={styles.label}>
@@ -249,6 +311,7 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 14, color: '#7777aa', textAlign: 'center', lineHeight: 21, marginBottom: 32 },
   label: { color: '#c0c0ee', fontSize: 14, fontWeight: '600', marginBottom: 8 },
   required: { color: '#ef5350' },
+  fieldNote: { color: '#4a4a7a', fontSize: 11, marginTop: -14, marginBottom: 20 },
   input: {
     backgroundColor: '#16213e',
     borderRadius: 12,
@@ -261,6 +324,18 @@ const styles = StyleSheet.create({
     marginBottom: 22,
   },
   inputMulti: { minHeight: 80, textAlignVertical: 'top' },
+  pillsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 22 },
+  pill: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#16213e',
+    borderWidth: 1,
+    borderColor: '#2a2a5e',
+  },
+  pillSelected: { backgroundColor: '#2a2a6e', borderColor: '#5c6bc0' },
+  pillText: { color: '#6666aa', fontSize: 13, fontWeight: '500' },
+  pillTextSelected: { color: '#c0c0ff', fontWeight: '700' },
   pickerBtn: {
     backgroundColor: '#16213e',
     borderRadius: 12,

@@ -47,6 +47,28 @@ function initSchema(db: Database.Database) {
       cost_usd      REAL    NOT NULL,
       timestamp     INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS users (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      username   TEXT    NOT NULL UNIQUE,
+      age        TEXT,
+      country    TEXT,
+      life_stage TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS user_trait_history (
+      id                INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id           INTEGER NOT NULL REFERENCES users(id),
+      session_id        TEXT    NOT NULL,
+      traits_json       TEXT    NOT NULL,
+      game_results_json TEXT    NOT NULL,
+      occupation        TEXT    NOT NULL,
+      created_at        INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_trait_history_user ON user_trait_history(user_id);
   `);
 
   // Migrations for existing databases — add columns that may be missing
@@ -75,6 +97,74 @@ export interface LlmCallLog {
   inputTokens: number;
   outputTokens: number;
   costUsd: number;
+}
+
+// ── User helpers ─────────────────────────────────────────────────────────────
+
+export interface UserRecord {
+  id: number;
+  username: string;
+  age: string | null;
+  country: string | null;
+  lifeStage: string | null;
+}
+
+export function upsertUser(username: string, age: string, country: string, lifeStage: string): UserRecord {
+  const db = getDb();
+  const now = Date.now();
+  db.prepare(`
+    INSERT INTO users (username, age, country, life_stage, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(username) DO UPDATE SET
+      age        = excluded.age,
+      country    = excluded.country,
+      life_stage = excluded.life_stage,
+      updated_at = excluded.updated_at
+  `).run(username, age, country, lifeStage, now, now);
+  const row = db.prepare('SELECT id, username, age, country, life_stage FROM users WHERE username = ?').get(username) as {
+    id: number; username: string; age: string | null; country: string | null; life_stage: string | null;
+  };
+  return { id: row.id, username: row.username, age: row.age, country: row.country, lifeStage: row.life_stage };
+}
+
+export interface TraitHistoryRow {
+  traitsJson: string;
+  gameResultsJson: string;
+  occupation: string;
+  createdAt: number;
+}
+
+export function getUserTraitHistory(userId: number, limit = 5): TraitHistoryRow[] {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT traits_json, game_results_json, occupation, created_at
+    FROM user_trait_history
+    WHERE user_id = ?
+    ORDER BY created_at DESC
+    LIMIT ?
+  `).all(userId, limit) as Array<{
+    traits_json: string; game_results_json: string; occupation: string; created_at: number;
+  }>;
+  return rows.map(r => ({
+    traitsJson: r.traits_json,
+    gameResultsJson: r.game_results_json,
+    occupation: r.occupation,
+    createdAt: r.created_at,
+  }));
+}
+
+export function saveUserTraitHistory(
+  userId: number,
+  sessionId: string,
+  traitsJson: string,
+  gameResultsJson: string,
+  occupation: string
+): void {
+  const db = getDb();
+  db.prepare(`
+    INSERT INTO user_trait_history (user_id, session_id, traits_json, game_results_json, occupation, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(userId, sessionId, traitsJson, gameResultsJson, occupation, Date.now());
 }
 
 export async function logLlmCall(log: LlmCallLog): Promise<void> {

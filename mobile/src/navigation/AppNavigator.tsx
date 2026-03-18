@@ -10,7 +10,10 @@ import { GameType } from '../data/gameCatalog';
 import { initSession } from '../services/session';
 
 export interface UserProfile {
+  userName: string;
   age: string;
+  country: string;
+  lifeStage: string;
   occupation: string;       // occupation ID
   occupationTitle: string;
   occupationEmoji: string;
@@ -39,11 +42,13 @@ export type RootStackParamList = {
     gameQueue: GameQueueItem[];
     currentIndex: number;
     completedScores: number[];
+    userId?: number;
   };
   Report: {
     sessionId: string;
     userProfile: UserProfile;
     gameResults: GameResult[];
+    userId?: number;
   };
 };
 

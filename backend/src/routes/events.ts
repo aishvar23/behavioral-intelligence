@@ -1,9 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
-import { getDb, getPgPool, isPostgres } from '../db/database';
-import { calculateTraits } from '../services/traitEngine';
-import { generateBehaviorReport, generateCareerReport, selectGamesForUser } from '../services/llmAnalysis';
+import { getDb, getPgPool, isPostgres, getUserTraitHistory, saveUserTraitHistory } from '../db/database';
+import { calculateTraits, TraitScores } from '../services/traitEngine';
+import { generateBehaviorReport, generateCareerReport, selectGamesForUser, TraitHistoryEntry } from '../services/llmAnalysis';
 import { extractStructuredBehaviorData } from '../services/behavioralSignals';
 
 const router = Router();
@@ -34,6 +34,7 @@ const EventSchema = z.object({
 
 const CareerReportSchema = z.object({
   sessionId: z.string().uuid(),
+  userId:    z.number().int().positive().optional(),
   userProfile: z.object({
     age:             z.string(),
     occupation:      z.string(),
@@ -248,7 +249,7 @@ router.post('/career-report', careerReportLimiter, async (req: Request, res: Res
     return res.status(400).json({ error: 'Invalid request', details: parseResult.error.issues });
   }
 
-  const { sessionId, userProfile, gameResults } = parseResult.data;
+  const { sessionId, userId, userProfile, gameResults } = parseResult.data;
 
   // ── Cache check ────────────────────────────────────────────────────────────
   if (isPostgres()) {
@@ -302,8 +303,25 @@ router.post('/career-report', careerReportLimiter, async (req: Request, res: Res
   const traits = calculateTraits(events);
   const gameBehaviorData = extractStructuredBehaviorData(events, gameResults);
 
+  // ── Fetch trait history for returning users ─────────────────────────────
+  let traitHistory: TraitHistoryEntry[] | undefined;
+  if (userId) {
+    try {
+      const historyRows = getUserTraitHistory(userId);
+      if (historyRows.length > 0) {
+        traitHistory = historyRows.map(r => ({
+          traits: JSON.parse(r.traitsJson) as TraitScores,
+          occupation: r.occupation,
+          createdAt: r.createdAt,
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to load trait history:', err);
+    }
+  }
+
   try {
-    const llmResult = await generateCareerReport(traits, userProfile, gameResults, gameBehaviorData, sessionId);
+    const llmResult = await generateCareerReport(traits, userProfile, gameResults, gameBehaviorData, sessionId, traitHistory);
     const response = {
       traits,
       gameResults,
@@ -331,6 +349,21 @@ router.post('/career-report', careerReportLimiter, async (req: Request, res: Res
         `INSERT OR REPLACE INTO reports (session_id, traits, ai_report, thinking_style, career_report, created_at)
          VALUES (?, ?, ?, ?, ?, ?)`
       ).run(sessionId, JSON.stringify(traits), llmResult.aiReport, llmResult.thinkingStyle, JSON.stringify(response), Date.now());
+    }
+
+    // ── Persist trait history for returning user context ──────────────────
+    if (userId) {
+      try {
+        saveUserTraitHistory(
+          userId,
+          sessionId,
+          JSON.stringify(traits),
+          JSON.stringify(gameResults),
+          userProfile.occupationTitle
+        );
+      } catch (err) {
+        console.error('Failed to save trait history:', err);
+      }
     }
 
     return res.json(response);

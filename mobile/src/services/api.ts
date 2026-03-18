@@ -16,13 +16,21 @@ export async function logEvent(event: GameEvent): Promise<void> {
   await axios.post(`${BASE_URL}/event`, event);
 }
 
+export interface TraitScores {
+  curiosity: number;
+  persistence: number;
+  risk_tolerance: number;
+  learning_speed: number;
+  working_memory: number;
+  processing_speed: number;
+  impulse_control: number;
+  analytical_thinking: number;
+  attention_to_detail: number;
+  systematic_thinking: number;
+}
+
 export interface BehavioralReport {
-  traits: {
-    curiosity: number;
-    persistence: number;
-    risk_tolerance: number;
-    learning_speed: number;
-  };
+  traits: TraitScores;
   aiReport: string;
   thinkingStyle: string;
 }
@@ -56,12 +64,7 @@ export interface SkillDevelopment {
 }
 
 export interface FullReport {
-  traits: {
-    curiosity: number;
-    persistence: number;
-    risk_tolerance: number;
-    learning_speed: number;
-  };
+  traits: TraitScores;
   gameResults: GameResult[];
   thinkingStyle: string;
   aiReport: string;
@@ -76,6 +79,16 @@ export interface GameSelectionResult {
   reasoning: string;
 }
 
+export async function registerUser(
+  username: string,
+  age: string,
+  country: string,
+  lifeStage: string
+): Promise<{ userId: number }> {
+  const response = await axios.post(`${BASE_URL}/user`, { username, age, country, lifeStage });
+  return response.data;
+}
+
 export async function selectGames(userProfile: UserProfile, pool: string[]): Promise<GameSelectionResult> {
   const response = await axios.post(`${BASE_URL}/select-games`, { userProfile, pool });
   return response.data;
@@ -84,10 +97,12 @@ export async function selectGames(userProfile: UserProfile, pool: string[]): Pro
 export async function getCareerReport(
   sessionId: string,
   userProfile: UserProfile,
-  gameResults: GameResult[]
+  gameResults: GameResult[],
+  userId?: number
 ): Promise<FullReport> {
   const response = await axios.post(`${BASE_URL}/career-report`, {
     sessionId,
+    userId,
     userProfile,
     gameResults,
   });
