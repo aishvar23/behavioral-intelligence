@@ -237,6 +237,8 @@ export default function HiddenPatternGame({ onComplete }: Props) {
   /**
    * Advance to the next round after a correct answer or a pass.
    * All values passed explicitly to avoid stale-closure issues inside setTimeout.
+   * `extendedHistory` is the current history with the correct answer appended — used
+   * within the same rule so the sequence keeps growing (sliding window) instead of re-seeding.
    */
   function advanceRound(
     currentRule: Rule,
@@ -244,6 +246,7 @@ export default function HiddenPatternGame({ onComplete }: Props) {
     currentRound: number,
     earnedPoints: number,
     currentScore: number,
+    extendedHistory: number[],
   ) {
     const newCorrectInRule = currentCorrectInRule + 1;
     const newRound = currentRound + 1;
@@ -268,7 +271,8 @@ export default function HiddenPatternGame({ onComplete }: Props) {
       setCorrectInRule(0);
       setFeedback('🔄 New pattern — find the rule!');
     } else {
-      setHistory([...currentRule.seed()]);
+      // Extend the running history — the visible window slides forward, no re-seed
+      setHistory(extendedHistory);
       setCorrectInRule(newCorrectInRule);
     }
 
@@ -316,9 +320,10 @@ export default function HiddenPatternGame({ onComplete }: Props) {
       const capturedCorrectInRule = correctInRule;
       const capturedRound = round;
       const capturedScore = score;
+      const extendedHistory = [...history, val]; // extend running sequence with the correct answer
       setTimeout(() => {
         setFeedback(null);
-        advanceRound(capturedRule, capturedCorrectInRule, capturedRound, pts, capturedScore);
+        advanceRound(capturedRule, capturedCorrectInRule, capturedRound, pts, capturedScore, extendedHistory);
       }, 800);
     } else {
       setWrongThisRound(w => w + 1);
@@ -350,10 +355,11 @@ export default function HiddenPatternGame({ onComplete }: Props) {
     const capturedCorrectInRule = correctInRule;
     const capturedRound = round;
     const capturedScore = score;
+    const extendedHistory = [...history, expected]; // extend sequence even on pass
     setTimeout(() => {
       setRevealAnswer(false);
       setFeedback(null);
-      advanceRound(capturedRule, capturedCorrectInRule, capturedRound, 0, capturedScore);
+      advanceRound(capturedRule, capturedCorrectInRule, capturedRound, 0, capturedScore, extendedHistory);
     }, 1500);
   }
 

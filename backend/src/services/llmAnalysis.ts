@@ -231,9 +231,14 @@ ${poolCatalog}
 Your task: Select exactly 3 games from the list above that will best reveal the cognitive and behavioral traits most critical for success as a ${userProfile.occupationTitle}.
 
 Rules:
-1. Diversity — pick games from DIFFERENT types (EXPLORATION / PATTERN / PUZZLE / MEMORY / LOGIC / REACTION)
+1. Diversity — pick games from DIFFERENT types (EXPLORATION / PATTERN / PUZZLE / MEMORY / LOGIC / STROOP / MATRIX / SPATIAL / ESTIMATION / SEARCH / REACTION)
 2. Relevance — prioritise games measuring skills most important for ${userProfile.occupationTitle}
-3. Age context — consider the user's age (${userProfile.age}) and stated interests in your reasoning
+3. Complexity — select difficulty based on the user's age (${userProfile.age}):
+   • Age 20–40 → PREFER 'hard' difficulty games (peak cognitive performance window — challenge them fully)
+   • Age 41–55 → prefer 'medium' difficulty games
+   • Age 15–19 → prefer 'medium' difficulty games (still developing)
+   • Age < 15 or > 55 → prefer 'easy' difficulty games
+   If the pool contains no hard games, pick the most challenging available.
 4. Use ONLY the exact ID strings from the leftmost column above
 
 Respond with valid JSON only (no markdown):
