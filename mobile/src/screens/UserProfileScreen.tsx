@@ -24,6 +24,7 @@ import { GAME_CONFIGS } from '../data/gameCatalog';
 import { OCCUPATION_GAME_POOLS, GENERAL_POOL } from '../data/occupationGamePools';
 import { selectGames, registerUser } from '../services/api';
 import { startSession } from '../services/session';
+import { useAuth } from '../context/AuthContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'UserProfile'>;
 
@@ -34,6 +35,7 @@ const CATEGORIES_ORDER: OccupationCategory[] = [
 const LIFE_STAGES = ['Student', 'Graduate', 'Early Career', 'Mid Career', 'Career Change', 'Exploring'];
 
 export default function UserProfileScreen({ navigation }: Props) {
+  const { auth } = useAuth();
   const [userName, setUserName] = useState('');
   const [age, setAge] = useState('');
   const [country, setCountry] = useState('');
@@ -88,14 +90,19 @@ export default function UserProfileScreen({ navigation }: Props) {
     };
 
     try {
-      // Register / update user in DB to enable multi-session tracking
+      // Authenticated users already have a backend record — use their userId directly.
+      // Guest users call registerUser() to get a session-scoped userId for history tracking.
       let userId: number | undefined;
-      try {
-        const userResult = await registerUser(profile.userName, profile.age, profile.country, profile.lifeStage);
-        userId = userResult.userId;
-      } catch {
-        // Non-fatal — continue without history tracking if registration fails
-        console.warn('User registration failed — proceeding without history');
+      if (auth.userId != null) {
+        userId = auth.userId;
+      } else {
+        try {
+          const userResult = await registerUser(profile.userName, profile.age, profile.country, profile.lifeStage);
+          userId = userResult.userId;
+        } catch {
+          // Non-fatal — continue without history tracking if registration fails
+          console.warn('User registration failed — proceeding without history');
+        }
       }
 
       const pool = OCCUPATION_GAME_POOLS[selectedOccupation] ?? GENERAL_POOL;
