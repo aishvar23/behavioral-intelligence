@@ -176,6 +176,59 @@ RESP=$(curl -s -o /tmp/bi_body.txt -w "%{http_code}" \
 BODY=$(cat /tmp/bi_body.txt)
 check "POST /event bad uuid → 400" "$RESP" "$BODY" "400" '"error"'
 
+# ── 8. Auth flow ──────────────────────────────────────────────────────────────
+echo ""
+echo "8. Auth flow (register / login / me / logout / bad-password)"
+
+# Use a timestamp-based email so each run registers a fresh account
+AUTH_EMAIL="smoke_$(date +%s)@test.local"
+AUTH_PASS="Smoke1234!"
+AUTH_NAME="Smoke User"
+
+# 8a. Register new account
+RESP=$(curl -s -o /tmp/bi_body.txt -w "%{http_code}" \
+  -X POST "$TARGET/auth/register" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"$AUTH_EMAIL\",\"password\":\"$AUTH_PASS\",\"displayName\":\"$AUTH_NAME\"}")
+BODY=$(cat /tmp/bi_body.txt)
+check "POST /auth/register" "$RESP" "$BODY" "201" '"accessToken"'
+
+ACCESS_TOKEN=$(echo "$BODY" | grep -o '"accessToken":"[^"]*"' | cut -d'"' -f4)
+
+# 8b. Login with same credentials
+RESP=$(curl -s -o /tmp/bi_body.txt -w "%{http_code}" \
+  -X POST "$TARGET/auth/login" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"$AUTH_EMAIL\",\"password\":\"$AUTH_PASS\"}")
+BODY=$(cat /tmp/bi_body.txt)
+check "POST /auth/login" "$RESP" "$BODY" "200" '"accessToken"'
+
+REFRESH_TOKEN=$(echo "$BODY" | grep -o '"refreshToken":"[^"]*"' | cut -d'"' -f4)
+
+# 8c. GET /auth/me with Bearer token
+RESP=$(curl -s -o /tmp/bi_body.txt -w "%{http_code}" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  "$TARGET/auth/me")
+BODY=$(cat /tmp/bi_body.txt)
+check "GET /auth/me" "$RESP" "$BODY" "200" '"email"'
+
+# 8d. Logout (revoke refresh token)
+RESP=$(curl -s -o /tmp/bi_body.txt -w "%{http_code}" \
+  -X POST "$TARGET/auth/logout" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -d "{\"refreshToken\":\"$REFRESH_TOKEN\"}")
+BODY=$(cat /tmp/bi_body.txt)
+check "POST /auth/logout" "$RESP" "$BODY" "200" '"ok"'
+
+# 8e. Login with wrong password → 401
+RESP=$(curl -s -o /tmp/bi_body.txt -w "%{http_code}" \
+  -X POST "$TARGET/auth/login" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"$AUTH_EMAIL\",\"password\":\"wrongpassword\"}")
+BODY=$(cat /tmp/bi_body.txt)
+check "POST /auth/login bad password -> 401" "$RESP" "$BODY" "401" '"error"'
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 echo ""
 echo "══════════════════════════════════════════"
