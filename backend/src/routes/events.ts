@@ -5,6 +5,8 @@ import { getDb, getPgPool, isPostgres, getUserTraitHistory, saveUserTraitHistory
 import { calculateTraits, TraitScores } from '../services/traitEngine';
 import { generateBehaviorReport, generateCareerReport, selectGamesForUser, TraitHistoryEntry } from '../services/llmAnalysis';
 import { extractStructuredBehaviorData } from '../services/behavioralSignals';
+import { authenticateJWT } from '../middleware/auth';
+import { startSession, endSession } from '../services/auth';
 
 const router = Router();
 
@@ -226,18 +228,21 @@ router.get('/report/:sessionId', async (req: Request, res: Response) => {
 });
 
 // POST /select-games — LLM picks 3 assessment games based on user profile + occupation
-router.post('/select-games', async (req: Request, res: Response) => {
+router.post('/select-games', authenticateJWT, async (req: Request, res: Response) => {
   try {
-    const { userProfile, pool, userId } = req.body;
+    const { userProfile, pool, userId: bodyUserId, sessionId } = req.body;
     if (!userProfile || !userProfile.occupationTitle) {
       return res.status(400).json({ error: 'Missing userProfile' });
     }
+
+    // Prefer token-authenticated userId, fall back to body userId for backward compat
+    const userId = req.userId ?? (bodyUserId ? Number(bodyUserId) : undefined);
 
     // Load most recent trait scores for adaptive difficulty selection
     let previousTraits: TraitScores | undefined;
     if (userId) {
       try {
-        const history = getUserTraitHistory(Number(userId), 1);
+        const history = getUserTraitHistory(userId, 1);
         if (history.length > 0) {
           previousTraits = JSON.parse(history[0].traitsJson) as TraitScores;
         }
@@ -245,6 +250,14 @@ router.post('/select-games', async (req: Request, res: Response) => {
     }
 
     const result = await selectGamesForUser(userProfile, Array.isArray(pool) ? pool : undefined, previousTraits);
+
+    // Register the session now that games have been selected
+    if (sessionId && typeof sessionId === 'string') {
+      try {
+        startSession(sessionId, userId);
+      } catch { /* non-fatal */ }
+    }
+
     return res.json(result);
   } catch (err) {
     console.error('POST /select-games error:', err);
@@ -253,14 +266,16 @@ router.post('/select-games', async (req: Request, res: Response) => {
 });
 
 // POST /career-report — generate occupation-aware report with user profile
-router.post('/career-report', careerReportLimiter, async (req: Request, res: Response) => {
+router.post('/career-report', careerReportLimiter, authenticateJWT, async (req: Request, res: Response) => {
   try {
   const parseResult = CareerReportSchema.safeParse(req.body);
   if (!parseResult.success) {
     return res.status(400).json({ error: 'Invalid request', details: parseResult.error.issues });
   }
 
-  const { sessionId, userId, userProfile, gameResults } = parseResult.data;
+  const { sessionId, userId: bodyUserId, userProfile, gameResults } = parseResult.data;
+  // Prefer token-authenticated userId, fall back to body userId for backward compat
+  const userId = req.userId ?? bodyUserId;
 
   // ── Cache check ────────────────────────────────────────────────────────────
   if (isPostgres()) {
@@ -377,6 +392,11 @@ router.post('/career-report', careerReportLimiter, async (req: Request, res: Res
         console.error('Failed to save trait history:', err);
       }
     }
+
+    // ── Mark session as completed ─────────────────────────────────────────
+    try {
+      endSession(sessionId, 'completed');
+    } catch { /* non-fatal */ }
 
     return res.json(response);
   } catch (err) {
