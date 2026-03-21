@@ -25,74 +25,6 @@ function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
 
-// ── Exploration ───────────────────────────────────────────────────────────────
-function describeExploration(events: GameEvent[], title: string): string {
-  const moves = events.filter(e => e.event_type === 'move');
-  if (moves.length === 0) return `${title}: No moves recorded — game may have been skipped.`;
-
-  const lastMove = moves[moves.length - 1];
-  const exploredPct = Math.round(((lastMove.data.explorationPct as number) ?? 0) * 100);
-  const traps = moves.filter(e => e.data.tileType === 'trap').length;
-  const rewards = moves.filter(e => e.data.tileType === 'reward').length;
-  const revisits = moves.filter(e => e.data.revisit === true).length;
-  const totalMoves = moves[moves.length - 1].data.movesUsed as number ?? moves.length;
-
-  const riskLabel = traps > 6 ? 'very high risk-taking' : traps > 3 ? 'moderate risk-taking' : 'cautious play';
-  const explorationLabel = exploredPct >= 50 ? 'thorough explorer' : exploredPct >= 30 ? 'moderate explorer' : 'minimal exploration';
-
-  return `${title}: ${totalMoves}/30 moves used, explored ${exploredPct}% of grid (${explorationLabel}), hit ${traps} trap${traps !== 1 ? 's' : ''} (${riskLabel}), collected ${rewards} reward${rewards !== 1 ? 's' : ''}, ${revisits} tile revisit${revisits !== 1 ? 's' : ''}.`;
-}
-
-// ── Pattern Recognition ───────────────────────────────────────────────────────
-function describePattern(events: GameEvent[], title: string): string {
-  const correct = events.filter(e => e.event_type === 'correct_guess');
-  const wrong = events.filter(e => e.event_type === 'wrong_guess');
-  const passes = events.filter(e => e.event_type === 'pass');
-  const quit = events.some(e => e.event_type === 'quit');
-
-  if (correct.length + wrong.length + passes.length === 0) {
-    return `${title}: No answers recorded — game may have been skipped.`;
-  }
-
-  const total = correct.length + wrong.length;
-  const accuracy = total > 0 ? Math.round((correct.length / total) * 100) : 0;
-
-  const timings = correct
-    .map(e => e.data.timeToFirstGuess as number)
-    .filter(t => typeof t === 'number' && t > 0);
-  const avgTime = timings.length > 0 ? Math.round(avg(timings) / 1000) : null;
-
-  const adaptEvents = correct.filter(e => (e.data.adaptationRound as number | null) !== null);
-  const avgAdapt = adaptEvents.length > 0
-    ? round1(avg(adaptEvents.map(e => e.data.adaptationRound as number)))
-    : null;
-
-  let line = `${title}: ${correct.length}/${correct.length + wrong.length} rounds correct (${accuracy}% accuracy)`;
-  if (passes.length > 0) line += `, ${passes.length} pass${passes.length !== 1 ? 'es' : ''} used`;
-  if (avgTime !== null) line += `, avg ${avgTime}s to answer`;
-  if (avgAdapt !== null) line += `, adapted to rule changes in avg ${avgAdapt} rounds`;
-  if (quit) line += ` — quit early`;
-  return line + '.';
-}
-
-// ── Puzzle ────────────────────────────────────────────────────────────────────
-function describePuzzle(events: GameEvent[], title: string): string {
-  const moves = events.filter(e => e.event_type === 'move');
-  const hints = events.filter(e => e.event_type === 'hint_used');
-  const solved = events.some(e => e.event_type === 'solved');
-  const quit = events.some(e => e.event_type === 'quit');
-
-  if (moves.length === 0) return `${title}: No moves recorded — game may have been skipped.`;
-
-  const outcomeLabel = solved ? 'solved' : quit ? 'quit without solving' : 'did not complete';
-  let line = `${title}: ${moves.length} moves made, ${hints.length} hint${hints.length !== 1 ? 's' : ''} used, ${outcomeLabel}`;
-
-  if (solved && moves.length < 30) line += ` (efficient solution)`;
-  else if (solved && moves.length >= 60) line += ` (required many attempts)`;
-
-  return line + '.';
-}
-
 // ── Memory ────────────────────────────────────────────────────────────────────
 function describeMemory(events: GameEvent[], title: string): string {
   const rounds = events.filter(e => e.event_type === 'round_complete');
@@ -160,12 +92,6 @@ function describeReaction(events: GameEvent[], title: string): string {
 
 // ── Structured behavior data (typed JSON for LLM prompt) ─────────────────────
 export interface GameBehaviorData {
-  exploration_game?: {
-    tilesExplored: number;
-    revisitedTiles: number;
-    decisionTimeAvg: number;
-    trapEncounters: number;
-  };
   rule_discovery_game?: {
     correctPredictions: number;
     totalPredictions: number;
@@ -175,11 +101,6 @@ export interface GameBehaviorData {
     completedRounds: number;
     totalRounds: number;
     totalMistakes: number;
-  };
-  persistence_puzzle?: {
-    totalAttempts: number;
-    timeSpentSeconds: number;
-    quit: boolean;
   };
   memory_game?: {
     correctRounds: number;
@@ -204,30 +125,12 @@ export function extractStructuredBehaviorData(
   events: GameEvent[],
   gameResults: GameResult[]
 ): GameBehaviorData {
-  const TOTAL_TILES = 64; // 8×8 grid
   const data: GameBehaviorData = {};
 
   for (const game of gameResults) {
     const gameEvents = events.filter(e => e.game_id === game.configId || e.game_id === game.gameType);
 
     switch (game.gameType) {
-      case 'exploration': {
-        const moves = gameEvents.filter(e => e.event_type === 'move');
-        if (moves.length === 0) break;
-
-        const lastMove = moves[moves.length - 1];
-        const explorationPct = (lastMove.data.explorationPct as number) ?? 0;
-        const tilesExplored = Math.round(explorationPct * TOTAL_TILES);
-        const revisitedTiles = moves.filter(e => e.data.revisit === true).length;
-        const trapEncounters = moves.filter(e => e.data.tileType === 'trap').length;
-
-        const moveTimes = moves.map(e => e.timestamp);
-        const gaps = moveTimes.slice(1).map((t, i) => (t - moveTimes[i]) / 1000);
-        const decisionTimeAvg = gaps.length > 0 ? round1(avg(gaps)) : 0;
-
-        data.exploration_game = { tilesExplored, revisitedTiles, decisionTimeAvg, trapEncounters };
-        break;
-      }
       case 'rule_discovery': {
         const predictions = gameEvents.filter(e => e.event_type === 'prediction_submitted' && !e.data.timedOut);
         const correctPredictions = predictions.filter(e => e.data.correct).length;
@@ -248,22 +151,6 @@ export function extractStructuredBehaviorData(
           completedRounds,
           totalRounds: completions.length,
           totalMistakes,
-        };
-        break;
-      }
-      case 'puzzle': {
-        const moves = gameEvents.filter(e => e.event_type === 'move');
-        if (moves.length === 0) break;
-
-        const timestamps = gameEvents.map(e => e.timestamp);
-        const timeSpentSeconds = timestamps.length > 1
-          ? Math.round((Math.max(...timestamps) - Math.min(...timestamps)) / 1000)
-          : 0;
-
-        data.persistence_puzzle = {
-          totalAttempts: moves.length,
-          timeSpentSeconds,
-          quit: gameEvents.some(e => e.event_type === 'quit'),
         };
         break;
       }
@@ -335,15 +222,6 @@ export function extractBehavioralSignals(
     const gameEvents = events.filter(e => e.game_id === game.configId || e.game_id === game.gameType);
 
     switch (game.gameType) {
-      case 'exploration':
-        lines.push(describeExploration(gameEvents, game.title));
-        break;
-      case 'pattern':
-        lines.push(describePattern(gameEvents, game.title));
-        break;
-      case 'puzzle':
-        lines.push(describePuzzle(gameEvents, game.title));
-        break;
       case 'memory':
         lines.push(describeMemory(gameEvents, game.title));
         break;

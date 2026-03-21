@@ -6,7 +6,7 @@
  * near-unlimited variety. Add more GameConfig entries to scale toward 50,000+ configs.
  */
 
-export type GameType = 'exploration' | 'puzzle' | 'memory' | 'logic' | 'reaction' | 'stroop' | 'matrix' | 'spatial' | 'estimation' | 'search' | 'rule_discovery' | 'planning';
+export type GameType = 'memory' | 'logic' | 'reaction' | 'stroop' | 'matrix' | 'spatial' | 'estimation' | 'search' | 'rule_discovery' | 'planning';
 
 export interface GameConfig {
   id: string;
@@ -19,44 +19,6 @@ export interface GameConfig {
 }
 
 export const GAME_CONFIGS: Record<string, GameConfig> = {
-  // ── Exploration variants (3) ──────────────────────────────────────────────
-  exploration_standard: {
-    id: 'exploration_standard', type: 'exploration',
-    title: 'Exploration Island', emoji: '🏝️', difficulty: 'medium',
-    description: 'Navigate a fog-covered 8×8 grid. Collect rewards, dodge traps.',
-    config: {},
-  },
-  exploration_cautious: {
-    id: 'exploration_cautious', type: 'exploration',
-    title: 'Risk Zone', emoji: '⚠️', difficulty: 'hard',
-    description: 'Dense trap field — every step is a calculated risk.',
-    config: { trapDensity: 'high' },
-  },
-  exploration_open: {
-    id: 'exploration_open', type: 'exploration',
-    title: 'Discovery Expedition', emoji: '🗺️', difficulty: 'easy',
-    description: 'Wide terrain rich with rewards for the truly curious.',
-    config: { rewardDensity: 'high' },
-  },
-  exploration_data: {
-    id: 'exploration_data', type: 'exploration',
-    title: 'Data Landscape', emoji: '🗃️', difficulty: 'medium',
-    description: 'Uncover patterns in a data-rich terrain — clusters reveal insights.',
-    config: { rewardPattern: 'clustered' },
-  },
-  exploration_resource: {
-    id: 'exploration_resource', type: 'exploration',
-    title: 'Resource Optimizer', emoji: '💎', difficulty: 'hard',
-    description: 'Maximise resources collected with a tight move budget.',
-    config: { movePenalty: true },
-  },
-  exploration_systematic: {
-    id: 'exploration_systematic', type: 'exploration',
-    title: 'Systematic Survey', emoji: '📡', difficulty: 'easy',
-    description: 'Cover every zone methodically — bonus points for full grid coverage.',
-    config: { coverageBonus: true },
-  },
-
   // ── Rule Discovery variants (2) — analytical reasoning + learning speed ─────
   black_box_standard: {
     id: 'black_box_standard', type: 'rule_discovery',
@@ -85,45 +47,7 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     config: { hard: true },
   },
 
-  // ── Puzzle variants (3) ───────────────────────────────────────────────────
-  puzzle_standard: {
-    id: 'puzzle_standard', type: 'puzzle',
-    title: 'Impossible Puzzle', emoji: '🧩', difficulty: 'medium',
-    description: 'Slide tiles into order — deceptively hard.',
-    config: {},
-  },
-  puzzle_pressure: {
-    id: 'puzzle_pressure', type: 'puzzle',
-    title: 'Pressure Puzzle', emoji: '🔥', difficulty: 'hard',
-    description: 'One hint. No safety net. Solve it cold.',
-    config: { maxHints: 1 },
-  },
-  puzzle_strategic: {
-    id: 'puzzle_strategic', type: 'puzzle',
-    title: 'Strategic Puzzle', emoji: '♟️', difficulty: 'medium',
-    description: 'Efficiency scores — solve in fewest moves for max reward.',
-    config: { scoreEfficiencyBonus: true },
-  },
-  puzzle_collaborative: {
-    id: 'puzzle_collaborative', type: 'puzzle',
-    title: 'Team Solve', emoji: '🤝', difficulty: 'easy',
-    description: 'Hints are freely available — collaboration over brute-force.',
-    config: { maxHints: 5, hintPenalty: 5 },
-  },
-  puzzle_precise: {
-    id: 'puzzle_precise', type: 'puzzle',
-    title: 'Precision Assembly', emoji: '🔩', difficulty: 'hard',
-    description: 'Requires exact, efficient moves — no room for trial and error.',
-    config: { shuffleDepth: 'low', efficiencyRequired: true },
-  },
-  puzzle_analytical: {
-    id: 'puzzle_analytical', type: 'puzzle',
-    title: 'Analytical Deconstruct', emoji: '🧐', difficulty: 'medium',
-    description: 'Move history visible throughout — reward deliberate, methodical solvers.',
-    config: { showMoveHistory: true },
-  },
-
-  // ── Memory variants (3) — new game type ───────────────────────────────────
+  // ── Memory variants (6) ───────────────────────────────────────────────────
   memory_colors: {
     id: 'memory_colors', type: 'memory',
     title: 'Color Memory', emoji: '🌈', difficulty: 'medium',

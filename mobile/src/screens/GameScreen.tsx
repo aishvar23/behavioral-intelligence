@@ -11,10 +11,8 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, GameResult } from '../navigation/AppNavigator';
-import ExplorationIsland from '../components/games/ExplorationIsland';
 import BlackBoxGame from '../components/games/BlackBoxGame';
 import TaskPlanningGame from '../components/games/TaskPlanningGame';
-import ImpossiblePuzzle from '../components/games/ImpossiblePuzzle';
 import MemorySequenceGame from '../components/games/MemorySequenceGame';
 import LogicDeductionGame from '../components/games/LogicDeductionGame';
 import ReactionTestGame from '../components/games/ReactionTestGame';
@@ -29,15 +27,6 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Game'>;
 
 // Rules shown in the tooltip modal, per game type
 const GAME_RULES: Record<string, { summary: string; bullets: string[] }> = {
-  exploration: {
-    summary: 'Navigate a fog-covered grid to uncover tiles within a move limit.',
-    bullets: [
-      'You have 30 moves to explore the grid',
-      'Green tiles give reward points — traps subtract points',
-      'Unexplored tiles are hidden until you step on them',
-      'Try to uncover as much of the grid as possible',
-    ],
-  },
   rule_discovery: {
     summary: 'A hidden function sits inside a black box — test inputs and deduce the rule.',
     bullets: [
@@ -54,15 +43,6 @@ const GAME_RULES: Record<string, { summary: string; bullets: string[] }> = {
       'Grayed-out cards are locked until prerequisites are done',
       'Wrong tap costs 5 points — read dependencies carefully',
       '6 rounds with increasing pipeline complexity',
-    ],
-  },
-  puzzle: {
-    summary: 'Slide tiles into the correct order using as few moves as possible.',
-    bullets: [
-      'Tap a tile adjacent to the empty space to slide it',
-      'Goal: arrange tiles from 1 to 8 in order',
-      'Fewer moves = higher score',
-      'Use hints if you get stuck (limited supply)',
     ],
   },
   memory: {
@@ -236,17 +216,11 @@ export default function GameScreen({ navigation, route }: Props) {
       </View>
 
       {/* Game component */}
-      {current.gameType === 'exploration' && (
-        <ExplorationIsland sessionId={sessionId} onComplete={handleGameComplete} />
-      )}
       {current.gameType === 'rule_discovery' && (
         <BlackBoxGame sessionId={sessionId} onComplete={handleGameComplete} />
       )}
       {current.gameType === 'planning' && (
         <TaskPlanningGame sessionId={sessionId} onComplete={handleGameComplete} />
-      )}
-      {current.gameType === 'puzzle' && (
-        <ImpossiblePuzzle sessionId={sessionId} onComplete={handleGameComplete} />
       )}
       {current.gameType === 'memory' && (
         <MemorySequenceGame

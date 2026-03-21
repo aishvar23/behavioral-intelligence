@@ -101,15 +101,7 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const GAME_CATALOG_FOR_LLM = `
 NOTE: Select games based on the COGNITIVE TRAITS required for the occupation (curiosity, precision, memory, analytical thinking, spatial reasoning, speed) — not on job-specific knowledge. All games use abstract content anyone can attempt.
 
-Available assessment games (across 6 types):
-
-EXPLORATION — measures curiosity, risk tolerance, strategic navigation:
-  exploration_standard  | "Exploration Island"     | 8×8 fog grid, 30 moves. Rewards + traps.
-  exploration_cautious  | "Risk Zone"              | Dense trap field. High-stakes risk decisions.
-  exploration_open      | "Discovery Expedition"   | Reward-rich terrain. Curiosity and persistence.
-  exploration_data      | "Data Landscape"         | Clustered reward patterns. Data-driven exploration.
-  exploration_resource  | "Resource Optimizer"     | Tight move budget. Maximise resource collection.
-  exploration_systematic| "Systematic Survey"      | Coverage bonus. Rewards methodical grid exploration.
+Available assessment games:
 
 RULE DISCOVERY — measures analytical thinking, learning speed, hypothesis testing:
   black_box_standard    | "Black Box"              | Test inputs on a hidden function, deduce the rule, predict output.
@@ -118,14 +110,6 @@ RULE DISCOVERY — measures analytical thinking, learning speed, hypothesis test
 TASK PLANNING — measures systematic thinking, dependency reasoning, logical planning:
   task_planning_standard| "Task Planner"           | Order tasks with dependency constraints in correct topological sequence.
   task_planning_hard    | "Task Planner: Advanced" | Complex dependency graphs — parallel paths, merge points, 6-node DAGs.
-
-PUZZLE SOLVING — measures problem-solving, persistence, strategic planning:
-  puzzle_standard       | "Impossible Puzzle"      | Sliding tile puzzle, 3 hints available.
-  puzzle_pressure       | "Pressure Puzzle"        | Only 1 hint. High persistence requirement.
-  puzzle_strategic      | "Strategic Puzzle"       | Move-efficiency scoring. Strategic planning.
-  puzzle_collaborative  | "Team Solve"             | Hints freely available. Collaboration mindset.
-  puzzle_precise        | "Precision Assembly"     | Exact moves required. Zero tolerance for error.
-  puzzle_analytical     | "Analytical Deconstruct" | Move history shown. Deliberate, methodical solving.
 
 MEMORY — measures working memory, spatial recall, numerical retention:
   memory_colors         | "Color Memory"           | Recall colour sequences. Visual/spatial memory.
@@ -158,22 +142,10 @@ REACTION & INHIBITION — measures processing speed, impulse control, focus:
 
 // Per-game descriptions used to build focused pool catalogs for the LLM
 const GAME_DESCRIPTIONS: Record<string, string> = {
-  exploration_standard:   'EXPLORATION | "Exploration Island"      | 8×8 fog grid, 30 moves. Rewards + traps. Curiosity & risk.',
-  exploration_cautious:   'EXPLORATION | "Risk Zone"               | Dense trap field. High-stakes risk decisions.',
-  exploration_open:       'EXPLORATION | "Discovery Expedition"    | Reward-rich terrain. Curiosity and persistence.',
-  exploration_data:       'EXPLORATION | "Data Landscape"          | Clustered rewards. Data-driven, pattern-seeking exploration.',
-  exploration_resource:   'EXPLORATION | "Resource Optimizer"      | Tight move budget. Resource efficiency under constraint.',
-  exploration_systematic: 'EXPLORATION | "Systematic Survey"       | Coverage bonus. Rewards methodical, thorough exploration.',
   black_box_standard:     'RULE_DISC   | "Black Box"               | Test inputs on hidden function, predict output. Analytical thinking + learning speed.',
   black_box_hard:         'RULE_DISC   | "Black Box: Hard"         | Nonlinear hidden functions. Deep analytical reasoning + hypothesis testing.',
   task_planning_standard: 'PLANNING    | "Task Planner"            | Topological ordering of tasks with dependencies. Systematic thinking.',
   task_planning_hard:     'PLANNING    | "Task Planner: Advanced"  | Complex DAG dependency graphs with parallel branches. Advanced systematic thinking.',
-  puzzle_standard:        'PUZZLE      | "Impossible Puzzle"       | Sliding tile, 3 hints. Problem-solving & persistence.',
-  puzzle_pressure:        'PUZZLE      | "Pressure Puzzle"         | Only 1 hint. High persistence requirement.',
-  puzzle_strategic:       'PUZZLE      | "Strategic Puzzle"        | Move-efficiency scoring. Strategic planning.',
-  puzzle_collaborative:   'PUZZLE      | "Team Solve"              | Hints freely available. Collaboration over brute-force.',
-  puzzle_precise:         'PUZZLE      | "Precision Assembly"      | Exact moves required. Zero tolerance for error.',
-  puzzle_analytical:      'PUZZLE      | "Analytical Deconstruct"  | Move history shown. Deliberate, methodical solving.',
   memory_colors:          'MEMORY      | "Color Memory"            | Colour sequences. Visual/spatial working memory.',
   memory_numbers:         'MEMORY      | "Number Recall"           | Number sequences. Numerical working memory.',
   memory_positions:       'MEMORY      | "Spatial Memory"          | Grid positions. Spatial/positional memory.',
@@ -318,12 +290,16 @@ Return only valid JSON, no markdown.`;
 
 // Approximate practical maximum scores per game type
 const GAME_MAX_SCORES: Record<string, number> = {
-  exploration: 80,   // 8 reward tiles × 10 pts
-  pattern:     90,   // 9 rounds × 10 pts first-try
-  puzzle:      700,  // practical max (theoretical 1000 minus minimum moves)
-  memory:      150,  // 5 rounds × 30 pts max
-  logic:       105,  // 7 questions × 15 pts max (with time bonus)
-  reaction:    150,  // 10 rounds × 15 pts max
+  rule_discovery: 240,  // 8 rounds × 30 pts max
+  planning:       240,  // 6 rounds × 40 pts max
+  memory:         150,  // 5 rounds × 30 pts max
+  logic:          105,  // 7 questions × 15 pts max (with time bonus)
+  reaction:       150,  // 10 rounds × 15 pts max
+  stroop:         360,  // 24 trials × 15 pts max
+  matrix:         200,  // 8 rounds × 25 pts max
+  spatial:        160,  // 8 rounds × 20 pts max
+  estimation:     200,  // 20 trials × 20 pts max
+  search:         200,  // 8 rounds × 25 pts max
 };
 
 function performanceLabel(pct: number): string {

@@ -7,7 +7,7 @@ import { startSession } from '../services/session';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OccupationIntent'>;
 
-const ALL_TYPES: GameType[] = ['exploration', 'pattern', 'puzzle', 'memory', 'logic', 'reaction'];
+const ALL_TYPES: GameType[] = ['rule_discovery', 'planning', 'memory', 'logic', 'reaction', 'stroop', 'matrix', 'spatial', 'estimation', 'search'];
 
 function pickRandomGames() {
   // Shuffle types, take 3, then pick one random config from each

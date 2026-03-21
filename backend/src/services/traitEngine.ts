@@ -1,7 +1,7 @@
 /**
  * Trait Engine
  * Derives personality/cognitive trait scores from raw game events.
- * Supports game types: exploration, puzzle, memory, logic, reaction,
+ * Supports game types: memory, logic, reaction,
  * stroop, matrix, spatial, estimation, search, rule_discovery, planning.
  */
 
@@ -25,16 +25,8 @@ interface GameEvent {
   data: Record<string, unknown>;
 }
 
-const EXPLORATION_IDS = [
-  'exploration', 'exploration_standard', 'exploration_cautious',
-  'exploration_open', 'exploration_data', 'exploration_resource', 'exploration_systematic',
-];
 const RULE_DISCOVERY_IDS = ['black_box', 'black_box_standard', 'black_box_hard'];
 const PLANNING_IDS = ['task_planning', 'task_planning_standard', 'task_planning_hard'];
-const PUZZLE_IDS = [
-  'puzzle', 'puzzle_standard', 'puzzle_pressure', 'puzzle_strategic',
-  'puzzle_collaborative', 'puzzle_precise', 'puzzle_analytical',
-];
 const MEMORY_IDS = [
   'memory_colors', 'memory_numbers', 'memory_positions',
   'memory_sequential', 'memory_faces', 'memory_code',
@@ -48,10 +40,8 @@ const ESTIMATION_IDS = ['dot_estimation'];
 const SEARCH_IDS = ['visual_search', 'visual_search_standard', 'visual_search_hard'];
 
 export function calculateTraits(events: GameEvent[]): TraitScores {
-  const explorationEvents    = events.filter(e => EXPLORATION_IDS.includes(e.game_id));
   const ruleDiscoveryEvents  = events.filter(e => RULE_DISCOVERY_IDS.includes(e.game_id));
   const planningEvents       = events.filter(e => PLANNING_IDS.includes(e.game_id));
-  const puzzleEvents         = events.filter(e => PUZZLE_IDS.includes(e.game_id));
   const memoryEvents         = events.filter(e => MEMORY_IDS.includes(e.game_id));
   const logicEvents          = events.filter(e => LOGIC_IDS.includes(e.game_id));
   const reactionEvents       = events.filter(e => REACTION_IDS.includes(e.game_id));
@@ -61,11 +51,11 @@ export function calculateTraits(events: GameEvent[]): TraitScores {
   const estimationEvents     = events.filter(e => ESTIMATION_IDS.includes(e.game_id));
   const searchEvents         = events.filter(e => SEARCH_IDS.includes(e.game_id));
 
-  // ── curiosity: exploration coverage ───────────────────────────────────────
-  const curiosity = explorationEvents.length > 0 ? calcCuriosity(explorationEvents) : 0.5;
+  // ── curiosity: how many inputs user tests in black box (high = intellectually curious) ─
+  const curiosity = ruleDiscoveryEvents.length > 0 ? calcCuriosityFromRuleDiscovery(ruleDiscoveryEvents) : 0.5;
 
-  // ── persistence: puzzle effort + logic + reaction + planning completion ──────
-  let persistence: number | null = puzzleEvents.length > 0 ? calcPersistenceFromPuzzle(puzzleEvents) : null;
+  // ── persistence: logic completion + reaction endurance + planning rounds ──────
+  let persistence: number | null = null;
   if (logicEvents.length > 0) {
     const lp = calcPersistenceFromLogic(logicEvents);
     persistence = persistence !== null ? (persistence + lp) / 2 : lp;
@@ -79,12 +69,8 @@ export function calculateTraits(events: GameEvent[]): TraitScores {
     persistence = persistence !== null ? (persistence + pp) / 2 : pp;
   }
 
-  // ── risk_tolerance: exploration traps + reaction impulsivity ──────────────
-  let risk_tolerance: number | null = explorationEvents.length > 0 ? calcRiskTolerance(explorationEvents) : null;
-  if (reactionEvents.length > 0) {
-    const rr = calcRiskFromReaction(reactionEvents);
-    risk_tolerance = risk_tolerance !== null ? (risk_tolerance + rr) / 2 : rr;
-  }
+  // ── risk_tolerance: reaction impulsivity (nogo false starts = willingness to take risk) ─
+  let risk_tolerance: number | null = reactionEvents.length > 0 ? calcRiskFromReaction(reactionEvents) : null;
 
   // ── learning_speed: rule discovery + memory learning + matrix accuracy ─────
   let learning_speed: number | null = ruleDiscoveryEvents.length > 0 ? calcLearningFromRuleDiscovery(ruleDiscoveryEvents) : null;
@@ -136,25 +122,11 @@ export function calculateTraits(events: GameEvent[]): TraitScores {
     analytical_thinking = analytical_thinking !== null ? (analytical_thinking + ea) / 2 : ea;
   }
 
-  // ── attention_to_detail: puzzle efficiency + search accuracy ──────────────
-  let attention_to_detail: number | null = null;
-  if (puzzleEvents.length > 0) {
-    attention_to_detail = calcAttentionFromPuzzle(puzzleEvents);
-  }
-  if (searchEvents.length > 0) {
-    const sa = calcAttentionFromSearch(searchEvents);
-    attention_to_detail = attention_to_detail !== null ? (attention_to_detail + sa) / 2 : sa;
-  }
+  // ── attention_to_detail: search accuracy ──────────────────────────────────
+  let attention_to_detail: number | null = searchEvents.length > 0 ? calcAttentionFromSearch(searchEvents) : null;
 
-  // ── systematic_thinking: exploration + puzzle + spatial + planning ──────────
+  // ── systematic_thinking: spatial + planning ───────────────────────────────
   let systematic_thinking: number | null = null;
-  if (explorationEvents.length > 0) {
-    systematic_thinking = calcSystematicFromExploration(explorationEvents);
-  }
-  if (puzzleEvents.length > 0) {
-    const sp = calcSystematicFromPuzzle(puzzleEvents);
-    systematic_thinking = systematic_thinking !== null ? (systematic_thinking + sp) / 2 : sp;
-  }
   if (spatialEvents.length > 0) {
     const sv = calcAccuracyFromOptions(spatialEvents);
     systematic_thinking = systematic_thinking !== null ? (systematic_thinking + sv) / 2 : sv;
@@ -180,21 +152,14 @@ export function calculateTraits(events: GameEvent[]): TraitScores {
 
 // ── Individual calculators ───────────────────────────────────────────────────
 
-function calcCuriosity(events: GameEvent[]): number {
-  const moveEvents = events.filter(e => e.event_type === 'move');
-  if (moveEvents.length === 0) return 0.5;
-  const last = moveEvents[moveEvents.length - 1];
-  const pct = (last.data.explorationPct as number) ?? 0;
-  return clamp(pct / 0.6);
-}
-
-function calcPersistenceFromPuzzle(events: GameEvent[]): number {
-  const moves = events.filter(e => e.event_type === 'move').length;
-  const quit = events.some(e => e.event_type === 'quit');
-  const solved = events.some(e => e.event_type === 'solved');
-  if (quit && moves < 10) return 0.1;
-  if (solved) return clamp(0.5 + moves / 200);
-  return clamp(moves / 100);
+// Curiosity: more test inputs in BlackBox = more intellectually curious
+function calcCuriosityFromRuleDiscovery(events: GameEvent[]): number {
+  const tests = events.filter(e => e.event_type === 'input_tested');
+  const rounds = new Set(events.filter(e => e.event_type === 'prediction_submitted').map(e => e.data.round as number)).size;
+  if (rounds === 0) return 0.5;
+  const avgTestsPerRound = tests.length / rounds;
+  // 1 test = min curiosity (0.2), 5+ tests = max curiosity (1.0)
+  return clamp(0.2 + (avgTestsPerRound - 1) / 4 * 0.8);
 }
 
 function calcPersistenceFromLogic(events: GameEvent[]): number {
@@ -207,13 +172,6 @@ function calcPersistenceFromReaction(events: GameEvent[]): number {
   const responses = events.filter(e => e.event_type === 'stimulus_response');
   const accuracy = responses.filter(e => e.data.correct).length / Math.max(responses.length, 1);
   return clamp(responses.length / 10 * 0.6 + accuracy * 0.4);
-}
-
-function calcRiskTolerance(events: GameEvent[]): number {
-  const moves = events.filter(e => e.event_type === 'move');
-  if (moves.length === 0) return 0.5;
-  const trapMoves = moves.filter(e => e.data.tileType === 'trap').length;
-  return clamp(trapMoves / moves.length / 0.2);
 }
 
 function calcRiskFromReaction(events: GameEvent[]): number {
@@ -306,33 +264,7 @@ function calcSystematicFromPlanning(events: GameEvent[]): number {
   return clamp(completionRate * 0.5 + mistakeScore * 0.5);
 }
 
-function calcAttentionFromPuzzle(events: GameEvent[]): number {
-  const moves = events.filter(e => e.event_type === 'move').length;
-  const solved = events.some(e => e.event_type === 'solved');
-  if (!solved) return 0.3;
-  // Optimal ~20 moves; score decays as moves increase toward 120
-  return clamp(1 - Math.max(0, moves - 20) / 100);
-}
-
-function calcSystematicFromExploration(events: GameEvent[]): number {
-  const moves = events.filter(e => e.event_type === 'move');
-  if (moves.length === 0) return 0.5;
-  const last = moves[moves.length - 1];
-  const pct = (last.data.explorationPct as number) ?? 0;
-  // Coverage per move fraction (1 = explored as much as possible per move)
-  const coveragePerMove = pct / (moves.length / 30);
-  return clamp(coveragePerMove / 0.8);
-}
-
-function calcSystematicFromPuzzle(events: GameEvent[]): number {
-  const moves = events.filter(e => e.event_type === 'move').length;
-  const solved = events.some(e => e.event_type === 'solved');
-  if (!solved) return 0.2;
-  // Optimal ~20 moves; methodical solvers ~30–50; random solvers ~100+
-  return clamp(1 - Math.max(0, moves - 20) / 80);
-}
-
-// ── New cognitive game calculators ──────────────────────────────────────────
+// ── Cognitive game calculators ───────────────────────────────────────────────
 
 // Generic option-selection accuracy (matrix, spatial, estimation)
 function calcAccuracyFromOptions(events: GameEvent[]): number {
