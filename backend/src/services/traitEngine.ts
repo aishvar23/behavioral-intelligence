@@ -1,8 +1,8 @@
 /**
  * Trait Engine
  * Derives personality/cognitive trait scores from raw game events.
- * Supports all 11 game types: exploration, pattern, puzzle, memory, logic, reaction,
- * stroop, matrix, spatial, estimation, search.
+ * Supports game types: exploration, puzzle, memory, logic, reaction,
+ * stroop, matrix, spatial, estimation, search, rule_discovery, planning.
  */
 
 export interface TraitScores {
@@ -29,10 +29,8 @@ const EXPLORATION_IDS = [
   'exploration', 'exploration_standard', 'exploration_cautious',
   'exploration_open', 'exploration_data', 'exploration_resource', 'exploration_systematic',
 ];
-const PATTERN_IDS = [
-  'pattern', 'pattern_standard', 'pattern_advanced', 'pattern_logic',
-  'pattern_financial', 'pattern_adaptive', 'pattern_creative',
-];
+const RULE_DISCOVERY_IDS = ['black_box', 'black_box_standard', 'black_box_hard'];
+const PLANNING_IDS = ['task_planning', 'task_planning_standard', 'task_planning_hard'];
 const PUZZLE_IDS = [
   'puzzle', 'puzzle_standard', 'puzzle_pressure', 'puzzle_strategic',
   'puzzle_collaborative', 'puzzle_precise', 'puzzle_analytical',
@@ -50,22 +48,23 @@ const ESTIMATION_IDS = ['dot_estimation'];
 const SEARCH_IDS = ['visual_search', 'visual_search_standard', 'visual_search_hard'];
 
 export function calculateTraits(events: GameEvent[]): TraitScores {
-  const explorationEvents = events.filter(e => EXPLORATION_IDS.includes(e.game_id));
-  const patternEvents     = events.filter(e => PATTERN_IDS.includes(e.game_id));
-  const puzzleEvents      = events.filter(e => PUZZLE_IDS.includes(e.game_id));
-  const memoryEvents      = events.filter(e => MEMORY_IDS.includes(e.game_id));
-  const logicEvents       = events.filter(e => LOGIC_IDS.includes(e.game_id));
-  const reactionEvents    = events.filter(e => REACTION_IDS.includes(e.game_id));
-  const stroopEvents      = events.filter(e => STROOP_IDS.includes(e.game_id));
-  const matrixEvents      = events.filter(e => MATRIX_IDS.includes(e.game_id));
-  const spatialEvents     = events.filter(e => SPATIAL_IDS.includes(e.game_id));
-  const estimationEvents  = events.filter(e => ESTIMATION_IDS.includes(e.game_id));
-  const searchEvents      = events.filter(e => SEARCH_IDS.includes(e.game_id));
+  const explorationEvents    = events.filter(e => EXPLORATION_IDS.includes(e.game_id));
+  const ruleDiscoveryEvents  = events.filter(e => RULE_DISCOVERY_IDS.includes(e.game_id));
+  const planningEvents       = events.filter(e => PLANNING_IDS.includes(e.game_id));
+  const puzzleEvents         = events.filter(e => PUZZLE_IDS.includes(e.game_id));
+  const memoryEvents         = events.filter(e => MEMORY_IDS.includes(e.game_id));
+  const logicEvents          = events.filter(e => LOGIC_IDS.includes(e.game_id));
+  const reactionEvents       = events.filter(e => REACTION_IDS.includes(e.game_id));
+  const stroopEvents         = events.filter(e => STROOP_IDS.includes(e.game_id));
+  const matrixEvents         = events.filter(e => MATRIX_IDS.includes(e.game_id));
+  const spatialEvents        = events.filter(e => SPATIAL_IDS.includes(e.game_id));
+  const estimationEvents     = events.filter(e => ESTIMATION_IDS.includes(e.game_id));
+  const searchEvents         = events.filter(e => SEARCH_IDS.includes(e.game_id));
 
   // ── curiosity: exploration coverage ───────────────────────────────────────
   const curiosity = explorationEvents.length > 0 ? calcCuriosity(explorationEvents) : 0.5;
 
-  // ── persistence: puzzle effort + logic completion + reaction endurance ─────
+  // ── persistence: puzzle effort + logic + reaction + planning completion ──────
   let persistence: number | null = puzzleEvents.length > 0 ? calcPersistenceFromPuzzle(puzzleEvents) : null;
   if (logicEvents.length > 0) {
     const lp = calcPersistenceFromLogic(logicEvents);
@@ -75,6 +74,10 @@ export function calculateTraits(events: GameEvent[]): TraitScores {
     const rp = calcPersistenceFromReaction(reactionEvents);
     persistence = persistence !== null ? (persistence + rp) / 2 : rp;
   }
+  if (planningEvents.length > 0) {
+    const pp = calcPersistenceFromPlanning(planningEvents);
+    persistence = persistence !== null ? (persistence + pp) / 2 : pp;
+  }
 
   // ── risk_tolerance: exploration traps + reaction impulsivity ──────────────
   let risk_tolerance: number | null = explorationEvents.length > 0 ? calcRiskTolerance(explorationEvents) : null;
@@ -83,8 +86,8 @@ export function calculateTraits(events: GameEvent[]): TraitScores {
     risk_tolerance = risk_tolerance !== null ? (risk_tolerance + rr) / 2 : rr;
   }
 
-  // ── learning_speed: pattern adaptation + memory learning + matrix accuracy ─
-  let learning_speed: number | null = patternEvents.length > 0 ? calcLearningSpeed(patternEvents) : null;
+  // ── learning_speed: rule discovery + memory learning + matrix accuracy ─────
+  let learning_speed: number | null = ruleDiscoveryEvents.length > 0 ? calcLearningFromRuleDiscovery(ruleDiscoveryEvents) : null;
   if (memoryEvents.length > 0) {
     const ml = calcLearningFromMemory(memoryEvents);
     learning_speed = learning_speed !== null ? (learning_speed + ml) / 2 : ml;
@@ -115,14 +118,14 @@ export function calculateTraits(events: GameEvent[]): TraitScores {
     impulse_control = impulse_control !== null ? (impulse_control + si) / 2 : si;
   }
 
-  // ── analytical_thinking: logic + pattern + matrix + estimation accuracy ────
+  // ── analytical_thinking: logic + rule_discovery + matrix + estimation ───────
   let analytical_thinking: number | null = null;
   if (logicEvents.length > 0) {
     analytical_thinking = calcAccuracyFromLogic(logicEvents);
   }
-  if (patternEvents.length > 0) {
-    const pa = calcPatternAccuracy(patternEvents);
-    analytical_thinking = analytical_thinking !== null ? (analytical_thinking + pa) / 2 : pa;
+  if (ruleDiscoveryEvents.length > 0) {
+    const ra = calcAccuracyFromRuleDiscovery(ruleDiscoveryEvents);
+    analytical_thinking = analytical_thinking !== null ? (analytical_thinking + ra) / 2 : ra;
   }
   if (matrixEvents.length > 0) {
     const ma = calcAccuracyFromOptions(matrixEvents);
@@ -143,7 +146,7 @@ export function calculateTraits(events: GameEvent[]): TraitScores {
     attention_to_detail = attention_to_detail !== null ? (attention_to_detail + sa) / 2 : sa;
   }
 
-  // ── systematic_thinking: exploration coverage + puzzle efficiency + spatial ─
+  // ── systematic_thinking: exploration + puzzle + spatial + planning ──────────
   let systematic_thinking: number | null = null;
   if (explorationEvents.length > 0) {
     systematic_thinking = calcSystematicFromExploration(explorationEvents);
@@ -155,6 +158,10 @@ export function calculateTraits(events: GameEvent[]): TraitScores {
   if (spatialEvents.length > 0) {
     const sv = calcAccuracyFromOptions(spatialEvents);
     systematic_thinking = systematic_thinking !== null ? (systematic_thinking + sv) / 2 : sv;
+  }
+  if (planningEvents.length > 0) {
+    const pv = calcSystematicFromPlanning(planningEvents);
+    systematic_thinking = systematic_thinking !== null ? (systematic_thinking + pv) / 2 : pv;
   }
 
   return {
@@ -218,19 +225,23 @@ function calcRiskFromReaction(events: GameEvent[]): number {
   return clamp(0.3 + impulsivity * 0.7);
 }
 
-function calcLearningSpeed(events: GameEvent[]): number {
-  const correctAfterChange = events.filter(
-    e => e.event_type === 'correct_guess' && (e.data.adaptationRound as number | null) !== null
-  );
-  if (correctAfterChange.length === 0) {
-    const total = events.filter(e => ['correct_guess', 'wrong_guess'].includes(e.event_type)).length;
-    const correct = events.filter(e => e.event_type === 'correct_guess').length;
-    return total > 0 ? clamp(correct / total) : 0.5;
-  }
-  const avgAdaptRound =
-    correctAfterChange.reduce((sum, e) => sum + (e.data.adaptationRound as number), 0) /
-    correctAfterChange.length;
-  return clamp(1 - (avgAdaptRound - 1) / 4);
+// Rule discovery: speed of deduction (fewer tests = faster learning)
+function calcLearningFromRuleDiscovery(events: GameEvent[]): number {
+  const predictions = events.filter(e => e.event_type === 'prediction_submitted' && !e.data.timedOut);
+  if (predictions.length === 0) return 0.5;
+  const correct = predictions.filter(e => e.data.correct);
+  const accuracy = correct.length / predictions.length;
+  // Lower testsUsed = faster learning signal
+  const avgTests = predictions.reduce((sum, e) => sum + ((e.data.testsUsed as number) ?? 6), 0) / predictions.length;
+  const efficiencyScore = clamp(1 - (avgTests - 1) / 5); // 1 test → 1.0, 6 tests → 0.0
+  return clamp(accuracy * 0.6 + efficiencyScore * 0.4);
+}
+
+// Rule discovery accuracy for analytical_thinking
+function calcAccuracyFromRuleDiscovery(events: GameEvent[]): number {
+  const predictions = events.filter(e => e.event_type === 'prediction_submitted' && !e.data.timedOut);
+  if (predictions.length === 0) return 0.5;
+  return predictions.filter(e => e.data.correct).length / predictions.length;
 }
 
 function calcLearningFromMemory(events: GameEvent[]): number {
@@ -275,10 +286,24 @@ function calcAccuracyFromLogic(events: GameEvent[]): number {
   return answers.filter(e => e.data.correct).length / answers.length;
 }
 
-function calcPatternAccuracy(events: GameEvent[]): number {
-  const total = events.filter(e => ['correct_guess', 'wrong_guess'].includes(e.event_type)).length;
-  const correct = events.filter(e => e.event_type === 'correct_guess').length;
-  return total > 0 ? clamp(correct / total) : 0.5;
+// Planning: completion rate measures persistence
+function calcPersistenceFromPlanning(events: GameEvent[]): number {
+  const completions = events.filter(e => e.event_type === 'round_complete');
+  if (completions.length === 0) return 0.5;
+  return completions.filter(e => e.data.completed).length / completions.length;
+}
+
+// Planning: low-mistake completion rate measures systematic thinking
+function calcSystematicFromPlanning(events: GameEvent[]): number {
+  const completions = events.filter(e => e.event_type === 'round_complete');
+  if (completions.length === 0) return 0.5;
+  const completed = completions.filter(e => e.data.completed);
+  const completionRate = completed.length / completions.length;
+  const avgMistakes = completed.reduce((sum, e) => sum + ((e.data.mistakes as number) ?? 0), 0) /
+    Math.max(completed.length, 1);
+  // 0 mistakes → 1.0, 3+ mistakes → 0.2
+  const mistakeScore = clamp(1 - avgMistakes / 3);
+  return clamp(completionRate * 0.5 + mistakeScore * 0.5);
 }
 
 function calcAttentionFromPuzzle(events: GameEvent[]): number {

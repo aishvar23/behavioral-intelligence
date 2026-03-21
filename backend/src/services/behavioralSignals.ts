@@ -166,10 +166,15 @@ export interface GameBehaviorData {
     decisionTimeAvg: number;
     trapEncounters: number;
   };
-  pattern_game?: {
-    attempts: number;
-    timeToDetectPattern: number;
-    incorrectGuesses: number;
+  rule_discovery_game?: {
+    correctPredictions: number;
+    totalPredictions: number;
+    avgTestsUsed: number;
+  };
+  planning_game?: {
+    completedRounds: number;
+    totalRounds: number;
+    totalMistakes: number;
   };
   persistence_puzzle?: {
     totalAttempts: number;
@@ -223,20 +228,26 @@ export function extractStructuredBehaviorData(
         data.exploration_game = { tilesExplored, revisitedTiles, decisionTimeAvg, trapEncounters };
         break;
       }
-      case 'pattern': {
-        const correct = gameEvents.filter(e => e.event_type === 'correct_guess');
-        const wrong = gameEvents.filter(e => e.event_type === 'wrong_guess');
-        const passes = gameEvents.filter(e => e.event_type === 'pass');
-
-        const timings = correct
-          .map(e => e.data.timeToFirstGuess as number)
-          .filter(t => typeof t === 'number' && t > 0);
-        const timeToDetectPattern = timings.length > 0 ? Math.round(avg(timings) / 1000) : 0;
-
-        data.pattern_game = {
-          attempts: correct.length + wrong.length + passes.length,
-          timeToDetectPattern,
-          incorrectGuesses: wrong.length,
+      case 'rule_discovery': {
+        const predictions = gameEvents.filter(e => e.event_type === 'prediction_submitted' && !e.data.timedOut);
+        const correctPredictions = predictions.filter(e => e.data.correct).length;
+        const testsUsed = predictions.map(e => (e.data.testsUsed as number) ?? 6);
+        const avgTestsUsed = testsUsed.length > 0 ? round1(avg(testsUsed)) : 0;
+        data.rule_discovery_game = {
+          correctPredictions,
+          totalPredictions: predictions.length,
+          avgTestsUsed,
+        };
+        break;
+      }
+      case 'planning': {
+        const completions = gameEvents.filter(e => e.event_type === 'round_complete');
+        const completedRounds = completions.filter(e => e.data.completed).length;
+        const totalMistakes = completions.reduce((sum, e) => sum + ((e.data.mistakes as number) ?? 0), 0);
+        data.planning_game = {
+          completedRounds,
+          totalRounds: completions.length,
+          totalMistakes,
         };
         break;
       }

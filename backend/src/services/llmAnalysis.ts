@@ -111,13 +111,13 @@ EXPLORATION — measures curiosity, risk tolerance, strategic navigation:
   exploration_resource  | "Resource Optimizer"     | Tight move budget. Maximise resource collection.
   exploration_systematic| "Systematic Survey"      | Coverage bonus. Rewards methodical grid exploration.
 
-PATTERN RECOGNITION — measures analytical thinking, learning speed, adaptability:
-  pattern_standard      | "Pattern Detective"      | Decode number sequences, 9 rounds (easy→hard).
-  pattern_advanced      | "Advanced Patterns"      | Starts at medium difficulty. Harder analytics.
-  pattern_logic         | "Logic Sequences"        | Complex multi-step sequences. Deep analysis.
-  pattern_financial     | "Market Signals"         | Financial-style numerical trends. Quantitative reasoning.
-  pattern_adaptive      | "Adaptive Decode"        | Frequent rule shifts. Rapid re-calibration under change.
-  pattern_creative      | "Open Sequences"         | Open-ended patterns. Lateral and creative thinking.
+RULE DISCOVERY — measures analytical thinking, learning speed, hypothesis testing:
+  black_box_standard    | "Black Box"              | Test inputs on a hidden function, deduce the rule, predict output.
+  black_box_hard        | "Black Box: Hard"        | Nonlinear hidden functions — deeper analytical reasoning required.
+
+TASK PLANNING — measures systematic thinking, dependency reasoning, logical planning:
+  task_planning_standard| "Task Planner"           | Order tasks with dependency constraints in correct topological sequence.
+  task_planning_hard    | "Task Planner: Advanced" | Complex dependency graphs — parallel paths, merge points, 6-node DAGs.
 
 PUZZLE SOLVING — measures problem-solving, persistence, strategic planning:
   puzzle_standard       | "Impossible Puzzle"      | Sliding tile puzzle, 3 hints available.
@@ -164,12 +164,10 @@ const GAME_DESCRIPTIONS: Record<string, string> = {
   exploration_data:       'EXPLORATION | "Data Landscape"          | Clustered rewards. Data-driven, pattern-seeking exploration.',
   exploration_resource:   'EXPLORATION | "Resource Optimizer"      | Tight move budget. Resource efficiency under constraint.',
   exploration_systematic: 'EXPLORATION | "Systematic Survey"       | Coverage bonus. Rewards methodical, thorough exploration.',
-  pattern_standard:       'PATTERN     | "Pattern Detective"       | Number sequences, 9 rounds easy→hard. Analytical thinking.',
-  pattern_advanced:       'PATTERN     | "Advanced Patterns"       | Medium-start difficulty. Deeper analytical reasoning.',
-  pattern_logic:          'PATTERN     | "Logic Sequences"         | Complex multi-step sequences. Deep analysis.',
-  pattern_financial:      'PATTERN     | "Market Signals"          | Financial-style trends. Quantitative pattern recognition.',
-  pattern_adaptive:       'PATTERN     | "Adaptive Decode"         | Frequent rule shifts. Rapid re-calibration under change.',
-  pattern_creative:       'PATTERN     | "Open Sequences"          | Open-ended patterns. Lateral and creative thinking.',
+  black_box_standard:     'RULE_DISC   | "Black Box"               | Test inputs on hidden function, predict output. Analytical thinking + learning speed.',
+  black_box_hard:         'RULE_DISC   | "Black Box: Hard"         | Nonlinear hidden functions. Deep analytical reasoning + hypothesis testing.',
+  task_planning_standard: 'PLANNING    | "Task Planner"            | Topological ordering of tasks with dependencies. Systematic thinking.',
+  task_planning_hard:     'PLANNING    | "Task Planner: Advanced"  | Complex DAG dependency graphs with parallel branches. Advanced systematic thinking.',
   puzzle_standard:        'PUZZLE      | "Impossible Puzzle"       | Sliding tile, 3 hints. Problem-solving & persistence.',
   puzzle_pressure:        'PUZZLE      | "Pressure Puzzle"         | Only 1 hint. High persistence requirement.',
   puzzle_strategic:       'PUZZLE      | "Strategic Puzzle"        | Move-efficiency scoring. Strategic planning.',
@@ -205,7 +203,7 @@ export interface GameSelectionResult {
 
 const ALL_VALID_GAME_IDS = Object.keys(GAME_DESCRIPTIONS);
 
-const FALLBACK_GAMES = ['pattern_standard', 'puzzle_standard', 'matrix_standard'];
+const FALLBACK_GAMES = ['black_box_standard', 'task_planning_standard', 'matrix_standard'];
 
 export async function selectGamesForUser(
   userProfile: UserProfile,
@@ -237,7 +235,7 @@ Your task: Select exactly 3 games from the list above that will best reveal the 
 
 MANDATORY RULES — all must be satisfied:
 1. Cognitive variety — you MUST include at least one game from the interactive cognitive category:
-   STROOP, MATRIX, SPATIAL, ESTIMATION, or SEARCH types.
+   STROOP, MATRIX, SPATIAL, ESTIMATION, SEARCH, RULE_DISC, or PLANNING types.
    These give the strongest direct cognitive signal and must appear in every session.
 2. Type diversity — the 3 selected games must be from 3 DIFFERENT types. Never pick two games of the same type.
 3. Relevance — prioritise traits most critical for ${userProfile.occupationTitle}

@@ -12,7 +12,8 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, GameResult } from '../navigation/AppNavigator';
 import ExplorationIsland from '../components/games/ExplorationIsland';
-import HiddenPatternGame from '../components/games/HiddenPatternGame';
+import BlackBoxGame from '../components/games/BlackBoxGame';
+import TaskPlanningGame from '../components/games/TaskPlanningGame';
 import ImpossiblePuzzle from '../components/games/ImpossiblePuzzle';
 import MemorySequenceGame from '../components/games/MemorySequenceGame';
 import LogicDeductionGame from '../components/games/LogicDeductionGame';
@@ -37,13 +38,22 @@ const GAME_RULES: Record<string, { summary: string; bullets: string[] }> = {
       'Try to uncover as much of the grid as possible',
     ],
   },
-  pattern: {
-    summary: 'Decode the hidden rule behind a number sequence.',
+  rule_discovery: {
+    summary: 'A hidden function sits inside a black box — test inputs and deduce the rule.',
     bullets: [
-      'A number sequence is shown — guess the next number',
-      'You get more points for correct answers on the first try',
-      'The difficulty increases each round',
-      'Use Pass if you\'re stuck — it reveals the answer',
+      'Tap numbered buttons to test inputs and see outputs',
+      'Fewer tests used = higher score potential',
+      'Enter your prediction using the number pad',
+      '8 rounds — rules grow more complex each time',
+    ],
+  },
+  planning: {
+    summary: 'Tap tasks in valid dependency order — prerequisites must be completed first.',
+    bullets: [
+      'Green-bordered cards are ready to tap',
+      'Grayed-out cards are locked until prerequisites are done',
+      'Wrong tap costs 5 points — read dependencies carefully',
+      '6 rounds with increasing pipeline complexity',
     ],
   },
   puzzle: {
@@ -229,8 +239,11 @@ export default function GameScreen({ navigation, route }: Props) {
       {current.gameType === 'exploration' && (
         <ExplorationIsland sessionId={sessionId} onComplete={handleGameComplete} />
       )}
-      {current.gameType === 'pattern' && (
-        <HiddenPatternGame sessionId={sessionId} onComplete={handleGameComplete} />
+      {current.gameType === 'rule_discovery' && (
+        <BlackBoxGame sessionId={sessionId} onComplete={handleGameComplete} />
+      )}
+      {current.gameType === 'planning' && (
+        <TaskPlanningGame sessionId={sessionId} onComplete={handleGameComplete} />
       )}
       {current.gameType === 'puzzle' && (
         <ImpossiblePuzzle sessionId={sessionId} onComplete={handleGameComplete} />

@@ -6,7 +6,7 @@
  * near-unlimited variety. Add more GameConfig entries to scale toward 50,000+ configs.
  */
 
-export type GameType = 'exploration' | 'pattern' | 'puzzle' | 'memory' | 'logic' | 'reaction' | 'stroop' | 'matrix' | 'spatial' | 'estimation' | 'search';
+export type GameType = 'exploration' | 'puzzle' | 'memory' | 'logic' | 'reaction' | 'stroop' | 'matrix' | 'spatial' | 'estimation' | 'search' | 'rule_discovery' | 'planning';
 
 export interface GameConfig {
   id: string;
@@ -57,42 +57,32 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     config: { coverageBonus: true },
   },
 
-  // ── Pattern variants (3) ──────────────────────────────────────────────────
-  pattern_standard: {
-    id: 'pattern_standard', type: 'pattern',
-    title: 'Pattern Detective', emoji: '🔍', difficulty: 'medium',
-    description: 'Decode number sequences across 9 rounds of increasing difficulty.',
+  // ── Rule Discovery variants (2) — analytical reasoning + learning speed ─────
+  black_box_standard: {
+    id: 'black_box_standard', type: 'rule_discovery',
+    title: 'Black Box', emoji: '⬛', difficulty: 'medium',
+    description: 'Test inputs on a hidden function, deduce the rule, predict the output.',
     config: {},
   },
-  pattern_advanced: {
-    id: 'pattern_advanced', type: 'pattern',
-    title: 'Advanced Patterns', emoji: '🔮', difficulty: 'hard',
-    description: 'Challenging sequences starting at medium difficulty.',
-    config: { startTier: 1 },
+  black_box_hard: {
+    id: 'black_box_hard', type: 'rule_discovery',
+    title: 'Black Box: Hard', emoji: '🔲', difficulty: 'hard',
+    description: 'More complex hidden functions — nonlinear rules requiring deeper analysis.',
+    config: { hard: true },
   },
-  pattern_logic: {
-    id: 'pattern_logic', type: 'pattern',
-    title: 'Logic Sequences', emoji: '🧮', difficulty: 'hard',
-    description: 'Complex chains demanding deep analytical thinking.',
-    config: { startTier: 2 },
+
+  // ── Task Planning variants (2) — systematic thinking + dependency reasoning ─
+  task_planning_standard: {
+    id: 'task_planning_standard', type: 'planning',
+    title: 'Task Planner', emoji: '📋', difficulty: 'medium',
+    description: 'Order tasks with dependency constraints in the correct sequence.',
+    config: {},
   },
-  pattern_financial: {
-    id: 'pattern_financial', type: 'pattern',
-    title: 'Market Signals', emoji: '📉', difficulty: 'hard',
-    description: 'Detect trends in numerical sequences that mimic financial data.',
-    config: { variant: 'financial' },
-  },
-  pattern_adaptive: {
-    id: 'pattern_adaptive', type: 'pattern',
-    title: 'Adaptive Decode', emoji: '🔄', difficulty: 'hard',
-    description: 'Rules shift faster than usual — test how quickly you re-calibrate.',
-    config: { ruleChanges: 'frequent', startTier: 1 },
-  },
-  pattern_creative: {
-    id: 'pattern_creative', type: 'pattern',
-    title: 'Open Sequences', emoji: '🎨', difficulty: 'easy',
-    description: 'Flexible, open-ended patterns that reward lateral thinking.',
-    config: { variant: 'creative' },
+  task_planning_hard: {
+    id: 'task_planning_hard', type: 'planning',
+    title: 'Task Planner: Advanced', emoji: '🗂️', difficulty: 'hard',
+    description: 'Complex dependency graphs — multiple parallel paths and merge points.',
+    config: { hard: true },
   },
 
   // ── Puzzle variants (3) ───────────────────────────────────────────────────
