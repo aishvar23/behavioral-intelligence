@@ -99,7 +99,7 @@ export default function UserProfileScreen({ navigation }: Props) {
       }
 
       const pool = OCCUPATION_GAME_POOLS[selectedOccupation] ?? GENERAL_POOL;
-      const { selectedIds } = await selectGames(profile, pool);
+      const { selectedIds } = await selectGames(profile, pool, userId);
 
       const sessionId = startSession();
       const gameQueue = selectedIds.map(id => {
@@ -247,7 +247,7 @@ export default function UserProfileScreen({ navigation }: Props) {
               </TouchableOpacity>
 
               <Text style={styles.note}>
-                3 games selected specifically for <Text style={styles.noteBold}>{occupationTitle || 'your occupation'}</Text>
+                5 games selected specifically for <Text style={styles.noteBold}>{occupationTitle || 'your occupation'}</Text>
               </Text>
             </View>
           }

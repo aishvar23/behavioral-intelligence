@@ -150,6 +150,8 @@ export default function MatrixPuzzleGame({ sessionId, onComplete }: Props) {
   const [selected, setSelected] = useState<number|null>(null);
   const [timerPct, setTimerPct] = useState(1);
   const [ruleHint, setRuleHint] = useState('');
+  const [showTimeoutDialog, setShowTimeoutDialog] = useState(false);
+  const [timerKey, setTimerKey] = useState(0);
   const scoreRef = useRef(0);
   const roundStart = useRef(0);
   const answered = useRef(false);
@@ -178,14 +180,30 @@ export default function MatrixPuzzleGame({ sessionId, onComplete }: Props) {
       setTimerPct(pct);
       if (pct === 0 && !answered.current) {
         clearInterval(timerInterval.current);
-        answered.current = true;
-        void logEvent({ sessionId, gameId: 'matrix_puzzle', eventType: 'option_selected', timestamp: Date.now(), data: { correct: false, responseTime: TIME_PER_ROUND, selectedIdx: null, correctIdx, round, timedOut: true } });
-        setSelected(-1);
-        setTimeout(() => advance(round + 1), 900);
+        setShowTimeoutDialog(true);
       }
     }, 80);
     return () => clearInterval(timerInterval.current);
-  }, [phase, round]);
+  }, [phase, round, timerKey]);
+
+  function handleMoreTime() {
+    logEvent({ sessionId, gameId: 'matrix_puzzle', eventType: 'timeout_extended',
+      timestamp: Date.now(), data: { round, extensionSecs: 20 } }).catch(() => {});
+    roundStart.current = Date.now();
+    answered.current = false;
+    setShowTimeoutDialog(false);
+    setTimerKey(k => k + 1);
+  }
+
+  function handleSkipRound() {
+    logEvent({ sessionId, gameId: 'matrix_puzzle', eventType: 'timeout_skip',
+      timestamp: Date.now(), data: { round } }).catch(() => {});
+    answered.current = true;
+    void logEvent({ sessionId, gameId: 'matrix_puzzle', eventType: 'option_selected', timestamp: Date.now(), data: { correct: false, responseTime: TIME_PER_ROUND, selectedIdx: null, correctIdx, round, timedOut: true } });
+    setSelected(-1);
+    setShowTimeoutDialog(false);
+    advance(round + 1);
+  }
 
   function handleOption(idx: number) {
     if (answered.current || phase !== 'playing') return;
@@ -199,7 +217,7 @@ export default function MatrixPuzzleGame({ sessionId, onComplete }: Props) {
     scoreRef.current += pts;
     void logEvent({ sessionId, gameId: 'matrix_puzzle', eventType: 'option_selected', timestamp: Date.now(), data: { correct: isCorrect, responseTime: rt, selectedIdx: idx, correctIdx, round } });
     setSelected(idx);
-    setTimeout(() => advance(round + 1), 900);
+    setTimeout(() => advance(round + 1), isCorrect ? 900 : 5000);
   }
 
   function advance(next: number) {
@@ -277,6 +295,36 @@ export default function MatrixPuzzleGame({ sessionId, onComplete }: Props) {
           );
         })}
       </View>
+
+      {/* Timeout dialog overlay */}
+      {showTimeoutDialog && (
+        <View style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(10,10,30,0.92)',
+          alignItems: 'center', justifyContent: 'center',
+          zIndex: 100, padding: 32,
+        }}>
+          <Text style={{ fontSize: 44, marginBottom: 12 }}>⏰</Text>
+          <Text style={{ color: '#e0e0ff', fontSize: 22, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' }}>Time's Up!</Text>
+          <Text style={{ color: '#9999cc', fontSize: 15, textAlign: 'center', marginBottom: 32, lineHeight: 22 }}>
+            Do you need more time, or would you like to skip this one?
+          </Text>
+          <TouchableOpacity
+            style={{ backgroundColor: '#5c6bc0', paddingVertical: 16, paddingHorizontal: 40, borderRadius: 30, marginBottom: 14, width: '100%', alignItems: 'center' }}
+            onPress={handleMoreTime}
+            activeOpacity={0.8}
+          >
+            <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700' }}>⏱ Take More Time</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{ backgroundColor: '#1e1e3e', paddingVertical: 14, paddingHorizontal: 40, borderRadius: 30, borderWidth: 1, borderColor: '#3a3a6e', width: '100%', alignItems: 'center' }}
+            onPress={handleSkipRound}
+            activeOpacity={0.8}
+          >
+            <Text style={{ color: '#9999cc', fontSize: 16 }}>Skip →</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }

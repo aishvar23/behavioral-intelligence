@@ -129,6 +129,8 @@ export default function LogicDeductionGame({ sessionId, onComplete, config }: Pr
   const [score, setScore] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
   const [timeLeft, setTimeLeft] = useState(TIME_PER_QUESTION);
+  const [timerKey, setTimerKey] = useState(0);
+  const [showTimeoutDialog, setShowTimeoutDialog] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const qStartRef = useRef(0);
@@ -162,9 +164,11 @@ export default function LogicDeductionGame({ sessionId, onComplete, config }: Pr
     setPhase('playing');
     qStartRef.current = Date.now();
     setTimeLeft(TIME_PER_QUESTION);
+    setTimerKey(0);
+    setShowTimeoutDialog(false);
   }
 
-  // Countdown timer — visual tick only; game logic timeout handled separately
+  // Countdown timer — restarts when timerKey changes
   useEffect(() => {
     if (phase !== 'playing') {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -175,20 +179,50 @@ export default function LogicDeductionGame({ sessionId, onComplete, config }: Pr
     timerRef.current = setInterval(() => {
       setTimeLeft(t => Math.max(0, t - 1));
     }, 1000);
-    // Actual timeout that triggers game logic
+    // Actual timeout that triggers dialog
     timeoutRef.current = setTimeout(() => {
       clearInterval(timerRef.current!);
-      handleAnswer(-1);
+      setShowTimeoutDialog(true);
     }, TIME_PER_QUESTION * 1000);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [phase, currentQ]);
+  }, [phase, currentQ, timerKey]);
+
+  function handleMoreTime() {
+    logEvent({
+      sessionId,
+      gameId: `logic_${variant}`,
+      eventType: 'timeout_extended',
+      timestamp: Date.now(),
+      data: { questionIndex: currentQ, extensionSecs: 20 },
+    }).catch(() => {});
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    qStartRef.current = Date.now();
+    setTimeLeft(20);
+    setShowTimeoutDialog(false);
+    setTimerKey(k => k + 1);
+  }
+
+  function handleSkipRound() {
+    logEvent({
+      sessionId,
+      gameId: `logic_${variant}`,
+      eventType: 'timeout_skip',
+      timestamp: Date.now(),
+      data: { questionIndex: currentQ },
+    }).catch(() => {});
+    setShowTimeoutDialog(false);
+    // Show correct answer for 2s then advance
+    handleAnswer(-1);
+  }
 
   function handleAnswer(optionIndex: number) {
     if (phase !== 'playing') return;
     if (timerRef.current) clearInterval(timerRef.current);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
 
     const q = questions[currentQ];
     const correct = optionIndex === q.answer;
@@ -211,6 +245,8 @@ export default function LogicDeductionGame({ sessionId, onComplete, config }: Pr
       data: { questionIndex: currentQ, correct, timeSpent, score: qScore },
     }).catch(() => {});
 
+    // Wrong answer: show correct answer for 5000ms; correct/skip: 1000ms
+    const delay = correct ? 1000 : 5000;
     setTimeout(() => {
       if (currentQ + 1 >= questions.length) {
         advance(newScore, newCorrect);
@@ -220,8 +256,9 @@ export default function LogicDeductionGame({ sessionId, onComplete, config }: Pr
         setPhase('playing');
         qStartRef.current = Date.now();
         setTimeLeft(TIME_PER_QUESTION);
+        setTimerKey(k => k + 1);
       }
-    }, 1000);
+    }, delay);
   }
 
   const VARIANT_META: Record<Variant, { title: string; desc: string }> = {
@@ -289,6 +326,36 @@ export default function LogicDeductionGame({ sessionId, onComplete, config }: Pr
               );
             })}
           </View>
+        </View>
+      )}
+
+      {/* Timeout dialog overlay */}
+      {showTimeoutDialog && (
+        <View style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(10,10,30,0.92)',
+          alignItems: 'center', justifyContent: 'center',
+          zIndex: 100, padding: 32,
+        }}>
+          <Text style={{ fontSize: 44, marginBottom: 12 }}>⏰</Text>
+          <Text style={{ color: '#e0e0ff', fontSize: 22, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' }}>Time's Up!</Text>
+          <Text style={{ color: '#9999cc', fontSize: 15, textAlign: 'center', marginBottom: 32, lineHeight: 22 }}>
+            Do you need more time, or would you like to skip this one?
+          </Text>
+          <TouchableOpacity
+            style={{ backgroundColor: '#5c6bc0', paddingVertical: 16, paddingHorizontal: 40, borderRadius: 30, marginBottom: 14, width: '100%', alignItems: 'center' }}
+            onPress={handleMoreTime}
+            activeOpacity={0.8}
+          >
+            <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700' }}>⏱ Take More Time</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{ backgroundColor: '#1e1e3e', paddingVertical: 14, paddingHorizontal: 40, borderRadius: 30, borderWidth: 1, borderColor: '#3a3a6e', width: '100%', alignItems: 'center' }}
+            onPress={handleSkipRound}
+            activeOpacity={0.8}
+          >
+            <Text style={{ color: '#9999cc', fontSize: 16 }}>Skip →</Text>
+          </TouchableOpacity>
         </View>
       )}
     </View>

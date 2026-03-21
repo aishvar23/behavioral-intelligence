@@ -31,7 +31,7 @@ const MEMORY_IDS = [
   'memory_colors', 'memory_numbers', 'memory_positions',
   'memory_sequential', 'memory_faces', 'memory_code',
 ];
-const LOGIC_IDS = ['logic_verbal', 'logic_situational'];
+const LOGIC_IDS = ['logic_verbal', 'logic_situational', 'logic_deduction', 'logic_patterns', 'logic_boolean', 'logic_quantitative'];
 const REACTION_IDS = ['reaction_basic', 'reaction_inhibition', 'reaction_speed'];
 const STROOP_IDS = ['stroop', 'stroop_classic'];
 const MATRIX_IDS = ['matrix_puzzle', 'matrix_standard', 'matrix_advanced'];
@@ -136,13 +136,22 @@ export function calculateTraits(events: GameEvent[]): TraitScores {
     systematic_thinking = systematic_thinking !== null ? (systematic_thinking + pv) / 2 : pv;
   }
 
+  // ── timeout_extended adjustment: many extensions indicate slower processing ──
+  const timeoutExtensionCount = countTimeoutExtensions(events);
+  let rawProcessingSpeed = processing_speed ?? 0.5;
+  if (timeoutExtensionCount >= 6) {
+    rawProcessingSpeed *= 0.75;
+  } else if (timeoutExtensionCount >= 3) {
+    rawProcessingSpeed *= 0.85;
+  }
+
   return {
     curiosity:           clamp(curiosity),
     persistence:         clamp(persistence ?? 0.5),
     risk_tolerance:      clamp(risk_tolerance ?? 0.5),
     learning_speed:      clamp(learning_speed ?? 0.5),
     working_memory:      clamp(working_memory),
-    processing_speed:    clamp(processing_speed ?? 0.5),
+    processing_speed:    clamp(rawProcessingSpeed),
     impulse_control:     clamp(impulse_control ?? 0.5),
     analytical_thinking: clamp(analytical_thinking ?? 0.5),
     attention_to_detail: clamp(attention_to_detail ?? 0.5),
@@ -304,6 +313,11 @@ function calcAttentionFromSearch(events: GameEvent[]): number {
   const wrong = taps.filter(e => !e.data.correct).length;
   // Reward correct finds, penalise wrong taps heavily
   return clamp((correct - wrong * 2) / Math.max(correct + wrong, 1));
+}
+
+// Count total timeout_extended events across all games
+function countTimeoutExtensions(events: GameEvent[]): number {
+  return events.filter(e => e.event_type === 'timeout_extended').length;
 }
 
 function clamp(v: number, min = 0, max = 1): number {

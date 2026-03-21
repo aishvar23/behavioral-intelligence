@@ -4,6 +4,11 @@
  * Tap them in a valid topological order — prerequisites must be completed first.
  * A wrong tap (locked task) causes a penalty and visual feedback.
  * Measures: systematic_thinking, analytical_thinking
+ *
+ * Within-game adaptive difficulty:
+ *   After round 1 (2 rounds played), evaluates cumulative mistakes:
+ *   - 0 mistakes → hard mode: remaining rounds use complex DAGs (indices 3-5)
+ *   - ≥4 mistakes → easy mode: remaining rounds use simpler DAGs (indices 0-2)
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -29,6 +34,7 @@ interface RoundDef {
   tasks: Task[];
 }
 
+// Indices 0-2: simpler (3 tasks), 3-5: harder (4-6 tasks with complex DAGs)
 const ROUND_DEFS: RoundDef[] = [
   {
     description: 'Simple chain — each step follows the previous',
@@ -86,6 +92,12 @@ const ROUND_DEFS: RoundDef[] = [
   },
 ];
 
+function getRoundDef(r: number, mode: 'normal' | 'hard' | 'easy'): RoundDef {
+  if (mode === 'hard' && r >= 2) return ROUND_DEFS[3 + ((r - 2) % 3)];
+  if (mode === 'easy' && r >= 2) return ROUND_DEFS[(r - 2) % 3];
+  return ROUND_DEFS[r % ROUND_DEFS.length];
+}
+
 type TaskStatus = 'pending' | 'available' | 'done' | 'error';
 
 interface TaskState {
@@ -115,15 +127,24 @@ export default function TaskPlanningGame({ sessionId, onComplete }: Props) {
   const [states, setStates] = useState<TaskState[]>([]);
   const [timerPct, setTimerPct] = useState(1);
   const [mistakes, setMistakes] = useState(0);
+  const [adaptBanner, setAdaptBanner] = useState<string | null>(null);
+  const [showTimeoutDialog, setShowTimeoutDialog] = useState(false);
+  const [timerKey, setTimerKey] = useState(0);
   const scoreRef = useRef(0);
   const roundStart = useRef(0);
   const timerInterval = useRef<ReturnType<typeof setInterval>>();
+  const adaptMode = useRef<'normal' | 'hard' | 'easy'>('normal');
+  const totalMistakesRef = useRef(0);
+  // Track per-round mistakes to accumulate accurately
+  const roundMistakesRef = useRef(0);
 
   const startRound = useCallback((r: number) => {
-    const def = ROUND_DEFS[r % ROUND_DEFS.length];
+    const def = getRoundDef(r, adaptMode.current);
     setStates(buildInitialState(def.tasks));
     setTimerPct(1);
     setMistakes(0);
+    setAdaptBanner(null);
+    roundMistakesRef.current = 0;
     roundStart.current = Date.now();
     setRound(r);
     setPhase('playing');
@@ -136,13 +157,28 @@ export default function TaskPlanningGame({ sessionId, onComplete }: Props) {
       setTimerPct(pct);
       if (pct === 0) {
         clearInterval(timerInterval.current);
-        void logEvent({ sessionId, gameId: 'task_planning', eventType: 'round_complete',
-          timestamp: Date.now(), data: { round, completed: false, timedOut: true, mistakes } });
-        advance(round + 1);
+        setShowTimeoutDialog(true);
       }
     }, 80);
     return () => clearInterval(timerInterval.current);
-  }, [phase, round]);
+  }, [phase, round, timerKey]);
+
+  function handleMoreTime() {
+    logEvent({ sessionId, gameId: 'task_planning', eventType: 'timeout_extended',
+      timestamp: Date.now(), data: { round, extensionSecs: 30 } }).catch(() => {});
+    roundStart.current = Date.now();
+    setShowTimeoutDialog(false);
+    setTimerKey(k => k + 1);
+  }
+
+  function handleSkipRound() {
+    logEvent({ sessionId, gameId: 'task_planning', eventType: 'timeout_skip',
+      timestamp: Date.now(), data: { round } }).catch(() => {});
+    void logEvent({ sessionId, gameId: 'task_planning', eventType: 'round_complete',
+      timestamp: Date.now(), data: { round, completed: false, timedOut: true, mistakes: roundMistakesRef.current } });
+    setShowTimeoutDialog(false);
+    advance(round + 1);
+  }
 
   function handleTap(idx: number) {
     if (phase !== 'playing') return;
@@ -150,12 +186,13 @@ export default function TaskPlanningGame({ sessionId, onComplete }: Props) {
     if (s.status === 'done') return;
 
     if (s.status !== 'available') {
-      // Wrong tap — show error briefly
       const missingDeps = s.task.deps.filter(dep =>
         states.find(st => st.task.id === dep)?.status !== 'done'
       );
       void logEvent({ sessionId, gameId: 'task_planning', eventType: 'wrong_tap',
         timestamp: Date.now(), data: { round, taskId: s.task.id, missingDeps } });
+      roundMistakesRef.current += 1;
+      totalMistakesRef.current += 1;
       setMistakes(m => m + 1);
       setStates(prev => {
         const next = [...prev];
@@ -181,22 +218,46 @@ export default function TaskPlanningGame({ sessionId, onComplete }: Props) {
     );
     setStates(next);
 
-    // Check if all done
     if (next.every(st => st.status === 'done')) {
       clearInterval(timerInterval.current);
-      const mistakePenalty = mistakes * 5;
+      const mistakePenalty = roundMistakesRef.current * 5;
       const timeBonus = Math.round(timerPct * 20);
       const pts = Math.max(0, 20 + timeBonus - mistakePenalty);
       scoreRef.current += pts;
       void logEvent({ sessionId, gameId: 'task_planning', eventType: 'round_complete',
-        timestamp: Date.now(), data: { round, completed: true, mistakes, pts } });
+        timestamp: Date.now(), data: { round, completed: true, mistakes: roundMistakesRef.current, pts } });
       setTimeout(() => advance(round + 1), 600);
     }
   }
 
+  function checkAdaptation(completedRound: number) {
+    // Evaluate after round index 1 (2 rounds played) if still in normal mode
+    if (completedRound !== 2 || adaptMode.current !== 'normal') return null;
+    const total = totalMistakesRef.current;
+
+    if (total === 0) {
+      adaptMode.current = 'hard';
+      void logEvent({ sessionId, gameId: 'task_planning', eventType: 'adapt_difficulty',
+        timestamp: Date.now(), data: { mode: 'hard', totalMistakes: total } });
+      return 'hard';
+    } else if (total >= 4) {
+      adaptMode.current = 'easy';
+      void logEvent({ sessionId, gameId: 'task_planning', eventType: 'adapt_difficulty',
+        timestamp: Date.now(), data: { mode: 'easy', totalMistakes: total } });
+      return 'easy';
+    }
+    return null;
+  }
+
   function advance(next: number) {
-    if (next >= ROUNDS) { setPhase('done'); onComplete(scoreRef.current); }
-    else startRound(next);
+    if (next >= ROUNDS) { setPhase('done'); onComplete(scoreRef.current); return; }
+    const newMode = checkAdaptation(next);
+    if (newMode === 'hard') {
+      setAdaptBanner('🔥 Impressive! Increasing complexity.');
+    } else if (newMode === 'easy') {
+      setAdaptBanner('💡 Adjusting difficulty — keep going!');
+    }
+    startRound(next);
   }
 
   if (phase === 'intro') return (
@@ -222,7 +283,7 @@ export default function TaskPlanningGame({ sessionId, onComplete }: Props) {
     </View>
   );
 
-  const def = ROUND_DEFS[round % ROUND_DEFS.length];
+  const def = getRoundDef(round, adaptMode.current);
 
   return (
     <View style={s.container}>
@@ -235,6 +296,20 @@ export default function TaskPlanningGame({ sessionId, onComplete }: Props) {
         </View>
         <Text style={s.scoreTxt}>{scoreRef.current}pt</Text>
       </View>
+
+      {/* Adaptive difficulty banner */}
+      {adaptBanner && (
+        <View style={s.adaptBanner}>
+          <Text style={s.adaptBannerTxt}>{adaptBanner}</Text>
+        </View>
+      )}
+
+      {/* Difficulty badge */}
+      {adaptMode.current !== 'normal' && (
+        <Text style={[s.diffBadge, adaptMode.current === 'hard' ? s.diffBadgeHard : s.diffBadgeEasy]}>
+          {adaptMode.current === 'hard' ? '🔥 Hard Mode' : '💡 Easy Mode'}
+        </Text>
+      )}
 
       <Text style={s.instruction}>{def.description}</Text>
       {mistakes > 0 && (
@@ -277,6 +352,36 @@ export default function TaskPlanningGame({ sessionId, onComplete }: Props) {
           );
         })}
       </View>
+
+      {/* Timeout dialog overlay */}
+      {showTimeoutDialog && (
+        <View style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(10,10,30,0.92)',
+          alignItems: 'center', justifyContent: 'center',
+          zIndex: 100, padding: 32,
+        }}>
+          <Text style={{ fontSize: 44, marginBottom: 12 }}>⏰</Text>
+          <Text style={{ color: '#e0e0ff', fontSize: 22, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' }}>Time's Up!</Text>
+          <Text style={{ color: '#9999cc', fontSize: 15, textAlign: 'center', marginBottom: 32, lineHeight: 22 }}>
+            Do you need more time, or would you like to skip this one?
+          </Text>
+          <TouchableOpacity
+            style={{ backgroundColor: '#5c6bc0', paddingVertical: 16, paddingHorizontal: 40, borderRadius: 30, marginBottom: 14, width: '100%', alignItems: 'center' }}
+            onPress={handleMoreTime}
+            activeOpacity={0.8}
+          >
+            <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700' }}>⏱ Take More Time</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{ backgroundColor: '#1e1e3e', paddingVertical: 14, paddingHorizontal: 40, borderRadius: 30, borderWidth: 1, borderColor: '#3a3a6e', width: '100%', alignItems: 'center' }}
+            onPress={handleSkipRound}
+            activeOpacity={0.8}
+          >
+            <Text style={{ color: '#9999cc', fontSize: 16 }}>Skip →</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
@@ -296,6 +401,14 @@ const s = StyleSheet.create({
   timerTrack: { flex: 1, height: 6, backgroundColor: '#2a2a5e', borderRadius: 3, overflow: 'hidden' },
   timerFill: { height: 6, borderRadius: 3 },
   scoreTxt: { color: '#5555aa', fontSize: 13, minWidth: 40, textAlign: 'right' },
+  adaptBanner: {
+    backgroundColor: '#1e1e3e', borderRadius: 8, borderWidth: 1, borderColor: '#5c6bc0',
+    paddingHorizontal: 12, paddingVertical: 6, marginBottom: 8, alignItems: 'center',
+  },
+  adaptBannerTxt: { color: '#c0c0ff', fontSize: 13, fontWeight: '600' },
+  diffBadge: { fontSize: 11, fontWeight: '700', textAlign: 'center', marginBottom: 4, letterSpacing: 0.5 },
+  diffBadgeHard: { color: '#ff7043' },
+  diffBadgeEasy: { color: '#66bb6a' },
   instruction: { color: '#9999cc', fontSize: 13, textAlign: 'center', marginBottom: 6 },
   mistakesTxt: { color: '#ef5350', fontSize: 12, textAlign: 'center', marginBottom: 8 },
   taskGrid: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 12, alignContent: 'flex-start', marginTop: 8 },

@@ -90,8 +90,8 @@ export async function registerUser(
   return response.data;
 }
 
-export async function selectGames(userProfile: UserProfile, pool: string[]): Promise<GameSelectionResult> {
-  const response = await axios.post(`${BASE_URL}/select-games`, { userProfile, pool });
+export async function selectGames(userProfile: UserProfile, pool: string[], userId?: number): Promise<GameSelectionResult> {
+  const response = await axios.post(`${BASE_URL}/select-games`, { userProfile, pool, userId });
   return response.data;
 }
 

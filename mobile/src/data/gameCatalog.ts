@@ -85,7 +85,7 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     config: { variant: 'code' },
   },
 
-  // ── Logic variants (2) — text-based reasoning (MCQ) ─────────────────────
+  // ── Logic variants (6) — text-based reasoning (MCQ) ─────────────────────
   logic_verbal: {
     id: 'logic_verbal', type: 'logic',
     title: 'Word Logic', emoji: '💬', difficulty: 'medium',
@@ -97,6 +97,30 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     title: 'Situational Judgment', emoji: '🎯', difficulty: 'medium',
     description: 'Abstract judgment calls under ambiguity — no domain knowledge needed.',
     config: { variant: 'situational' },
+  },
+  logic_deduction: {
+    id: 'logic_deduction', type: 'logic',
+    title: 'Logic Deduction', emoji: '🔍', difficulty: 'hard',
+    description: 'Formal syllogisms and deductive inference chains — conclusion follows from premises.',
+    config: { variant: 'deduction' },
+  },
+  logic_patterns: {
+    id: 'logic_patterns', type: 'logic',
+    title: 'Number Patterns', emoji: '🔢', difficulty: 'medium',
+    description: 'Complete number and letter sequences by identifying the underlying rule.',
+    config: { variant: 'patterns' },
+  },
+  logic_boolean: {
+    id: 'logic_boolean', type: 'logic',
+    title: 'Boolean Reasoning', emoji: '⚙️', difficulty: 'hard',
+    description: 'Evaluate AND / OR / NOT / XOR expressions — systematic logical computation.',
+    config: { variant: 'boolean' },
+  },
+  logic_quantitative: {
+    id: 'logic_quantitative', type: 'logic',
+    title: 'Quantitative Reasoning', emoji: '📊', difficulty: 'medium',
+    description: 'Rates, ratios, percentages and algebraic word problems — numerical reasoning.',
+    config: { variant: 'quantitative' },
   },
 
   // ── Stroop variants (1) — impulse control + processing speed ─────────────

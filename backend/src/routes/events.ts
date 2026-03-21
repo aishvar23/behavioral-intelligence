@@ -228,12 +228,23 @@ router.get('/report/:sessionId', async (req: Request, res: Response) => {
 // POST /select-games — LLM picks 3 assessment games based on user profile + occupation
 router.post('/select-games', async (req: Request, res: Response) => {
   try {
-    const { userProfile, pool } = req.body;
+    const { userProfile, pool, userId } = req.body;
     if (!userProfile || !userProfile.occupationTitle) {
       return res.status(400).json({ error: 'Missing userProfile' });
     }
 
-    const result = await selectGamesForUser(userProfile, Array.isArray(pool) ? pool : undefined);
+    // Load most recent trait scores for adaptive difficulty selection
+    let previousTraits: TraitScores | undefined;
+    if (userId) {
+      try {
+        const history = getUserTraitHistory(Number(userId), 1);
+        if (history.length > 0) {
+          previousTraits = JSON.parse(history[0].traitsJson) as TraitScores;
+        }
+      } catch { /* non-fatal */ }
+    }
+
+    const result = await selectGamesForUser(userProfile, Array.isArray(pool) ? pool : undefined, previousTraits);
     return res.json(result);
   } catch (err) {
     console.error('POST /select-games error:', err);

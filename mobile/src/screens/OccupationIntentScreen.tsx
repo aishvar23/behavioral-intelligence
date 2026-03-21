@@ -10,8 +10,8 @@ type Props = NativeStackScreenProps<RootStackParamList, 'OccupationIntent'>;
 const ALL_TYPES: GameType[] = ['rule_discovery', 'planning', 'memory', 'logic', 'reaction', 'stroop', 'matrix', 'spatial', 'estimation', 'search'];
 
 function pickRandomGames() {
-  // Shuffle types, take 3, then pick one random config from each
-  const shuffledTypes = [...ALL_TYPES].sort(() => Math.random() - 0.5).slice(0, 3);
+  // Shuffle types, take 5, then pick one random config from each
+  const shuffledTypes = [...ALL_TYPES].sort(() => Math.random() - 0.5).slice(0, 5);
   return shuffledTypes.map(type => {
     const configs = Object.values(GAME_CONFIGS).filter(g => g.type === type);
     const config = configs[Math.floor(Math.random() * configs.length)];
@@ -64,7 +64,7 @@ export default function OccupationIntentScreen({ navigation }: Props) {
         <Text style={styles.cardEmoji}>🎲</Text>
         <View style={styles.cardText}>
           <Text style={styles.cardTitle}>No, just explore</Text>
-          <Text style={styles.cardDesc}>We'll pick 3 games at random and give you general insights</Text>
+          <Text style={styles.cardDesc}>We'll pick 5 games at random and give you general insights</Text>
         </View>
       </TouchableOpacity>
     </View>

@@ -119,9 +119,13 @@ MEMORY — measures working memory, spatial recall, numerical retention:
   memory_faces          | "Name & Context"         | Associate names with faces. Social/associative memory.
   memory_code           | "Code Recall"            | Symbolic/code-like patterns. Abstract working memory.
 
-VERBAL / SITUATIONAL REASONING — measures judgment, verbal reasoning (text-based MCQ):
-  logic_verbal       | "Word Logic"           | Verbal analogies, odd-one-out. Verbal reasoning.
-  logic_situational  | "Situational Judgment" | Abstract judgment calls under ambiguity and constraint.
+VERBAL / LOGICAL REASONING — measures judgment, verbal and formal reasoning (text-based MCQ):
+  logic_verbal        | "Word Logic"              | Verbal analogies, odd-one-out. Verbal reasoning.
+  logic_situational   | "Situational Judgment"    | Abstract judgment calls under ambiguity and constraint.
+  logic_deduction     | "Logic Deduction"         | Formal syllogisms and deductive chains. Precise logical inference.
+  logic_patterns      | "Number Patterns"         | Number/letter sequence completion. Inductive pattern recognition.
+  logic_boolean       | "Boolean Reasoning"       | AND/OR/NOT/XOR operators. Systematic logical computation.
+  logic_quantitative  | "Quantitative Reasoning"  | Rates, ratios, percentages, algebra. Numerical reasoning.
 
 COGNITIVE INTERACTIVE GAMES — measures analytical thinking, impulse control, attention, spatial reasoning:
   stroop_classic       | "Color Conflict"     | Color word shown in mismatching ink — tap ink color. Impulse control + processing speed.
@@ -154,6 +158,10 @@ const GAME_DESCRIPTIONS: Record<string, string> = {
   memory_code:            'MEMORY      | "Code Recall"             | Symbolic patterns. Abstract working memory.',
   logic_verbal:            'LOGIC    | "Word Logic"              | Verbal analogies and odd-one-out. Verbal reasoning.',
   logic_situational:       'LOGIC    | "Situational Judgment"    | Abstract judgment under ambiguity and constraint.',
+  logic_deduction:         'LOGIC    | "Logic Deduction"         | Syllogisms and formal deduction. Precise logical inference.',
+  logic_patterns:          'LOGIC    | "Number Patterns"         | Number/letter sequence completion. Inductive pattern recognition.',
+  logic_boolean:           'LOGIC    | "Boolean Reasoning"       | AND/OR/NOT logic operators. Systematic logical computation.',
+  logic_quantitative:      'LOGIC    | "Quantitative Reasoning"  | Rates, ratios, percentages. Numerical and algebraic reasoning.',
   stroop_classic:          'STROOP   | "Color Conflict"          | Tap ink color, ignore word. Impulse control + processing speed.',
   matrix_standard:         'MATRIX   | "Pattern Matrix"          | 3×3 Raven-style grid, missing piece. Analytical thinking + learning speed.',
   matrix_advanced:         'MATRIX   | "Advanced Matrix"         | Harder Raven matrices. Deep analytical reasoning.',
@@ -175,20 +183,41 @@ export interface GameSelectionResult {
 
 const ALL_VALID_GAME_IDS = Object.keys(GAME_DESCRIPTIONS);
 
-const FALLBACK_GAMES = ['black_box_standard', 'task_planning_standard', 'matrix_standard'];
+const FALLBACK_GAMES = ['black_box_standard', 'task_planning_standard', 'matrix_standard', 'stroop_classic', 'visual_search_standard'];
 
 export async function selectGamesForUser(
   userProfile: UserProfile,
-  pool?: string[]
+  pool?: string[],
+  previousTraits?: TraitScores
 ): Promise<GameSelectionResult> {
   // Use the provided occupation pool, falling back to the full catalog
-  const validIds = pool && pool.length >= 3
+  const validIds = pool && pool.length >= 5
     ? pool.filter(id => ALL_VALID_GAME_IDS.includes(id))
     : ALL_VALID_GAME_IDS;
 
-  const poolCatalog = validIds
+  // Shuffle so the LLM sees a different ordering each session — prevents deterministic picks
+  const shuffledIds = [...validIds].sort(() => Math.random() - 0.5);
+  const poolCatalog = shuffledIds
     .map(id => `  ${id} | ${GAME_DESCRIPTIONS[id]}`)
     .join('\n');
+
+  // Build adaptive difficulty context from previous session performance
+  let adaptiveContext = '';
+  if (previousTraits) {
+    const avgTrait = Object.values(previousTraits).reduce((a, b) => a + b, 0) / Object.values(previousTraits).length;
+    if (avgTrait >= 0.65) {
+      adaptiveContext = `\nPREVIOUS PERFORMANCE: User scored high (avg trait: ${avgTrait.toFixed(2)}). They are performing well — INCREASE difficulty. Prefer 'hard' variants and cognitively demanding games.`;
+    } else if (avgTrait <= 0.40) {
+      adaptiveContext = `\nPREVIOUS PERFORMANCE: User scored low (avg trait: ${avgTrait.toFixed(2)}). They are struggling — DECREASE difficulty. Prefer 'medium' or 'easy' variants and accessible games.`;
+    } else {
+      adaptiveContext = `\nPREVIOUS PERFORMANCE: User scored average (avg trait: ${avgTrait.toFixed(2)}). Maintain current difficulty mix.`;
+    }
+  }
+
+  const ageNum = parseInt(userProfile.age, 10);
+  const ageDifficulty = (!isNaN(ageNum) && ageNum >= 18 && ageNum <= 40) ? 'hard'
+    : (!isNaN(ageNum) && ((ageNum >= 41 && ageNum <= 55) || (ageNum >= 15 && ageNum < 18))) ? 'medium'
+    : 'easy';
 
   const prompt = `You are an expert behavioral assessment designer for a cognitive intelligence platform.
 
@@ -197,33 +226,34 @@ A user wants to be assessed for the following occupation:
 USER PROFILE:
 - Age: ${userProfile.age}
 - Target / Current Occupation: ${userProfile.occupationTitle}
-- Areas of Interest: ${userProfile.interests}
+- Areas of Interest: ${userProfile.interests}${adaptiveContext}
 
 Available games for this occupation (${validIds.length} options):
 Format: ID | TYPE | TITLE | DESCRIPTION
 ${poolCatalog}
 
-Your task: Select exactly 3 games from the list above that will best reveal the cognitive and behavioral traits most critical for success as a ${userProfile.occupationTitle}.
+Your task: Select exactly 5 games from the list above that will best reveal the cognitive and behavioral traits most critical for success as a ${userProfile.occupationTitle}.
 
 MANDATORY RULES — all must be satisfied:
-1. Cognitive variety — you MUST include at least one game from the interactive cognitive category:
+1. Cognitive variety — you MUST include at least two games from the interactive cognitive category:
    STROOP, MATRIX, SPATIAL, ESTIMATION, SEARCH, RULE_DISC, or PLANNING types.
-   These give the strongest direct cognitive signal and must appear in every session.
-2. Type diversity — the 3 selected games must be from 3 DIFFERENT types. Never pick two games of the same type.
+2. Type diversity — no type may appear more than twice. Use at least 4 different types across the 5 games.
 3. Relevance — prioritise traits most critical for ${userProfile.occupationTitle}
-4. Complexity — map the user's age (${userProfile.age}) to game difficulty:
-   • Age 20–40 → PREFER 'hard' difficulty games
-   • Age 41–55 or 15–19 → prefer 'medium' difficulty games
+4. Complexity by age — base difficulty on age:
+   • Age 18–40 → STRONGLY PREFER 'hard' difficulty games
+   • Age 41–55 or 15–17 → prefer 'medium' difficulty games
    • Age < 15 or > 55 → prefer 'easy' difficulty games
-5. Use ONLY the exact ID strings from the leftmost column above
+   Age ${userProfile.age} → default to '${ageDifficulty}'.
+5. Adaptive complexity — if PREVIOUS PERFORMANCE data is provided above, it overrides age-based difficulty.
+6. Use ONLY the exact ID strings from the leftmost column above
 
 Respond with valid JSON only (no markdown):
-{"selectedIds": ["exact_id_1", "exact_id_2", "exact_id_3"], "reasoning": "One or two sentences explaining why these 3 games best assess a ${userProfile.occupationTitle}"}`;
+{"selectedIds": ["id_1","id_2","id_3","id_4","id_5"], "reasoning": "One or two sentences explaining why these 5 games best assess a ${userProfile.occupationTitle}"}`;
 
   try {
     const message = await withRetry(() => client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 300,
+      max_tokens: 450,
       system: 'You are a JSON API. Respond only with valid JSON. No prose, no markdown, no code fences.',
       messages: [{ role: 'user', content: prompt }],
     }));
@@ -234,9 +264,9 @@ Respond with valid JSON only (no markdown):
     const parsed = JSON.parse(text);
 
     const returned: string[] = parsed.selectedIds ?? [];
-    const ids: string[] = returned.filter((id: string) => validIds.includes(id)).slice(0, 3);
+    const ids: string[] = returned.filter((id: string) => validIds.includes(id)).slice(0, 5);
     console.log('[selectGames] LLM returned:', returned, '| valid pool size:', validIds.length, '| accepted:', ids);
-    if (ids.length < 3) {
+    if (ids.length < 5) {
       console.warn('[selectGames] Falling back — only', ids.length, 'valid IDs from LLM response');
       return { selectedIds: FALLBACK_GAMES, reasoning: 'Standard assessment selected.' };
     }
