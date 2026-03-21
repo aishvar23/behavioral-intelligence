@@ -61,22 +61,17 @@ function generateRound(shapeIdx: number): {
   const targetRot = Math.floor(Math.random() * 4);
   const target = rotate(base, targetRot);
 
-  // Correct: a different rotation of the same shape
   const correctRot = (targetRot + 1 + Math.floor(Math.random() * 3)) % 4;
   const correct = rotate(base, correctRot);
 
-  // Wrong 1: mirror of the shape (different rotation)
   const mirror = normalize(applyAll(rotate(base, correctRot), mirrorH));
 
-  // Wrong 2 & 3: different base shapes
   const otherIdx1 = (shapeIdx + 1) % BASE_SHAPES.length;
   const otherIdx2 = (shapeIdx + 2) % BASE_SHAPES.length;
   const wrong2 = normalize(BASE_SHAPES[otherIdx1]);
   const wrong3 = normalize(BASE_SHAPES[otherIdx2]);
 
-  // Build 4 options: shuffle correct into a random slot
   const wrongOptions = [mirror, wrong2, wrong3];
-  const slots = [0, 1, 2, 3];
   const correctIdx = Math.floor(Math.random() * 4);
   const wrongs = wrongOptions.slice(0, 3);
   const options: [number, number][][] = [];
@@ -119,6 +114,8 @@ export default function MentalRotationGame({ sessionId, onComplete }: Props) {
   const [correctIdx, setCorrectIdx] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [timerPct, setTimerPct] = useState(1);
+  const [showTimeoutDialog, setShowTimeoutDialog] = useState(false);
+  const [timerKey, setTimerKey] = useState(0);
   const scoreRef = useRef(0);
   const roundStart = useRef(0);
   const answered = useRef(false);
@@ -131,6 +128,7 @@ export default function MentalRotationGame({ sessionId, onComplete }: Props) {
     setCorrectIdx(data.correctIdx);
     setSelected(null);
     setTimerPct(1);
+    setShowTimeoutDialog(false);
     answered.current = false;
     roundStart.current = Date.now();
     setPhase('playing');
@@ -143,14 +141,31 @@ export default function MentalRotationGame({ sessionId, onComplete }: Props) {
       setTimerPct(pct);
       if (pct === 0 && !answered.current) {
         clearInterval(timerInterval.current);
-        answered.current = true;
-        void logEvent({ sessionId, gameId: 'spatial_rotation', eventType: 'option_selected', timestamp: Date.now(), data: { correct: false, responseTime: TIME_PER_ROUND, selectedIdx: null, correctIdx, round, timedOut: true } });
-        setSelected(-1);
-        setTimeout(() => advance(round + 1, 0), 900);
+        setShowTimeoutDialog(true);
       }
     }, 80);
     return () => clearInterval(timerInterval.current);
-  }, [phase, round]);
+  }, [phase, round, timerKey]);
+
+  function handleMoreTime() {
+    logEvent({ sessionId, gameId: 'spatial_rotation', eventType: 'timeout_extended',
+      timestamp: Date.now(), data: { round, extensionSecs: 20 } }).catch(() => {});
+    roundStart.current = Date.now();
+    setShowTimeoutDialog(false);
+    setTimerKey(k => k + 1);
+  }
+
+  function handleSkipRound() {
+    logEvent({ sessionId, gameId: 'spatial_rotation', eventType: 'timeout_skip',
+      timestamp: Date.now(), data: { round } }).catch(() => {});
+    answered.current = true;
+    void logEvent({ sessionId, gameId: 'spatial_rotation', eventType: 'option_selected',
+      timestamp: Date.now(), data: { correct: false, responseTime: TIME_PER_ROUND, selectedIdx: null, correctIdx, round, timedOut: true } });
+    setSelected(-1);
+    setShowTimeoutDialog(false);
+    // Show correct answer for 3s then advance
+    setTimeout(() => advance(round + 1, 0), 3000);
+  }
 
   function handleOption(idx: number) {
     if (answered.current || phase !== 'playing') return;
@@ -160,9 +175,11 @@ export default function MentalRotationGame({ sessionId, onComplete }: Props) {
     const isCorrect = idx === correctIdx;
     const pts = isCorrect ? Math.max(5, Math.round(20 * timerPct)) : 0;
     scoreRef.current += pts;
-    void logEvent({ sessionId, gameId: 'spatial_rotation', eventType: 'option_selected', timestamp: Date.now(), data: { correct: isCorrect, responseTime: rt, selectedIdx: idx, correctIdx, round } });
+    void logEvent({ sessionId, gameId: 'spatial_rotation', eventType: 'option_selected',
+      timestamp: Date.now(), data: { correct: isCorrect, responseTime: rt, selectedIdx: idx, correctIdx, round } });
     setSelected(idx);
-    setTimeout(() => advance(round + 1, pts), 900);
+    // Wrong answer: show correct for 5s; correct: advance after 900ms
+    setTimeout(() => advance(round + 1, pts), isCorrect ? 900 : 5000);
   }
 
   function advance(next: number, _pts: number) {
@@ -239,6 +256,36 @@ export default function MentalRotationGame({ sessionId, onComplete }: Props) {
           );
         })}
       </View>
+
+      {/* Timeout dialog overlay */}
+      {showTimeoutDialog && (
+        <View style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(10,10,30,0.92)',
+          alignItems: 'center', justifyContent: 'center',
+          zIndex: 100, padding: 32,
+        }}>
+          <Text style={{ fontSize: 44, marginBottom: 12 }}>⏰</Text>
+          <Text style={{ color: '#e0e0ff', fontSize: 22, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' }}>Time's Up!</Text>
+          <Text style={{ color: '#9999cc', fontSize: 15, textAlign: 'center', marginBottom: 32, lineHeight: 22 }}>
+            Do you need more time, or would you like to skip this one?
+          </Text>
+          <TouchableOpacity
+            style={{ backgroundColor: '#5c6bc0', paddingVertical: 16, paddingHorizontal: 40, borderRadius: 30, marginBottom: 14, width: '100%', alignItems: 'center' }}
+            onPress={handleMoreTime}
+            activeOpacity={0.8}
+          >
+            <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700' }}>⏱ Take More Time</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{ backgroundColor: '#1e1e3e', paddingVertical: 14, paddingHorizontal: 40, borderRadius: 30, borderWidth: 1, borderColor: '#3a3a6e', width: '100%', alignItems: 'center' }}
+            onPress={handleSkipRound}
+            activeOpacity={0.8}
+          >
+            <Text style={{ color: '#9999cc', fontSize: 16 }}>Skip →</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }

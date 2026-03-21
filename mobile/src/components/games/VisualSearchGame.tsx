@@ -83,6 +83,8 @@ export default function VisualSearchGame({ sessionId, onComplete }: Props) {
   const [targetCount, setTargetCount] = useState(2);
   const [foundCount, setFoundCount] = useState(0);
   const [timerPct, setTimerPct] = useState(1);
+  const [showTimeoutDialog, setShowTimeoutDialog] = useState(false);
+  const [timerKey, setTimerKey] = useState(0);
   const scoreRef = useRef(0);
   const roundStart = useRef(0);
   const timerInterval = useRef<ReturnType<typeof setInterval>>();
@@ -94,6 +96,7 @@ export default function VisualSearchGame({ sessionId, onComplete }: Props) {
     setTargetCount(tc);
     setFoundCount(0);
     setTimerPct(1);
+    setShowTimeoutDialog(false);
     roundStart.current = Date.now();
     setPhase('playing');
   }, []);
@@ -105,11 +108,28 @@ export default function VisualSearchGame({ sessionId, onComplete }: Props) {
       setTimerPct(pct);
       if (pct === 0) {
         clearInterval(timerInterval.current);
-        nextRound(round, false, 0);
+        setShowTimeoutDialog(true);
       }
     }, 100);
     return () => clearInterval(timerInterval.current);
-  }, [phase, round]);
+  }, [phase, round, timerKey]);
+
+  function handleMoreTime() {
+    logEvent({ sessionId, gameId: 'visual_search', eventType: 'timeout_extended',
+      timestamp: Date.now(), data: { round, extensionSecs: 20 } }).catch(() => {});
+    roundStart.current = Date.now();
+    setShowTimeoutDialog(false);
+    setTimerKey(k => k + 1);
+  }
+
+  function handleSkipRound() {
+    logEvent({ sessionId, gameId: 'visual_search', eventType: 'timeout_skip',
+      timestamp: Date.now(), data: { round } }).catch(() => {});
+    // Reveal unfound targets briefly before advancing
+    setCells(prev => prev.map(c => c.isTarget && !c.tapped ? { ...c, wrong: true } : c));
+    setShowTimeoutDialog(false);
+    setTimeout(() => nextRound(round, false, 0), 2000);
+  }
 
   function handleCellTap(idx: number) {
     if (phase !== 'playing') return;
@@ -219,6 +239,36 @@ export default function VisualSearchGame({ sessionId, onComplete }: Props) {
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* Timeout dialog overlay */}
+      {showTimeoutDialog && (
+        <View style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(10,10,30,0.92)',
+          alignItems: 'center', justifyContent: 'center',
+          zIndex: 100, padding: 32,
+        }}>
+          <Text style={{ fontSize: 44, marginBottom: 12 }}>⏰</Text>
+          <Text style={{ color: '#e0e0ff', fontSize: 22, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' }}>Time's Up!</Text>
+          <Text style={{ color: '#9999cc', fontSize: 15, textAlign: 'center', marginBottom: 32, lineHeight: 22 }}>
+            Do you need more time, or would you like to skip this one?
+          </Text>
+          <TouchableOpacity
+            style={{ backgroundColor: '#5c6bc0', paddingVertical: 16, paddingHorizontal: 40, borderRadius: 30, marginBottom: 14, width: '100%', alignItems: 'center' }}
+            onPress={handleMoreTime}
+            activeOpacity={0.8}
+          >
+            <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700' }}>⏱ Take More Time</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{ backgroundColor: '#1e1e3e', paddingVertical: 14, paddingHorizontal: 40, borderRadius: 30, borderWidth: 1, borderColor: '#3a3a6e', width: '100%', alignItems: 'center' }}
+            onPress={handleSkipRound}
+            activeOpacity={0.8}
+          >
+            <Text style={{ color: '#9999cc', fontSize: 16 }}>Skip →</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
