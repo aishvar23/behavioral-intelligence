@@ -11,16 +11,21 @@ function calcCost(inputTokens: number, outputTokens: number): number {
   return (inputTokens * INPUT_COST_PER_M + outputTokens * OUTPUT_COST_PER_M) / 1_000_000;
 }
 
-async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 2): Promise<T> {
+async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 4): Promise<T> {
   let lastErr: unknown;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       return await fn();
     } catch (err) {
       lastErr = err;
-      if (attempt < maxAttempts) {
-        await new Promise(r => setTimeout(r, attempt * 1000));
-      }
+      const status = (err as any)?.status as number | undefined;
+      // Only retry on overload (529), server errors (≥500), or network errors (no status)
+      const isRetryable = status === undefined || status === 529 || status >= 500;
+      if (!isRetryable || attempt >= maxAttempts) break;
+      // Exponential backoff: 3s → 8s → 15s
+      const delayMs = [3000, 8000, 15000][attempt - 1] ?? 15000;
+      console.warn(`[withRetry] attempt ${attempt} failed (status=${status ?? 'network'}), retrying in ${delayMs}ms...`);
+      await new Promise(r => setTimeout(r, delayMs));
     }
   }
   throw lastErr;
