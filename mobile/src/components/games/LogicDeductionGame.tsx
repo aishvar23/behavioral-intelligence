@@ -133,6 +133,7 @@ export default function LogicDeductionGame({ sessionId, onComplete, config }: Pr
   const [showTimeoutDialog, setShowTimeoutDialog] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const nextTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const qStartRef = useRef(0);
 
   const advance = useCallback((finalScore: number, correct: number) => {
@@ -247,18 +248,22 @@ export default function LogicDeductionGame({ sessionId, onComplete, config }: Pr
 
     // Wrong answer: show correct answer for 5000ms; correct/skip: 1000ms
     const delay = correct ? 1000 : 5000;
-    setTimeout(() => {
-      if (currentQ + 1 >= questions.length) {
-        advance(newScore, newCorrect);
-      } else {
-        setCurrentQ(q => q + 1);
-        setSelected(null);
-        setPhase('playing');
-        qStartRef.current = Date.now();
-        setTimeLeft(TIME_PER_QUESTION);
-        setTimerKey(k => k + 1);
-      }
-    }, delay);
+    if (nextTimerRef.current) clearTimeout(nextTimerRef.current);
+    nextTimerRef.current = setTimeout(() => doAdvance(newScore, newCorrect), delay);
+  }
+
+  function doAdvance(finalScore: number, finalCorrect: number) {
+    if (nextTimerRef.current) { clearTimeout(nextTimerRef.current); nextTimerRef.current = null; }
+    if (currentQ + 1 >= questions.length) {
+      advance(finalScore, finalCorrect);
+    } else {
+      setCurrentQ(q => q + 1);
+      setSelected(null);
+      setPhase('playing');
+      qStartRef.current = Date.now();
+      setTimeLeft(TIME_PER_QUESTION);
+      setTimerKey(k => k + 1);
+    }
   }
 
   const VARIANT_META: Record<Variant, { title: string; desc: string }> = {
@@ -326,6 +331,15 @@ export default function LogicDeductionGame({ sessionId, onComplete, config }: Pr
               );
             })}
           </View>
+          {phase === 'feedback' && selected !== questions[currentQ]?.answer && (
+            <TouchableOpacity
+              style={styles.nextBtn}
+              onPress={() => doAdvance(score, correctCount)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.nextBtnTxt}>Next →</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -384,4 +398,6 @@ const styles = StyleSheet.create({
   option: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, padding: 14, borderWidth: 1.5, gap: 10 },
   optionLabel: { color: '#5c6bc0', fontSize: 15, fontWeight: '700', width: 24 },
   optionText: { color: '#c0c0ee', fontSize: 15, flex: 1 },
+  nextBtn: { marginTop: 16, backgroundColor: '#2a2a5e', borderRadius: 24, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: '#5c6bc0' },
+  nextBtnTxt: { color: '#c0c0ff', fontSize: 15, fontWeight: '700' },
 });

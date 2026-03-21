@@ -204,15 +204,15 @@ export default function MentalRotationGame({ sessionId, onComplete }: Props) {
 
   function handleOption(idx: number) {
     if (answered.current || phase !== 'playing') return;
-    clearInterval(timerInterval.current);
     answered.current = true;
+    setSelected(idx); // set immediately for instant visual feedback
+    clearInterval(timerInterval.current);
     const rt = Date.now() - roundStart.current;
     const isCorrect = idx === correctIdx;
     const pts = isCorrect ? Math.max(5, Math.round(20 * timerPct)) : 0;
     scoreRef.current += pts;
     void logEvent({ sessionId, gameId: 'spatial_rotation', eventType: 'option_selected',
       timestamp: Date.now(), data: { correct: isCorrect, responseTime: rt, selectedIdx: idx, correctIdx, round } });
-    setSelected(idx);
     // Wrong answer: show correct highlighted for 1.5s; correct: 900ms
     setTimeout(() => advance(round + 1, pts), isCorrect ? 900 : 1500);
   }

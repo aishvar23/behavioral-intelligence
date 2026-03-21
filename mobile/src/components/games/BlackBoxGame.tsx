@@ -65,6 +65,7 @@ export default function BlackBoxGame({ sessionId, onComplete }: Props) {
   const scoreRef = useRef(0);
   const roundStart = useRef(0);
   const timerInterval = useRef<ReturnType<typeof setInterval>>();
+  const nextTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const adaptMode = useRef<'normal' | 'hard' | 'easy'>('normal');
   const timeLimit = useRef(TIME_NORMAL);
   const roundResults = useRef<RoundResult[]>([]);
@@ -117,7 +118,7 @@ export default function BlackBoxGame({ sessionId, onComplete }: Props) {
     setSubmitted(true);
     setWasCorrect(false);
     setShowTimeoutDialog(false);
-    setTimeout(() => advance(round + 1), 5000);
+    nextTimerRef.current = setTimeout(() => advance(round + 1), 5000);
   }
 
   function handleTest(val: number) {
@@ -154,12 +155,11 @@ export default function BlackBoxGame({ sessionId, onComplete }: Props) {
     const pts = correct ? Math.round(basePoints + timerPct * 10) : 0;
     scoreRef.current += pts;
 
+    setSubmitted(true); // set immediately for instant visual feedback
+    setWasCorrect(correct);
     void logEvent({ sessionId, gameId: 'black_box', eventType: 'prediction_submitted',
       timestamp: Date.now(), data: { round, predicted, correct, testsUsed, responseTime: rt } });
-
-    setSubmitted(true);
-    setWasCorrect(correct);
-    setTimeout(() => advance(round + 1), correct ? 1500 : 5000);
+    nextTimerRef.current = setTimeout(() => advance(round + 1), correct ? 1500 : 5000);
   }
 
   function checkAdaptation(completedRound: number) {
@@ -285,6 +285,15 @@ export default function BlackBoxGame({ sessionId, onComplete }: Props) {
             {wasCorrect ? `✓ Correct! ${challengeAnswer}` : `✗ Answer was ${challengeAnswer}  ·  Rule: ${currentRule.label}`}
           </Text>
         )}
+        {submitted && wasCorrect === false && (
+          <TouchableOpacity
+            style={s.nextBtn}
+            onPress={() => { clearTimeout(nextTimerRef.current); advance(round + 1); }}
+            activeOpacity={0.8}
+          >
+            <Text style={s.nextBtnTxt}>Next →</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Answer input */}
@@ -391,6 +400,8 @@ const s = StyleSheet.create({
   challengeLabel: { color: '#9999cc', fontSize: 15 },
   challengeNum: { color: '#e0e0ff', fontWeight: 'bold', fontSize: 18 },
   reveal: { marginTop: 8, fontSize: 14, fontWeight: '600' },
+  nextBtn: { marginTop: 12, backgroundColor: '#5c6bc0', borderRadius: 20, paddingVertical: 10, paddingHorizontal: 28, alignSelf: 'flex-end' },
+  nextBtnTxt: { color: '#fff', fontSize: 14, fontWeight: '700' },
   inputArea: { flex: 1 },
   answerDisplay: {
     backgroundColor: '#0d0d1e', borderRadius: 10, borderWidth: 1.5, borderColor: '#5c6bc0',

@@ -156,6 +156,7 @@ export default function MatrixPuzzleGame({ sessionId, onComplete }: Props) {
   const roundStart = useRef(0);
   const answered = useRef(false);
   const timerInterval = useRef<ReturnType<typeof setInterval>>();
+  const nextTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   const startRound = useCallback((r: number) => {
     const { grid: newGrid, answer, distractors, typeLabel } = buildPuzzle(r);
@@ -207,8 +208,9 @@ export default function MatrixPuzzleGame({ sessionId, onComplete }: Props) {
 
   function handleOption(idx: number) {
     if (answered.current || phase !== 'playing') return;
-    clearInterval(timerInterval.current);
     answered.current = true;
+    setSelected(idx); // set immediately for instant visual feedback
+    clearInterval(timerInterval.current);
     const rt = Date.now() - roundStart.current;
     const isCorrect = idx === correctIdx;
     // Harder rounds (later = more rules to track) award more base points
@@ -216,8 +218,7 @@ export default function MatrixPuzzleGame({ sessionId, onComplete }: Props) {
     const pts = isCorrect ? Math.max(5, Math.round((20 + difficultyBonus) * timerPct)) : 0;
     scoreRef.current += pts;
     void logEvent({ sessionId, gameId: 'matrix_puzzle', eventType: 'option_selected', timestamp: Date.now(), data: { correct: isCorrect, responseTime: rt, selectedIdx: idx, correctIdx, round } });
-    setSelected(idx);
-    setTimeout(() => advance(round + 1), isCorrect ? 900 : 5000);
+    nextTimerRef.current = setTimeout(() => advance(round + 1), isCorrect ? 900 : 5000);
   }
 
   function advance(next: number) {
@@ -296,6 +297,16 @@ export default function MatrixPuzzleGame({ sessionId, onComplete }: Props) {
         })}
       </View>
 
+      {selected !== null && selected !== correctIdx && (
+        <TouchableOpacity
+          style={s.nextBtn}
+          onPress={() => { clearTimeout(nextTimerRef.current); advance(round + 1); }}
+          activeOpacity={0.8}
+        >
+          <Text style={s.nextBtnTxt}>Next →</Text>
+        </TouchableOpacity>
+      )}
+
       {/* Timeout dialog overlay */}
       {showTimeoutDialog && (
         <View style={{
@@ -355,4 +366,6 @@ const s = StyleSheet.create({
     padding: 12, alignItems: 'center', gap: 6,
   },
   optionLetter: { color: '#5555aa', fontSize: 11, fontWeight: '700' },
+  nextBtn: { marginTop: 14, backgroundColor: '#5c6bc0', borderRadius: 20, paddingVertical: 10, paddingHorizontal: 28, alignSelf: 'center' },
+  nextBtnTxt: { color: '#fff', fontSize: 14, fontWeight: '700' },
 });
