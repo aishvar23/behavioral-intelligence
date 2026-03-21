@@ -12,27 +12,39 @@ interface Props {
   onComplete: (score: number) => void;
 }
 
-const TOTAL_TRIALS = 14;
-const FLASH_MS = 800;
-const RESPOND_MS = 3000;
+const TOTAL_TRIALS = 20;
+const FLASH_MS = 750;
+const RESPOND_MS = 2500;
 
-// Ratios: [smaller, larger] — harder = closer ratio
-const TRIAL_CONFIGS = [
-  { a: 6,  b: 12 }, // easy 1:2
-  { a: 8,  b: 16 }, // easy 1:2
-  { a: 9,  b: 15 }, // medium 3:5
-  { a: 10, b: 16 }, // medium 5:8
-  { a: 11, b: 17 }, // medium
-  { a: 12, b: 18 }, // medium
-  { a: 10, b: 14 }, // hard 5:7
-  { a: 11, b: 15 }, // hard
-  { a: 12, b: 16 }, // hard 3:4
-  { a: 13, b: 17 }, // hard
-  { a: 14, b: 18 }, // hard
-  { a: 15, b: 20 }, // hard 3:4
-  { a: 16, b: 20 }, // very hard 4:5
-  { a: 17, b: 21 }, // very hard
-];
+interface TrialConfig { a: number; b: number; band: number }
+
+/** Generate 20 trials fresh each game — 5 per difficulty band, randomized counts. */
+function generateTrials(): TrialConfig[] {
+  function rInt(min: number, max: number) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+  const trials: TrialConfig[] = [];
+  // Band 0 easy: ratio 0.40–0.52 (e.g. 8 vs 16)
+  for (let i = 0; i < 5; i++) {
+    const b = rInt(10, 18); const ratio = 0.40 + Math.random() * 0.12;
+    trials.push({ a: Math.max(4, Math.round(b * ratio)), b, band: 0 });
+  }
+  // Band 1 medium: ratio 0.53–0.65 (e.g. 10 vs 16)
+  for (let i = 0; i < 5; i++) {
+    const b = rInt(12, 20); const ratio = 0.53 + Math.random() * 0.12;
+    trials.push({ a: Math.max(6, Math.round(b * ratio)), b, band: 1 });
+  }
+  // Band 2 hard: ratio 0.66–0.75 (e.g. 14 vs 20)
+  for (let i = 0; i < 5; i++) {
+    const b = rInt(14, 22); const ratio = 0.66 + Math.random() * 0.09;
+    trials.push({ a: Math.round(b * ratio), b, band: 2 });
+  }
+  // Band 3 very hard: ratio 0.76–0.87 (e.g. 17 vs 21)
+  for (let i = 0; i < 5; i++) {
+    const b = rInt(16, 24); const ratio = 0.76 + Math.random() * 0.11;
+    trials.push({ a: Math.round(b * ratio), b, band: 3 });
+  }
+  return trials;
+}
 
 // Generate random dot positions inside a W×H container (returns percentage offsets)
 function genDots(count: number, seed: number): { x: number; y: number }[] {
@@ -51,6 +63,7 @@ function genDots(count: number, seed: number): { x: number; y: number }[] {
 type Phase = 'intro' | 'flash' | 'respond' | 'feedback' | 'done';
 
 export default function DotEstimationGame({ sessionId, onComplete }: Props) {
+  const trialsRef = useRef<TrialConfig[]>(generateTrials()); // fixed for this game session
   const [phase, setPhase] = useState<Phase>('intro');
   const [trialNum, setTrialNum] = useState(0);
   const [leftCount, setLeftCount] = useState(0);
@@ -65,7 +78,7 @@ export default function DotEstimationGame({ sessionId, onComplete }: Props) {
   const timerInterval = useRef<ReturnType<typeof setInterval>>();
 
   const setupTrial = useCallback((index: number) => {
-    const cfg = TRIAL_CONFIGS[index];
+    const cfg = trialsRef.current[index];
     const leftBigger = Math.random() < 0.5;
     const lCount = leftBigger ? cfg.b : cfg.a;
     const rCount = leftBigger ? cfg.a : cfg.b;
@@ -97,7 +110,8 @@ export default function DotEstimationGame({ sessionId, onComplete }: Props) {
       if (pct === 0 && !answered.current) {
         clearInterval(timerInterval.current);
         answered.current = true;
-        void logEvent({ sessionId, gameId: 'dot_estimation', eventType: 'group_selected', timestamp: Date.now(), data: { correct: false, responseTime: RESPOND_MS, side: null, timedOut: true, ratio: TRIAL_CONFIGS[trialNum].a / TRIAL_CONFIGS[trialNum].b } });
+        const cfg = trialsRef.current[trialNum];
+        void logEvent({ sessionId, gameId: 'dot_estimation', eventType: 'group_selected', timestamp: Date.now(), data: { correct: false, responseTime: RESPOND_MS, side: null, timedOut: true, ratio: cfg.a / cfg.b, band: cfg.band } });
         setCorrect(false);
         setPhase('feedback');
         setTimeout(() => advance(0, trialNum + 1), 800);
@@ -114,11 +128,11 @@ export default function DotEstimationGame({ sessionId, onComplete }: Props) {
     const pickedCount = side === 'left' ? leftCount : rightCount;
     const otherCount = side === 'left' ? rightCount : leftCount;
     const isCorrect = pickedCount > otherCount;
-    const cfg = TRIAL_CONFIGS[trialNum];
+    const cfg = trialsRef.current[trialNum];
     const ratio = cfg.a / cfg.b;
-    const difficultyBonus = ratio > 0.7 ? 5 : ratio > 0.6 ? 3 : 0;
-    const pts = isCorrect ? 10 + difficultyBonus : 0;
-    void logEvent({ sessionId, gameId: 'dot_estimation', eventType: 'group_selected', timestamp: Date.now(), data: { correct: isCorrect, responseTime: rt, side, ratio } });
+    const bandBonus = [0, 4, 8, 12][cfg.band]; // harder bands worth more
+    const pts = isCorrect ? 8 + bandBonus : 0;
+    void logEvent({ sessionId, gameId: 'dot_estimation', eventType: 'group_selected', timestamp: Date.now(), data: { correct: isCorrect, responseTime: rt, side, ratio, band: cfg.band } });
     scoreRef.current += pts;
     setCorrect(isCorrect);
     setPhase('feedback');

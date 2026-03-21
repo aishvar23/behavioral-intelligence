@@ -69,6 +69,25 @@ const TIER1_RULES: Rule[] = [
       ? h[h.length - 1] + 2
       : h[h.length - 1] + 4,
   },
+  {
+    // +5 then −2 zigzag: 3, 8, 6, 11, 9, 14, 12…
+    label: 'Zigzag +5/−2',
+    tier: 1,
+    seed: () => { const r = rnd(2, 8); return [r, r + 5, r + 3]; },
+    next: h => (h[h.length - 1] - h[h.length - 2] === -2)
+      ? h[h.length - 1] + 5
+      : h[h.length - 1] - 2,
+  },
+  {
+    // ×2 then −1, repeating: 2, 4, 3, 6, 5, 10, 9…
+    label: 'Alt ×2/−1',
+    tier: 1,
+    seed: () => { const r = rnd(2, 5); return [r, r * 2, r * 2 - 1]; },
+    next: h => {
+      const diff = h[h.length - 1] - h[h.length - 2];
+      return diff === -1 ? h[h.length - 1] * 2 : h[h.length - 1] - 1;
+    },
+  },
 ];
 
 // ─── Tier 2 — 2nd-order and two-lane patterns (4 numbers shown) ──────────────
@@ -89,8 +108,7 @@ const TIER2_RULES: Rule[] = [
     next: h => h[h.length - 1] + (h[h.length - 1] - h[h.length - 2]) + 2,
   },
   {
-    // Two interleaved lanes, each advancing independently:
-    // Lane A (+1 each step), Lane B (+2 each step)
+    // Two interleaved lanes: Lane A (+1 each step), Lane B (+2 each step)
     // e.g. 2, 10, 3, 12, 4, 14, 5…
     label: 'Two lanes',
     tier: 2,
@@ -100,8 +118,8 @@ const TIER2_RULES: Rule[] = [
       return [a, b, a + 1, b + 2];
     },
     next: h => h.length % 2 === 0
-      ? h[h.length - 2] + 1   // Lane A: 0-indexed even positions
-      : h[h.length - 2] + 2,  // Lane B: 0-indexed odd positions
+      ? h[h.length - 2] + 1
+      : h[h.length - 2] + 2,
   },
   {
     // Gaps grow by 2 each step: 1, 3, 7, 13, 21, 31…
@@ -110,6 +128,30 @@ const TIER2_RULES: Rule[] = [
     seed: () => { const r = rnd(1, 4); return [r, r + 2, r + 6, r + 12]; },
     next: h => h[h.length - 1] + (h[h.length - 1] - h[h.length - 2]) + 2,
   },
+  {
+    // Two lanes with opposite movement: Lane A (+3), Lane B (−1)
+    // e.g. 5, 20, 8, 19, 11, 18, 14…
+    label: 'Converging lanes',
+    tier: 2,
+    seed: () => {
+      const a = rnd(3, 8); const b = rnd(18, 26);
+      return [a, b, a + 3, b - 1];
+    },
+    next: h => h.length % 2 === 0
+      ? h[h.length - 2] + 3
+      : h[h.length - 2] - 1,
+  },
+  {
+    // Multiply then subtract: ×3 then −5, repeating: 2, 6, 1, 3, −2…
+    // Use addition-only version: each step alternates ×2 and −3
+    label: '×2 then −3',
+    tier: 2,
+    seed: () => { const r = rnd(4, 8); return [r, r * 2, r * 2 - 3, (r * 2 - 3) * 2]; },
+    next: h => {
+      const last = h[h.length - 1]; const prev = h[h.length - 2];
+      return (last === prev * 2) ? last - 3 : last * 2;
+    },
+  },
 ];
 
 // ─── Tier 3 — Complex relational patterns (5 numbers shown) ──────────────────
@@ -117,12 +159,10 @@ const TIER2_RULES: Rule[] = [
 const TIER3_RULES: Rule[] = [
   {
     // Fibonacci-style: each term = sum of the two before it.
-    // Seed is randomised so it never starts 1,1,2,3,5.
     label: 'Sum prev 2',
     tier: 3,
     seed: () => {
-      const a = rnd(1, 5);
-      const b = rnd(a + 1, a + 6);
+      const a = rnd(1, 5); const b = rnd(a + 1, a + 6);
       const c = a + b; const d = b + c; const e = c + d;
       return [a, b, c, d, e];
     },
@@ -130,26 +170,22 @@ const TIER3_RULES: Rule[] = [
   },
   {
     // Up/Down lanes: one track rises +1, the other falls −2.
-    // e.g. 1, 20, 2, 18, 3, 16, 4, 14…
     label: 'Up / Down lanes',
     tier: 3,
     seed: () => {
-      const a = rnd(1, 4);
-      const b = rnd(18, 26);
+      const a = rnd(1, 4); const b = rnd(18, 26);
       return [a, b, a + 1, b - 2, a + 2];
     },
     next: h => h.length % 2 === 0
-      ? h[h.length - 2] + 1   // rising lane
-      : h[h.length - 2] - 2,  // falling lane
+      ? h[h.length - 2] + 1
+      : h[h.length - 2] - 2,
   },
   {
     // Alternate: ×2, then +1, then ×2, then +1…
-    // e.g. 1, 2, 3, 6, 7, 14, 15, 30…
     label: '×2 then +1',
     tier: 3,
     seed: () => {
-      const a = rnd(1, 4);
-      const b = a * 2;
+      const a = rnd(1, 4); const b = a * 2;
       return [a, b, b + 1, (b + 1) * 2, (b + 1) * 2 + 1];
     },
     next: h => h.length % 2 === 0
@@ -158,11 +194,33 @@ const TIER3_RULES: Rule[] = [
   },
   {
     // Gaps are the sequence of odd numbers: 1, 3, 5, 7, 9…
-    // Result: 0, 1, 4, 9, 16, 25… — the square numbers, but the insight is in the gaps.
     label: 'Odd-number gaps',
     tier: 3,
     seed: () => { const r = rnd(0, 3); return [r, r + 1, r + 4, r + 9, r + 16]; },
     next: h => h[h.length - 1] + (h[h.length - 1] - h[h.length - 2]) + 2,
+  },
+  {
+    // Three-lane interleave: A(+2), B(+3), C(+5)
+    // e.g. 1, 10, 20, 3, 13, 25, 5, 16, 30, 7…
+    label: 'Three lanes',
+    tier: 3,
+    seed: () => {
+      const a = rnd(1, 4); const b = rnd(8, 14); const c = rnd(18, 26);
+      return [a, b, c, a + 2, b + 3];
+    },
+    next: h => {
+      const lane = h.length % 3;
+      const step = [2, 3, 5][lane];
+      return h[h.length - 3] + step;
+    },
+  },
+  {
+    // Cumulative sum: each term is the sum of ALL previous terms plus 1
+    // e.g. 1, 2, 4, 8, 16… (doubling, but the insight is in the cumsum rule)
+    label: 'Double prev sum',
+    tier: 3,
+    seed: () => { const r = rnd(1, 3); return [r, r * 2, r * 4, r * 8, r * 16]; },
+    next: h => h[h.length - 1] * 2,
   },
 ];
 

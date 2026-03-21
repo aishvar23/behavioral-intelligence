@@ -13,26 +13,35 @@ interface Props {
   onComplete: (score: number) => void;
 }
 
-const WORDS = ['RED', 'BLUE', 'GREEN', 'YELLOW'] as const;
+const WORDS = ['RED', 'BLUE', 'GREEN', 'YELLOW', 'ORANGE', 'PURPLE'] as const;
 type CW = typeof WORDS[number];
 
 const COLORS: Record<CW, string> = {
-  RED: '#ef5350', BLUE: '#42a5f5', GREEN: '#66bb6a', YELLOW: '#ffd54f',
+  RED: '#ef5350', BLUE: '#42a5f5', GREEN: '#66bb6a',
+  YELLOW: '#ffd54f', ORANGE: '#ff9800', PURPLE: '#ab47bc',
 };
 
-const TOTAL_TRIALS = 20;
-const TRIAL_MS = 3500;
+const TOTAL_TRIALS = 24;
+const TRIAL_MS = 2800; // tighter window = stronger signal
+const CONGRUENT_RATE = 0.25; // 25% of trials: word matches ink (establishes baseline)
 
-function newTrial(): { word: CW; ink: CW } {
+interface Trial { word: CW; ink: CW; congruent: boolean }
+
+function newTrial(): Trial {
   const word = WORDS[Math.floor(Math.random() * WORDS.length)];
+  // Congruent trial: word = ink. Measures baseline naming speed.
+  // Incongruent: word ≠ ink. Stroop interference = RT_inc − RT_con.
+  if (Math.random() < CONGRUENT_RATE) {
+    return { word, ink: word, congruent: true };
+  }
   const others = WORDS.filter(w => w !== word);
   const ink = others[Math.floor(Math.random() * others.length)];
-  return { word, ink };
+  return { word, ink, congruent: false };
 }
 
 export default function StroopGame({ sessionId, onComplete }: Props) {
   const [phase, setPhase] = useState<'intro' | 'playing' | 'done'>('intro');
-  const [trial, setTrial] = useState(newTrial());
+  const [trial, setTrial] = useState<Trial>(newTrial());
   const [trialNum, setTrialNum] = useState(0);
   const [timerPct, setTimerPct] = useState(1);
   const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null);
@@ -66,7 +75,7 @@ export default function StroopGame({ sessionId, onComplete }: Props) {
       if (pct === 0 && !answered.current) {
         clearInterval(interval.current);
         answered.current = true;
-        void logEvent({ sessionId, gameId: 'stroop', eventType: 'color_tapped', timestamp: Date.now(), data: { correct: false, responseTime: TRIAL_MS, tapped: null, inkColor: trial.ink, word: trial.word, timedOut: true } });
+        void logEvent({ sessionId, gameId: 'stroop', eventType: 'color_tapped', timestamp: Date.now(), data: { correct: false, responseTime: TRIAL_MS, tapped: null, inkColor: trial.ink, word: trial.word, congruent: trial.congruent, timedOut: true } });
         setFeedback('wrong');
         setTimeout(() => advance(0, trialNum + 1), 600);
       }
@@ -80,8 +89,10 @@ export default function StroopGame({ sessionId, onComplete }: Props) {
     answered.current = true;
     const rt = Date.now() - trialStart.current;
     const isCorrect = tapped === trial.ink;
-    const pts = isCorrect ? Math.max(5, Math.round(15 * (1 - rt / TRIAL_MS))) : 0;
-    void logEvent({ sessionId, gameId: 'stroop', eventType: 'color_tapped', timestamp: Date.now(), data: { correct: isCorrect, responseTime: rt, tapped, inkColor: trial.ink, word: trial.word } });
+    // Congruent trials are easier — lower max points so incongruent performance weighs more
+    const maxPts = trial.congruent ? 8 : 15;
+    const pts = isCorrect ? Math.max(3, Math.round(maxPts * (1 - rt / TRIAL_MS))) : 0;
+    void logEvent({ sessionId, gameId: 'stroop', eventType: 'color_tapped', timestamp: Date.now(), data: { correct: isCorrect, responseTime: rt, tapped, inkColor: trial.ink, word: trial.word, congruent: trial.congruent } });
     setFeedback(isCorrect ? 'correct' : 'wrong');
     setTimeout(() => advance(pts, trialNum + 1), 600);
   }
@@ -91,12 +102,14 @@ export default function StroopGame({ sessionId, onComplete }: Props) {
       <Text style={s.bigEmoji}>🎨</Text>
       <Text style={s.title}>Color Conflict</Text>
       <Text style={s.desc}>
-        A color word will appear in a different ink color.{'\n\n'}
-        Tap the <Text style={s.em}>ink color</Text> — ignore what the word says!
+        A color word appears — sometimes in a <Text style={s.em}>different</Text> ink color, sometimes the same.{'\n\n'}
+        Always tap the <Text style={s.em}>ink color</Text> — ignore what the word says.
       </Text>
       <View style={s.exBox}>
         <Text style={[s.exWord, { color: COLORS.BLUE }]}>RED</Text>
         <Text style={s.exLabel}>→ tap BLUE (the ink color)</Text>
+        <Text style={[s.exWord, { color: COLORS.GREEN, marginTop: 12 }]}>GREEN</Text>
+        <Text style={s.exLabel}>→ tap GREEN (word and ink match)</Text>
       </View>
       <TouchableOpacity style={s.startBtn} onPress={() => setPhase('playing')}>
         <Text style={s.startBtnTxt}>Start →</Text>
@@ -124,7 +137,7 @@ export default function StroopGame({ sessionId, onComplete }: Props) {
 
       <View style={s.wordArea}>
         <Text style={[s.colorWord, { color: COLORS[trial.ink] }]}>{trial.word}</Text>
-        <Text style={s.hint}>Tap the ink color</Text>
+        <Text style={s.hint}>{trial.congruent ? 'Tap the color!' : 'Tap the INK color'}</Text>
         {feedback && <Text style={[s.fbTxt, { color: feedback === 'correct' ? '#66bb6a' : '#ef5350' }]}>{feedback === 'correct' ? '✓' : '✗'}</Text>}
       </View>
 
@@ -162,7 +175,7 @@ const s = StyleSheet.create({
   hint: { color: '#4a4a7a', fontSize: 13, marginTop: 12 },
   fbTxt: { fontSize: 36, fontWeight: 'bold', marginTop: 12 },
   btnGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center', paddingBottom: 16 },
-  colorBtn: { width: '44%', paddingVertical: 22, borderRadius: 18, alignItems: 'center' },
+  colorBtn: { width: '30%', paddingVertical: 18, borderRadius: 18, alignItems: 'center' },
   btnOff: { opacity: 0.55 },
   btnLabel: { color: '#fff', fontSize: 15, fontWeight: '800', letterSpacing: 1 },
 });

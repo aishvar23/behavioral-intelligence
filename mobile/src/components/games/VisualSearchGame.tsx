@@ -16,11 +16,13 @@ interface Props {
 const ROUNDS = 8;
 const GRID_SIZE = 25; // 5×5
 const COLS = 5;
-const TIME_PER_ROUND = 30_000; // 30s
+const TIME_PER_ROUND = 22_000; // tighter window for better signal
+// Target count per round — strictly increasing, never drops
+const TARGET_COUNTS = [2, 2, 3, 3, 3, 4, 4, 4];
 
-// Pairs of visually similar symbols
+// Expanded pool of 16 visually similar symbol pairs
 const SYMBOL_PAIRS = [
-  { distractor: 'O', target: '0' },
+  { distractor: 'O', target: '0' },   // classic
   { distractor: '◉', target: '●' },
   { distractor: 'S', target: '5' },
   { distractor: '□', target: '■' },
@@ -28,7 +30,24 @@ const SYMBOL_PAIRS = [
   { distractor: 'M', target: 'N' },
   { distractor: '△', target: '▲' },
   { distractor: 'l', target: 'I' },
+  { distractor: 'C', target: 'G' },   // new
+  { distractor: 'P', target: 'R' },
+  { distractor: 'V', target: 'Y' },
+  { distractor: 'n', target: 'h' },
+  { distractor: 'c', target: 'e' },
+  { distractor: 'd', target: 'b' },
+  { distractor: 'q', target: 'g' },
+  { distractor: '6', target: '9' },
 ];
+
+function shuffleIndices(len: number): number[] {
+  const arr = Array.from({ length: len }, (_, i) => i);
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
 
 interface Cell {
   id: number;
@@ -38,9 +57,9 @@ interface Cell {
   wrong: boolean;
 }
 
-function buildGrid(round: number): { cells: Cell[]; targetCount: number } {
-  const pair = SYMBOL_PAIRS[round % SYMBOL_PAIRS.length];
-  const targetCount = round < 3 ? 2 : round < 6 ? 3 : 2;
+function buildGrid(pairIdx: number, round: number): { cells: Cell[]; targetCount: number } {
+  const pair = SYMBOL_PAIRS[pairIdx];
+  const targetCount = TARGET_COUNTS[Math.min(round, TARGET_COUNTS.length - 1)];
   const positions = new Set<number>();
   while (positions.size < targetCount) {
     positions.add(Math.floor(Math.random() * GRID_SIZE));
@@ -56,6 +75,8 @@ function buildGrid(round: number): { cells: Cell[]; targetCount: number } {
 }
 
 export default function VisualSearchGame({ sessionId, onComplete }: Props) {
+  // Pre-shuffle pair order so each round uses a different pair, no repeats
+  const pairOrderRef = useRef<number[]>(shuffleIndices(SYMBOL_PAIRS.length).slice(0, ROUNDS));
   const [phase, setPhase] = useState<'intro' | 'playing' | 'done'>('intro');
   const [round, setRound] = useState(0);
   const [cells, setCells] = useState<Cell[]>([]);
@@ -67,7 +88,8 @@ export default function VisualSearchGame({ sessionId, onComplete }: Props) {
   const timerInterval = useRef<ReturnType<typeof setInterval>>();
 
   const startRound = useCallback((r: number) => {
-    const { cells: newCells, targetCount: tc } = buildGrid(r);
+    const pairIdx = pairOrderRef.current[r];
+    const { cells: newCells, targetCount: tc } = buildGrid(pairIdx, r);
     setCells(newCells);
     setTargetCount(tc);
     setFoundCount(0);
@@ -111,7 +133,7 @@ export default function VisualSearchGame({ sessionId, onComplete }: Props) {
       }
     } else {
       setCells(prev => prev.map((c, i) => i === idx ? { ...c, wrong: true } : c));
-      scoreRef.current = Math.max(0, scoreRef.current - 3);
+      scoreRef.current = Math.max(0, scoreRef.current - 5); // increased penalty for wrong taps
       // Reset wrong highlight after a moment
       setTimeout(() => {
         setCells(prev => prev.map((c, i) => i === idx ? { ...c, wrong: false } : c));
@@ -152,7 +174,7 @@ export default function VisualSearchGame({ sessionId, onComplete }: Props) {
     </View>
   );
 
-  const pair = SYMBOL_PAIRS[round % SYMBOL_PAIRS.length];
+  const pair = SYMBOL_PAIRS[pairOrderRef.current[round] ?? 0];
 
   return (
     <View style={s.container}>
