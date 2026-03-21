@@ -52,6 +52,15 @@ function rotate(cells: [number, number][], times: number): [number, number][] {
   return normalize(result);
 }
 
+// Canonical key for visual comparison — order-independent cell set
+function shapeKey(cells: [number, number][]): string {
+  return normalize(cells)
+    .slice()
+    .sort((a, b) => a[0] - b[0] || a[1] - b[1])
+    .map(([r, c]) => `${r},${c}`)
+    .join('|');
+}
+
 function generateRound(shapeIdx: number): {
   target: [number, number][];
   options: [number, number][][];
@@ -60,25 +69,49 @@ function generateRound(shapeIdx: number): {
   const base = normalize(BASE_SHAPES[shapeIdx % BASE_SHAPES.length]);
   const targetRot = Math.floor(Math.random() * 4);
   const target = rotate(base, targetRot);
+  const targetKey = shapeKey(target);
 
-  const correctRot = (targetRot + 1 + Math.floor(Math.random() * 3)) % 4;
-  const correct = rotate(base, correctRot);
+  // Find a rotation that is visually distinct from target (some shapes are symmetric)
+  let correct: [number, number][] = target;
+  for (let d = 1; d <= 3; d++) {
+    const candidate = rotate(base, (targetRot + d) % 4);
+    if (shapeKey(candidate) !== targetKey) { correct = candidate; break; }
+  }
+  // Fallback: if base is fully symmetric, use a rotated different shape
+  if (shapeKey(correct) === targetKey) {
+    correct = rotate(normalize(BASE_SHAPES[(shapeIdx + 4) % BASE_SHAPES.length]), 1);
+  }
 
-  const mirror = normalize(applyAll(rotate(base, correctRot), mirrorH));
+  // Collect 3 visually unique wrong options — none matching target or correct or each other
+  const usedKeys = new Set([targetKey, shapeKey(correct)]);
+  const wrongPool: [number, number][][] = [];
 
-  const otherIdx1 = (shapeIdx + 1) % BASE_SHAPES.length;
-  const otherIdx2 = (shapeIdx + 2) % BASE_SHAPES.length;
-  const wrong2 = normalize(BASE_SHAPES[otherIdx1]);
-  const wrong3 = normalize(BASE_SHAPES[otherIdx2]);
+  // Try mirror of correct first
+  const mirror = normalize(applyAll(correct, mirrorH));
+  if (!usedKeys.has(shapeKey(mirror))) {
+    wrongPool.push(mirror);
+    usedKeys.add(shapeKey(mirror));
+  }
 
-  const wrongOptions = [mirror, wrong2, wrong3];
+  // Fill from other base shapes (try multiple rotations if needed)
+  for (let offset = 1; offset < BASE_SHAPES.length && wrongPool.length < 3; offset++) {
+    const otherBase = normalize(BASE_SHAPES[(shapeIdx + offset) % BASE_SHAPES.length]);
+    for (let rot = 0; rot < 4 && wrongPool.length < 3; rot++) {
+      const candidate = rotate(otherBase, rot);
+      const key = shapeKey(candidate);
+      if (!usedKeys.has(key)) {
+        wrongPool.push(candidate);
+        usedKeys.add(key);
+      }
+    }
+  }
+
+  // Build options array with correct in a random slot
   const correctIdx = Math.floor(Math.random() * 4);
-  const wrongs = wrongOptions.slice(0, 3);
   const options: [number, number][][] = [];
   let wi = 0;
   for (let i = 0; i < 4; i++) {
-    if (i === correctIdx) options.push(correct);
-    else options.push(wrongs[wi++]);
+    options.push(i === correctIdx ? correct : (wrongPool[wi++] ?? correct));
   }
 
   return { target, options, correctIdx };
@@ -119,6 +152,7 @@ export default function MentalRotationGame({ sessionId, onComplete }: Props) {
   const scoreRef = useRef(0);
   const roundStart = useRef(0);
   const answered = useRef(false);
+  const advancing = useRef(false);
   const timerInterval = useRef<ReturnType<typeof setInterval>>();
 
   const startRound = useCallback((r: number) => {
@@ -130,6 +164,7 @@ export default function MentalRotationGame({ sessionId, onComplete }: Props) {
     setTimerPct(1);
     setShowTimeoutDialog(false);
     answered.current = false;
+    advancing.current = false;
     roundStart.current = Date.now();
     setPhase('playing');
   }, []);
@@ -163,8 +198,8 @@ export default function MentalRotationGame({ sessionId, onComplete }: Props) {
       timestamp: Date.now(), data: { correct: false, responseTime: TIME_PER_ROUND, selectedIdx: null, correctIdx, round, timedOut: true } });
     setSelected(-1);
     setShowTimeoutDialog(false);
-    // Show correct answer for 3s then advance
-    setTimeout(() => advance(round + 1, 0), 3000);
+    // Show correct answer highlighted for 1.5s then advance
+    setTimeout(() => advance(round + 1, 0), 1500);
   }
 
   function handleOption(idx: number) {
@@ -178,11 +213,13 @@ export default function MentalRotationGame({ sessionId, onComplete }: Props) {
     void logEvent({ sessionId, gameId: 'spatial_rotation', eventType: 'option_selected',
       timestamp: Date.now(), data: { correct: isCorrect, responseTime: rt, selectedIdx: idx, correctIdx, round } });
     setSelected(idx);
-    // Wrong answer: show correct for 5s; correct: advance after 900ms
-    setTimeout(() => advance(round + 1, pts), isCorrect ? 900 : 5000);
+    // Wrong answer: show correct highlighted for 1.5s; correct: 900ms
+    setTimeout(() => advance(round + 1, pts), isCorrect ? 900 : 1500);
   }
 
   function advance(next: number, _pts: number) {
+    if (advancing.current) return;
+    advancing.current = true;
     if (next >= ROUNDS) {
       setPhase('done');
       onComplete(scoreRef.current);
