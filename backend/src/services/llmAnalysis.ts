@@ -230,16 +230,17 @@ ${poolCatalog}
 
 Your task: Select exactly 3 games from the list above that will best reveal the cognitive and behavioral traits most critical for success as a ${userProfile.occupationTitle}.
 
-Rules:
-1. Diversity — pick games from DIFFERENT types (EXPLORATION / PATTERN / PUZZLE / MEMORY / LOGIC / STROOP / MATRIX / SPATIAL / ESTIMATION / SEARCH / REACTION)
-2. Relevance — prioritise games measuring skills most important for ${userProfile.occupationTitle}
-3. Complexity — select difficulty based on the user's age (${userProfile.age}):
-   • Age 20–40 → PREFER 'hard' difficulty games (peak cognitive performance window — challenge them fully)
-   • Age 41–55 → prefer 'medium' difficulty games
-   • Age 15–19 → prefer 'medium' difficulty games (still developing)
+MANDATORY RULES — all must be satisfied:
+1. Cognitive variety — you MUST include at least one game from the interactive cognitive category:
+   STROOP, MATRIX, SPATIAL, ESTIMATION, or SEARCH types.
+   These give the strongest direct cognitive signal and must appear in every session.
+2. Type diversity — the 3 selected games must be from 3 DIFFERENT types. Never pick two games of the same type.
+3. Relevance — prioritise traits most critical for ${userProfile.occupationTitle}
+4. Complexity — map the user's age (${userProfile.age}) to game difficulty:
+   • Age 20–40 → PREFER 'hard' difficulty games
+   • Age 41–55 or 15–19 → prefer 'medium' difficulty games
    • Age < 15 or > 55 → prefer 'easy' difficulty games
-   If the pool contains no hard games, pick the most challenging available.
-4. Use ONLY the exact ID strings from the leftmost column above
+5. Use ONLY the exact ID strings from the leftmost column above
 
 Respond with valid JSON only (no markdown):
 {"selectedIds": ["exact_id_1", "exact_id_2", "exact_id_3"], "reasoning": "One or two sentences explaining why these 3 games best assess a ${userProfile.occupationTitle}"}`;
