@@ -348,13 +348,14 @@ describe('POST /career-report', () => {
 
     expect(res.status).toBe(200); // confirms LLM was reached (not short-circuited)
 
-    // generateCareerReport(traits, userProfile, gameResults, gameBehaviorData, sessionId)
+    // generateCareerReport(traits, userProfile, gameResults, gameBehaviorData, sessionId, traitHistory)
     expect(generateCareerReport).toHaveBeenCalledWith(
       expect.objectContaining({ curiosity: expect.any(Number) }),
       mockUserProfile,
       mockGameResults,
       expect.anything(), // gameBehaviorData
       SESSION_TRAITS,    // sessionId
+      undefined,         // traitHistory — no userId in this test so no history loaded
     );
   });
 });
