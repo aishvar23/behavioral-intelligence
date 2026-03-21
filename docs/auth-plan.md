@@ -20,9 +20,13 @@
    npm install --save-dev @types/bcryptjs @types/jsonwebtoken
    ```
 
-2. **Run DB migrations** — add columns to `users` table + create `refresh_tokens` table
-   - SQLite: add migration to `database.ts` init block (idempotent `ALTER TABLE ... IF NOT EXISTS` pattern)
-   - Postgres: add `ALTER TABLE` + `CREATE TABLE IF NOT EXISTS` to the Postgres init block
+2. **Run DB migrations** — four changes, all additive (no data loss risk):
+   - `ALTER TABLE users ADD COLUMN` — email, password_hash, display_name, avatar_url, email_verified
+   - `CREATE TABLE IF NOT EXISTS user_identities` — one row per provider per user; `UNIQUE(provider, provider_id)`
+   - `CREATE TABLE IF NOT EXISTS sessions` — every session UUID with user_id (null for guests), started_at, ended_at, status
+   - `CREATE TABLE IF NOT EXISTS refresh_tokens` — token_hash (SHA-256), device_hint, expires_at
+   - SQLite: add to `database.ts` `initSchema` block + idempotent `ALTER TABLE` migrations section
+   - Postgres: same tables/columns added to Postgres init block
 
 3. **Create `services/auth.ts`**
    - `issueTokens(userId)` — creates access + refresh JWT pair
@@ -30,6 +34,12 @@
    - `verifyRefreshToken(token)` — returns `{ userId, jti }` or throws
    - `storeRefreshToken(userId, token, deviceHint)` — SHA-256 hashes token, inserts to DB
    - `revokeRefreshToken(tokenHash)` — deletes row
+   - `upsertSocialUser(provider, providerId, email, name, picture)` — account linking logic:
+     1. Look up `user_identities(provider, providerId)` → found → return user
+     2. Look up `users` by email → found → insert `user_identities` row (link), return user
+     3. Neither → create new `users` row + `user_identities` row
+   - `startSession(sessionId, userId?)` — insert row into `sessions` with status='active'
+   - `endSession(sessionId, status)` — update ended_at + status ('completed' | 'abandoned')
    - `rotateRefreshToken` — NOT used (refresh does not rotate per design)
 
 4. **Add env var validation at startup** — warn if `JWT_ACCESS_SECRET` or `JWT_REFRESH_SECRET` missing
@@ -64,8 +74,9 @@
    ```
 
 4. **Apply optional middleware to existing routes**
-   - `POST /career-report` — add `authenticateJWT`; remove `userId` from Zod schema body (read from `req.userId`)
-   - `POST /select-games` — same
+   - `POST /career-report` — add `authenticateJWT`; read userId from `req.userId`; call `endSession(sessionId, 'completed')` after report saved
+   - `POST /select-games` — add `authenticateJWT`; call `startSession(sessionId, req.userId)` to register session on first game selection
+   - `POST /event` — optionally call `startSession` if session not yet registered (idempotent)
 
 5. **Rate limit auth routes** — 10 req/min per IP (separate limiter, not the global one)
 
@@ -168,6 +179,8 @@
    - Register with email → complete assessment → check report shows no progress summary (first session)
    - Complete second assessment → check progress summary appears
    - Sign in with Google → confirm same history visible
+   - **Account linking**: sign in with Facebook using same email as Google account → confirm same userId returned, history preserved
+   - Abandon session mid-game → confirm `sessions` row has status='abandoned'
    - Logout → sign in again → history persists
 
 2. Guest flow regression test — confirm existing flow unchanged
@@ -221,7 +234,7 @@ Phases 1-3 (backend) and Phases 4-5 (mobile logic) can be worked in parallel if 
 ### Backend
 | File | Purpose |
 |------|---------|
-| `backend/src/services/auth.ts` | JWT issue/verify, token DB helpers |
+| `backend/src/services/auth.ts` | JWT issue/verify, token DB helpers, `upsertSocialUser` (account linking), session helpers |
 | `backend/src/routes/auth.ts` | All 7 auth endpoints |
 | `backend/src/middleware/auth.ts` | `requireAuth` + `authenticateJWT` |
 | `backend/src/routes/auth.test.ts` | Integration tests for auth routes |
