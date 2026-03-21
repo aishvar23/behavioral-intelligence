@@ -265,9 +265,9 @@ export default function TaskPlanningGame({ sessionId, onComplete }: Props) {
       <Text style={s.bigEmoji}>📋</Text>
       <Text style={s.title}>Task Planner</Text>
       <Text style={s.desc}>
-        Tasks are shown as cards. Some must be completed before others can begin.{'\n\n'}
+        Tasks are shown as cards. Some depend on others finishing first.{'\n\n'}
         Figure out the correct order and tap them in sequence.{'\n\n'}
-        🔒 Locked tasks cannot be started yet.  Wrong taps cost points.
+        Tap a task that isn't ready yet and you lose points — choose carefully.
       </Text>
       <TouchableOpacity style={s.startBtn} onPress={() => startRound(0)}>
         <Text style={s.startBtnTxt}>Start →</Text>
@@ -316,11 +316,10 @@ export default function TaskPlanningGame({ sessionId, onComplete }: Props) {
         <Text style={s.mistakesTxt}>Mistakes: {mistakes}  (−{mistakes * 5}pts)</Text>
       )}
 
-      {/* Task cards */}
+      {/* Task cards — all undone cards look identical; player must deduce order */}
       <View style={s.taskGrid}>
         {states.map((st, idx) => {
-          const blocked = st.status === 'pending';
-          const done = st.status === 'done';
+          const done  = st.status === 'done';
           const error = st.status === 'error';
           return (
             <TouchableOpacity
@@ -329,17 +328,13 @@ export default function TaskPlanningGame({ sessionId, onComplete }: Props) {
                 s.taskCard,
                 done  && s.taskCardDone,
                 error && s.taskCardError,
-                blocked && s.taskCardBlocked,
               ]}
               onPress={() => handleTap(idx)}
-              activeOpacity={blocked ? 1 : 0.75}
+              activeOpacity={0.75}
               disabled={done}
             >
               <Text style={[s.taskEmoji, done && s.taskEmojiDone]}>{st.task.emoji}</Text>
-              <Text style={[s.taskLabel, done && s.taskLabelDone, blocked && s.taskLabelBlocked]}>
-                {st.task.label}
-              </Text>
-              {blocked && <Text style={s.lockedIcon}>🔒</Text>}
+              <Text style={[s.taskLabel, done && s.taskLabelDone]}>{st.task.label}</Text>
               {done && <Text style={s.doneCheck}>✓</Text>}
             </TouchableOpacity>
           );
