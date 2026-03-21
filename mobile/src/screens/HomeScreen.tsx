@@ -12,7 +12,7 @@ export default function HomeScreen({ navigation }: Props) {
         <Text style={styles.logo}>🧠</Text>
         <Text style={styles.title}>Behavioral Intelligence</Text>
         <Text style={styles.tagline}>
-          Play 3 personalised cognitive games.{'\n'}Discover your thinking style and career fit.
+          Play 5 personalised cognitive games.{'\n'}Discover your thinking style and career fit.
         </Text>
       </View>
 
@@ -33,7 +33,7 @@ export default function HomeScreen({ navigation }: Props) {
         <Text style={styles.btnText}>Begin Assessment →</Text>
       </TouchableOpacity>
 
-      <Text style={styles.note}>Takes about 5–8 minutes · No account needed</Text>
+      <Text style={styles.note}>Takes about 10–15 minutes · No account needed</Text>
     </View>
   );
 }

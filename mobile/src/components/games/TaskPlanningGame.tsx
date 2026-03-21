@@ -265,9 +265,9 @@ export default function TaskPlanningGame({ sessionId, onComplete }: Props) {
       <Text style={s.bigEmoji}>📋</Text>
       <Text style={s.title}>Task Planner</Text>
       <Text style={s.desc}>
-        Tasks are shown as cards. Some depend on others.{'\n\n'}
-        Tap them in the <Text style={s.em}>correct order</Text> — prerequisites must be completed first.{'\n\n'}
-        Locked tasks are grayed out. Wrong taps cost points.
+        Tasks are shown as cards. Some must be completed before others can begin.{'\n\n'}
+        Figure out the correct order and tap them in sequence.{'\n\n'}
+        🔒 Locked tasks cannot be started yet.  Wrong taps cost points.
       </Text>
       <TouchableOpacity style={s.startBtn} onPress={() => startRound(0)}>
         <Text style={s.startBtnTxt}>Start →</Text>
@@ -322,11 +322,6 @@ export default function TaskPlanningGame({ sessionId, onComplete }: Props) {
           const blocked = st.status === 'pending';
           const done = st.status === 'done';
           const error = st.status === 'error';
-          const missingLabels = blocked
-            ? st.task.deps
-                .filter(dep => states.find(s2 => s2.task.id === dep)?.status !== 'done')
-                .map(dep => states.find(s2 => s2.task.id === dep)?.task.label ?? dep)
-            : [];
           return (
             <TouchableOpacity
               key={st.task.id}
@@ -344,9 +339,7 @@ export default function TaskPlanningGame({ sessionId, onComplete }: Props) {
               <Text style={[s.taskLabel, done && s.taskLabelDone, blocked && s.taskLabelBlocked]}>
                 {st.task.label}
               </Text>
-              {blocked && missingLabels.length > 0 && (
-                <Text style={s.depsHint}>needs: {missingLabels.join(', ')}</Text>
-              )}
+              {blocked && <Text style={s.lockedIcon}>🔒</Text>}
               {done && <Text style={s.doneCheck}>✓</Text>}
             </TouchableOpacity>
           );
@@ -425,6 +418,6 @@ const s = StyleSheet.create({
   taskLabel:       { color: '#e0e0ff', fontSize: 15, fontWeight: '700', textAlign: 'center' },
   taskLabelDone:   { color: '#66bb6a' },
   taskLabelBlocked:{ color: '#5555aa' },
-  depsHint:        { color: '#5555aa', fontSize: 10, textAlign: 'center', lineHeight: 14 },
+  lockedIcon:      { fontSize: 14, opacity: 0.5 },
   doneCheck:       { color: '#66bb6a', fontSize: 20, fontWeight: 'bold' },
 });
