@@ -42,6 +42,10 @@ try {
   // Running locally without a CI-generated version.json
 }
 
+if (!process.env.JWT_ACCESS_SECRET || !process.env.JWT_REFRESH_SECRET) {
+  console.warn('[auth] JWT_ACCESS_SECRET or JWT_REFRESH_SECRET not set — auth endpoints will fail');
+}
+
 const app = express();
 const PORT = process.env.PORT ?? 3000;
 
