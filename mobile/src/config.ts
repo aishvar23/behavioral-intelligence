@@ -25,3 +25,7 @@ const DEBUG_ENV: Env = 'local';
 const RELEASE_ENV: Env = 'dev';
 
 export const API_BASE_URL = __DEV__ ? URLS[DEBUG_ENV] : URLS[RELEASE_ENV];
+
+// Google OAuth client ID — filled in during Phase 6 when Google Cloud Console is configured.
+// This is not a secret; it is platform-specific and public.
+export const GOOGLE_CLIENT_ID = '';
