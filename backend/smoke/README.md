@@ -61,10 +61,15 @@ BASE_URL=https://bi-backend-prod.azurewebsites.net ./backend/smoke/linux/smoke.s
 | 1 | Health check | `GET /health` | Returns `{"status":"ok"}` |
 | 2 | Session creation | `POST /session` | Returns a `sessionId` UUID |
 | 3 | Event logging (×3) | `POST /event` | Accepts move, explore, and attempt events |
-| 4 | Game selection | `POST /select-games` | LLM returns a `games` array |
+| 4 | Game selection | `POST /select-games` | LLM returns a `selectedIds` array |
 | 5 | Career report | `POST /career-report` | LLM returns `aiReport`, `thinkingStyle`, etc. |
 | 6 | Cache hit | `POST /career-report` (repeat) | Same session returns instantly from cache |
 | 7 | Input validation | `POST /event` with bad UUID | Returns HTTP 400 |
+| 8a | Auth register | `POST /auth/register` | Creates new account, returns tokens (201) |
+| 8b | Auth login | `POST /auth/login` | Valid credentials return tokens (200) |
+| 8c | Auth me | `GET /auth/me` | Bearer token returns user profile (200) |
+| 8d | Auth logout | `POST /auth/logout` | Revokes refresh token (200) |
+| 8e | Auth bad password | `POST /auth/login` | Wrong password returns 401 |
 
 ## Exit codes
 
@@ -78,5 +83,6 @@ BASE_URL=https://bi-backend-prod.azurewebsites.net ./backend/smoke/linux/smoke.s
 | `/health` returns 503 or times out | App Service is stopped or cold-starting; wait 30s and retry |
 | `/career-report` returns 500 | `ANTHROPIC_API_KEY` in App Service config is missing or revoked |
 | `/select-games` returns 500 | Same as above |
+| `/auth/register` returns 500 | `JWT_ACCESS_SECRET` or `JWT_REFRESH_SECRET` env vars not set in App Service |
 | `curl: (28)` timeout (Linux) | Cold-start; retry after 30s |
 | `The request was aborted` (Windows) | Same cold-start issue |

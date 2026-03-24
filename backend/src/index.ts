@@ -22,9 +22,11 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
+import { rateLimit } from 'express-rate-limit';
 import { v4 as uuid } from 'uuid';
 import eventsRouter from './routes/events';
 import usersRouter from './routes/users';
+import authRouter from './routes/auth';
 import fs from 'fs';
 import path from 'path';
 
@@ -42,6 +44,10 @@ try {
   // Running locally without a CI-generated version.json
 }
 
+if (!process.env.JWT_ACCESS_SECRET || !process.env.JWT_REFRESH_SECRET) {
+  console.warn('[auth] JWT_ACCESS_SECRET or JWT_REFRESH_SECRET not set — auth endpoints will fail');
+}
+
 const app = express();
 const PORT = process.env.PORT ?? 3000;
 
@@ -51,6 +57,15 @@ app.use(compression());
 app.use(cors());
 app.use(express.json());
 
+// Auth-specific rate limiter: 10 req/min per IP
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use('/auth', authLimiter, authRouter);
 app.use('/', eventsRouter);
 app.use('/', usersRouter);
 

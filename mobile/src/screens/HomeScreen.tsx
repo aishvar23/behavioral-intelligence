@@ -2,14 +2,21 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import { useAuth } from '../context/AuthContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
 export default function HomeScreen({ navigation }: Props) {
+  const { auth, logout } = useAuth();
+  const name = auth.displayName;
+
   return (
     <View style={styles.container}>
       <View style={styles.hero}>
         <Text style={styles.logo}>🧠</Text>
+        {name ? (
+          <Text style={styles.greeting}>Hi, {name} 👋</Text>
+        ) : null}
         <Text style={styles.title}>Behavioral Intelligence</Text>
         <Text style={styles.tagline}>
           Play 5 personalised cognitive games.{'\n'}Discover your thinking style and career fit.
@@ -33,7 +40,12 @@ export default function HomeScreen({ navigation }: Props) {
         <Text style={styles.btnText}>Begin Assessment →</Text>
       </TouchableOpacity>
 
-      <Text style={styles.note}>Takes about 10–15 minutes · No account needed</Text>
+      <Text style={styles.note}>Takes about 10–15 minutes</Text>
+      {!auth.isGuest && auth.userId ? (
+        <TouchableOpacity onPress={logout} activeOpacity={0.7} style={styles.signOutRow}>
+          <Text style={styles.signOutText}>Sign out</Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
@@ -64,4 +76,7 @@ const styles = StyleSheet.create({
   },
   btnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
   note: { color: '#4a4a7a', fontSize: 12 },
+  greeting: { fontSize: 18, color: '#a0a0dd', marginBottom: 8, fontWeight: '600' },
+  signOutRow: { marginTop: 12 },
+  signOutText: { color: '#4a4a7a', fontSize: 12, textDecorationLine: 'underline' },
 });

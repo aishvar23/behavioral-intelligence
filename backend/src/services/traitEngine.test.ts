@@ -11,309 +11,240 @@ function makeEvent(
 describe('calculateTraits', () => {
   // ─── curiosity (exploration game) ────────────────────────────────────────────
 
-  describe('curiosity (exploration game)', () => {
-    it('returns 0.5 when no exploration events', () => {
-      // No events at all → calcCuriosity gets empty array → no move events → 0.5
+  describe('curiosity (black_box game)', () => {
+    it('returns 0.5 when no black_box events', () => {
       const traits = calculateTraits([]);
       expect(traits.curiosity).toBe(0.5);
     });
 
-    it('returns 0.5 when exploration events exist but none are move events', () => {
-      const events = [makeEvent('exploration', 'start', {})];
+    it('returns 0.5 when black_box events exist but no prediction_submitted', () => {
+      // No rounds → rounds=0 → returns 0.5
+      const events = [makeEvent('black_box', 'input_tested', {})];
       const traits = calculateTraits(events);
       expect(traits.curiosity).toBe(0.5);
     });
 
-    it('returns 1.0 when explorationPct >= 0.6', () => {
-      // pct / 0.6 = 0.6 / 0.6 = 1.0 → clamped to 1.0
-      const events = [makeEvent('exploration', 'move', { explorationPct: 0.6 })];
-      const traits = calculateTraits(events);
-      expect(traits.curiosity).toBe(1.0);
-    });
-
-    it('returns 1.0 when explorationPct exceeds 0.6 (clamped)', () => {
-      const events = [makeEvent('exploration', 'move', { explorationPct: 0.9 })];
-      const traits = calculateTraits(events);
-      expect(traits.curiosity).toBe(1.0);
-    });
-
-    it('scales linearly below 60% exploration', () => {
-      // explorationPct = 0.3 → 0.3 / 0.6 = 0.5
-      const events = [makeEvent('exploration', 'move', { explorationPct: 0.3 })];
-      const traits = calculateTraits(events);
-      expect(traits.curiosity).toBeCloseTo(0.5, 5);
-    });
-
-    it('uses the last move event explorationPct when there are multiple', () => {
-      // First move has high pct, last move has low pct → should use last
+    it('returns 1.0 when 5+ tests per round', () => {
+      // avgTestsPerRound=5 → clamp(0.2 + (5-1)/4 * 0.8) = clamp(1.0) = 1.0
       const events = [
-        makeEvent('exploration', 'move', { explorationPct: 0.9 }),
-        makeEvent('exploration', 'move', { explorationPct: 0.3 }),
+        ...Array.from({ length: 5 }, () => makeEvent('black_box', 'input_tested', {})),
+        makeEvent('black_box', 'prediction_submitted', { round: 1 }),
       ];
       const traits = calculateTraits(events);
-      expect(traits.curiosity).toBeCloseTo(0.5, 5);
+      expect(traits.curiosity).toBe(1.0);
     });
 
-    it('returns 0 when explorationPct is 0', () => {
-      const events = [makeEvent('exploration', 'move', { explorationPct: 0 })];
+    it('clamps to 1.0 when more than 5 tests per round', () => {
+      // avgTestsPerRound=8 → clamp(0.2 + (8-1)/4 * 0.8) = clamp(1.6) = 1.0
+      const events = [
+        ...Array.from({ length: 8 }, () => makeEvent('black_box', 'input_tested', {})),
+        makeEvent('black_box', 'prediction_submitted', { round: 1 }),
+      ];
       const traits = calculateTraits(events);
-      expect(traits.curiosity).toBe(0);
+      expect(traits.curiosity).toBe(1.0);
     });
 
-    it('ignores non-exploration game events', () => {
-      // puzzle move events should not affect curiosity
-      const events = [makeEvent('puzzle', 'move', { explorationPct: 0.9 })];
+    it('returns 0.2 (minimum) when 1 test per round', () => {
+      // avgTestsPerRound=1 → clamp(0.2 + 0) = 0.2
+      const events = [
+        makeEvent('black_box', 'input_tested', {}),
+        makeEvent('black_box', 'prediction_submitted', { round: 1 }),
+      ];
+      const traits = calculateTraits(events);
+      expect(traits.curiosity).toBeCloseTo(0.2, 5);
+    });
+
+    it('scales linearly: 3 tests per round → 0.6', () => {
+      // avgTestsPerRound=3 → clamp(0.2 + (3-1)/4 * 0.8) = clamp(0.6) = 0.6
+      const events = [
+        ...Array.from({ length: 3 }, () => makeEvent('black_box', 'input_tested', {})),
+        makeEvent('black_box', 'prediction_submitted', { round: 1 }),
+      ];
+      const traits = calculateTraits(events);
+      expect(traits.curiosity).toBeCloseTo(0.6, 5);
+    });
+
+    it('averages tests across multiple rounds', () => {
+      // Round 1: 5 tests, Round 2: 1 test → avg=3 → 0.6
+      const events = [
+        ...Array.from({ length: 5 }, () => makeEvent('black_box', 'input_tested', {})),
+        makeEvent('black_box', 'prediction_submitted', { round: 1 }),
+        makeEvent('black_box', 'input_tested', {}),
+        makeEvent('black_box', 'prediction_submitted', { round: 2 }),
+      ];
+      const traits = calculateTraits(events);
+      expect(traits.curiosity).toBeCloseTo(0.6, 5);
+    });
+
+    it('ignores non-black_box game events', () => {
+      const events = [makeEvent('logic_deduction', 'input_tested', {})];
       const traits = calculateTraits(events);
       expect(traits.curiosity).toBe(0.5);
     });
   });
 
-  // ─── persistence (puzzle game) ───────────────────────────────────────────────
+  // ─── persistence (logic / reaction / planning games) ─────────────────────────
 
-  describe('persistence (puzzle game)', () => {
-    it('returns 0.1 when quit with fewer than 10 moves', () => {
-      const events = [
-        makeEvent('puzzle', 'move', {}),
-        makeEvent('puzzle', 'move', {}),
-        makeEvent('puzzle', 'quit', {}),
-      ];
-      const traits = calculateTraits(events);
-      expect(traits.persistence).toBe(0.1);
-    });
-
-    it('returns 0.1 when quit with exactly 9 moves', () => {
-      const events = [
-        ...Array.from({ length: 9 }, () => makeEvent('puzzle', 'move', {})),
-        makeEvent('puzzle', 'quit', {}),
-      ];
-      const traits = calculateTraits(events);
-      expect(traits.persistence).toBe(0.1);
-    });
-
-    it('does NOT return 0.1 when quit with 10 or more moves (uses moves/100 formula)', () => {
-      // 10 moves + quit → quit=true, moves=10, but condition is moves < 10, so uses clamp(10/100)
-      const events = [
-        ...Array.from({ length: 10 }, () => makeEvent('puzzle', 'move', {})),
-        makeEvent('puzzle', 'quit', {}),
-      ];
-      const traits = calculateTraits(events);
-      expect(traits.persistence).toBeCloseTo(0.1, 5);
-    });
-
-    it('returns high score when solved with many moves', () => {
-      // solved → clamp(0.5 + moves/200). 100 moves → 0.5 + 0.5 = 1.0
-      const events = [
-        ...Array.from({ length: 100 }, () => makeEvent('puzzle', 'move', {})),
-        makeEvent('puzzle', 'solved', {}),
-      ];
-      const traits = calculateTraits(events);
-      expect(traits.persistence).toBe(1.0);
-    });
-
-    it('returns base 0.5 when solved with 0 moves', () => {
-      // solved → clamp(0.5 + 0/200) = 0.5
-      const events = [makeEvent('puzzle', 'solved', {})];
-      const traits = calculateTraits(events);
-      expect(traits.persistence).toBeCloseTo(0.5, 5);
-    });
-
-    it('returns clamped score based on move count when not solved and no quit', () => {
-      // 50 moves, no solved, no quit → clamp(50/100) = 0.5
-      const events = Array.from({ length: 50 }, () => makeEvent('puzzle', 'move', {}));
-      const traits = calculateTraits(events);
-      expect(traits.persistence).toBeCloseTo(0.5, 5);
-    });
-
-    it('clamps persistence to 1.0 for excessive moves without solving', () => {
-      // 200 moves → clamp(200/100) = clamp(2) = 1.0
-      const events = Array.from({ length: 200 }, () => makeEvent('puzzle', 'move', {}));
-      const traits = calculateTraits(events);
-      expect(traits.persistence).toBe(1.0);
-    });
-
-    it('returns 0.5 when no puzzle events at all', () => {
-      // No puzzle/logic/reaction events → persistence defaults to 0.5
+  describe('persistence (logic/reaction/planning games)', () => {
+    it('returns 0.5 when no logic/reaction/planning events', () => {
       const traits = calculateTraits([]);
       expect(traits.persistence).toBe(0.5);
     });
 
-    it('ignores non-puzzle game events', () => {
-      // exploration events don't affect puzzle persistence → defaults to 0.5
-      const events = [makeEvent('exploration', 'solved', {})];
+    it('returns 1.0 when all 7 logic questions answered correctly', () => {
+      // clamp(7/7 * 0.6 + 1.0 * 0.4) = 1.0
+      const events = Array.from({ length: 7 }, () =>
+        makeEvent('logic_deduction', 'question_answer', { correct: true })
+      );
       const traits = calculateTraits(events);
+      expect(traits.persistence).toBe(1.0);
+    });
+
+    it('scales with number of logic answers attempted', () => {
+      // 3 correct out of 3, but only 3/7 completion → clamp(3/7 * 0.6 + 1.0 * 0.4) ≈ 0.657
+      const events = Array.from({ length: 3 }, () =>
+        makeEvent('logic_deduction', 'question_answer', { correct: true })
+      );
+      const traits = calculateTraits(events);
+      expect(traits.persistence).toBeCloseTo(3 / 7 * 0.6 + 1.0 * 0.4, 5);
+    });
+
+    it('returns 1.0 when all 10 reaction stimuli answered correctly', () => {
+      // clamp(10/10 * 0.6 + 1.0 * 0.4) = 1.0
+      const events = Array.from({ length: 10 }, () =>
+        makeEvent('reaction_basic', 'stimulus_response', { correct: true })
+      );
+      const traits = calculateTraits(events);
+      expect(traits.persistence).toBe(1.0);
+    });
+
+    it('ignores unrelated game events for persistence', () => {
+      const events = [makeEvent('dot_estimation', 'group_selected', { correct: true })];
+      const traits = calculateTraits(events);
+      // No logic/reaction/planning → persistence defaults to 0.5
       expect(traits.persistence).toBe(0.5);
     });
   });
 
-  // ─── risk_tolerance (exploration game) ───────────────────────────────────────
+  // ─── risk_tolerance (reaction inhibition game) ────────────────────────────────
 
-  describe('risk_tolerance (exploration game)', () => {
-    it('returns 0.5 when no exploration moves', () => {
+  describe('risk_tolerance (reaction inhibition game)', () => {
+    it('returns 0.5 when no reaction events', () => {
       const traits = calculateTraits([]);
       expect(traits.risk_tolerance).toBe(0.5);
     });
 
-    it('returns 0.5 when exploration events exist but none are move events', () => {
-      const events = [makeEvent('exploration', 'start', {})];
+    it('returns 0.4 when reaction events exist but none are nogo stimuli', () => {
+      // calcRiskFromReaction: nogoEvents=0 → returns 0.4
+      const events = [makeEvent('reaction_basic', 'stimulus_response', { stimulusType: 'go', responded: true })];
       const traits = calculateTraits(events);
-      expect(traits.risk_tolerance).toBe(0.5);
+      expect(traits.risk_tolerance).toBeCloseTo(0.4, 5);
     });
 
-    it('returns 1.0 when trap rate is exactly 20%', () => {
-      // 1 trap move out of 5 total = 20% → clamp(0.2 / 0.2) = 1.0
+    it('returns 1.0 when all nogo stimuli are responded to (maximum impulsivity)', () => {
+      // impulsivity=1.0 → clamp(0.3 + 0.7) = 1.0
       const events = [
-        makeEvent('exploration', 'move', { tileType: 'trap' }),
-        makeEvent('exploration', 'move', { tileType: 'grass' }),
-        makeEvent('exploration', 'move', { tileType: 'grass' }),
-        makeEvent('exploration', 'move', { tileType: 'grass' }),
-        makeEvent('exploration', 'move', { tileType: 'grass' }),
+        makeEvent('reaction_inhibition', 'stimulus_response', { stimulusType: 'nogo', responded: true }),
+        makeEvent('reaction_inhibition', 'stimulus_response', { stimulusType: 'nogo', responded: true }),
       ];
       const traits = calculateTraits(events);
       expect(traits.risk_tolerance).toBe(1.0);
     });
 
-    it('returns 1.0 (clamped) when trap rate exceeds 20%', () => {
-      // 2 traps out of 2 = 100% → clamp(1.0/0.2) = clamp(5) = 1.0
+    it('returns 0.3 when no nogo stimuli are responded to (minimum)', () => {
+      // impulsivity=0 → clamp(0.3 + 0) = 0.3
       const events = [
-        makeEvent('exploration', 'move', { tileType: 'trap' }),
-        makeEvent('exploration', 'move', { tileType: 'trap' }),
+        makeEvent('reaction_inhibition', 'stimulus_response', { stimulusType: 'nogo', responded: false }),
+        makeEvent('reaction_inhibition', 'stimulus_response', { stimulusType: 'nogo', responded: false }),
       ];
       const traits = calculateTraits(events);
-      expect(traits.risk_tolerance).toBe(1.0);
+      expect(traits.risk_tolerance).toBeCloseTo(0.3, 5);
     });
 
-    it('returns 0 when no traps entered', () => {
-      // 0 traps / N moves → 0 / 0.2 = 0
+    it('scales linearly with nogo response rate', () => {
+      // 1 of 2 nogo responded → impulsivity=0.5 → clamp(0.3 + 0.35) = 0.65
       const events = [
-        makeEvent('exploration', 'move', { tileType: 'grass' }),
-        makeEvent('exploration', 'move', { tileType: 'grass' }),
+        makeEvent('reaction_inhibition', 'stimulus_response', { stimulusType: 'nogo', responded: true }),
+        makeEvent('reaction_inhibition', 'stimulus_response', { stimulusType: 'nogo', responded: false }),
       ];
       const traits = calculateTraits(events);
-      expect(traits.risk_tolerance).toBe(0);
+      expect(traits.risk_tolerance).toBeCloseTo(0.65, 5);
     });
 
-    it('scales linearly between 0 and 20% trap rate', () => {
-      // 1 trap out of 10 moves = 10% → clamp(0.1 / 0.2) = 0.5
-      const events = [
-        makeEvent('exploration', 'move', { tileType: 'trap' }),
-        ...Array.from({ length: 9 }, () => makeEvent('exploration', 'move', { tileType: 'grass' })),
-      ];
+    it('ignores non-reaction game events for risk_tolerance', () => {
+      const events = [makeEvent('logic_deduction', 'stimulus_response', { stimulusType: 'nogo', responded: true })];
       const traits = calculateTraits(events);
-      expect(traits.risk_tolerance).toBeCloseTo(0.5, 5);
-    });
-
-    it('ignores non-exploration game events for risk_tolerance', () => {
-      const events = [makeEvent('puzzle', 'move', { tileType: 'trap' })];
-      const traits = calculateTraits(events);
-      // No exploration moves → 0.5
       expect(traits.risk_tolerance).toBe(0.5);
     });
   });
 
-  // ─── learning_speed (pattern game) ───────────────────────────────────────────
+  // ─── learning_speed (black_box / memory games) ────────────────────────────────
 
-  describe('learning_speed (pattern game)', () => {
-    it('returns 0.5 when no pattern events at all', () => {
-      // No events → no correct_guess with adaptationRound → fallback: total=0 → 0.5
+  describe('learning_speed (black_box / memory games)', () => {
+    it('returns 0.5 when no rule-discovery or memory events', () => {
       const traits = calculateTraits([]);
       expect(traits.learning_speed).toBe(0.5);
     });
 
-    it('falls back to correct/total ratio when no adaptationRound data', () => {
-      // correct_guess events with adaptationRound = null → uses fallback ratio
-      // Note: the filter checks `!== null`, but undefined would be coerced oddly.
-      // We use adaptationRound explicitly set to null.
-      const events = [
-        makeEvent('pattern', 'correct_guess', { adaptationRound: null }),
-        makeEvent('pattern', 'correct_guess', { adaptationRound: null }),
-        makeEvent('pattern', 'wrong_guess', {}),
-      ];
-      // total = 3, correct = 2 → 2/3
-      const traits = calculateTraits(events);
-      expect(traits.learning_speed).toBeCloseTo(2 / 3, 5);
-    });
-
-    it('falls back to 0.5 when no guesses at all in pattern game', () => {
-      // pattern game has events but none are guesses
-      const events = [makeEvent('pattern', 'start', {})];
+    it('returns 0.5 when black_box events exist but no prediction_submitted', () => {
+      const events = [makeEvent('black_box', 'input_tested', {})];
       const traits = calculateTraits(events);
       expect(traits.learning_speed).toBe(0.5);
     });
 
-    it('returns 1.0 when adaptation happens in round 1', () => {
-      // avgAdaptRound = 1 → clamp(1 - (1-1)/4) = clamp(1) = 1.0
+    it('returns 1.0 when correct prediction with 1 test used', () => {
+      // accuracy=1.0, avgTests=1 → efficiencyScore=clamp(1-(1-1)/5)=1.0
+      // clamp(1.0*0.6 + 1.0*0.4) = 1.0
       const events = [
-        makeEvent('pattern', 'correct_guess', { adaptationRound: 1 }),
+        makeEvent('black_box', 'prediction_submitted', { correct: true, testsUsed: 1 }),
       ];
       const traits = calculateTraits(events);
       expect(traits.learning_speed).toBe(1.0);
     });
 
-    it('returns 0.75 when average adaptation round is 2', () => {
-      // avgAdaptRound = 2 → clamp(1 - (2-1)/4) = clamp(0.75) = 0.75
+    it('returns 0.6 when correct prediction but used 6 tests (max tests = no efficiency)', () => {
+      // accuracy=1.0, efficiencyScore=clamp(1-(6-1)/5)=0 → clamp(1.0*0.6 + 0*0.4) = 0.6
       const events = [
-        makeEvent('pattern', 'correct_guess', { adaptationRound: 2 }),
+        makeEvent('black_box', 'prediction_submitted', { correct: true, testsUsed: 6 }),
       ];
       const traits = calculateTraits(events);
-      expect(traits.learning_speed).toBeCloseTo(0.75, 5);
+      expect(traits.learning_speed).toBeCloseTo(0.6, 5);
     });
 
-    it('returns 0.5 when average adaptation round is 3', () => {
-      // avgAdaptRound = 3 → clamp(1 - (3-1)/4) = clamp(0.5) = 0.5
+    it('returns 0.4 when wrong prediction but only 1 test used', () => {
+      // accuracy=0, efficiencyScore=1.0 → clamp(0*0.6 + 1.0*0.4) = 0.4
       const events = [
-        makeEvent('pattern', 'correct_guess', { adaptationRound: 3 }),
+        makeEvent('black_box', 'prediction_submitted', { correct: false, testsUsed: 1 }),
       ];
       const traits = calculateTraits(events);
-      expect(traits.learning_speed).toBeCloseTo(0.5, 5);
+      expect(traits.learning_speed).toBeCloseTo(0.4, 5);
     });
 
-    it('returns ~0 when adaptation takes 5+ rounds', () => {
-      // avgAdaptRound = 5 → clamp(1 - (5-1)/4) = clamp(0) = 0
+    it('skips timedOut predictions', () => {
+      // only timed-out prediction → no valid predictions → returns 0.5
       const events = [
-        makeEvent('pattern', 'correct_guess', { adaptationRound: 5 }),
+        makeEvent('black_box', 'prediction_submitted', { correct: true, testsUsed: 1, timedOut: true }),
       ];
       const traits = calculateTraits(events);
-      expect(traits.learning_speed).toBeCloseTo(0, 5);
-    });
-
-    it('clamps to 0 when adaptation takes more than 5 rounds', () => {
-      // avgAdaptRound = 9 → clamp(1 - 8/4) = clamp(-1) = 0
-      const events = [
-        makeEvent('pattern', 'correct_guess', { adaptationRound: 9 }),
-      ];
-      const traits = calculateTraits(events);
-      expect(traits.learning_speed).toBe(0);
-    });
-
-    it('averages multiple adaptation rounds correctly', () => {
-      // rounds 1 and 3 → avg = 2 → clamp(1 - (2-1)/4) = 0.75
-      const events = [
-        makeEvent('pattern', 'correct_guess', { adaptationRound: 1 }),
-        makeEvent('pattern', 'correct_guess', { adaptationRound: 3 }),
-      ];
-      const traits = calculateTraits(events);
-      expect(traits.learning_speed).toBeCloseTo(0.75, 5);
-    });
-
-    it('ignores non-pattern game events for learning_speed', () => {
-      // exploration correct_guess with adaptationRound=1 should not affect pattern score
-      const events = [
-        makeEvent('exploration', 'correct_guess', { adaptationRound: 1 }),
-      ];
-      const traits = calculateTraits(events);
-      // No pattern events → fallback → total=0 → 0.5
       expect(traits.learning_speed).toBe(0.5);
     });
 
-    it('falls back correctly when all correct with no adaptationRound', () => {
-      // 3 correct, 0 wrong, all adaptationRound=null → total=3, correct=3 → 1.0
+    it('averages learning across multiple predictions', () => {
+      // P1: correct, 1 test → score 1.0; P2: wrong, 6 tests → score 0.0
+      // average = 0.5
       const events = [
-        makeEvent('pattern', 'correct_guess', { adaptationRound: null }),
-        makeEvent('pattern', 'correct_guess', { adaptationRound: null }),
-        makeEvent('pattern', 'correct_guess', { adaptationRound: null }),
+        makeEvent('black_box', 'prediction_submitted', { correct: true, testsUsed: 1 }),
+        makeEvent('black_box', 'prediction_submitted', { correct: false, testsUsed: 6 }),
       ];
       const traits = calculateTraits(events);
-      expect(traits.learning_speed).toBeCloseTo(1.0, 5);
+      // accuracy=0.5, avgTests=3.5, efficiencyScore=clamp(1-2.5/5)=0.5 → clamp(0.5*0.6+0.5*0.4)=0.5
+      expect(traits.learning_speed).toBeCloseTo(0.5, 5);
+    });
+
+    it('ignores non-black_box/memory game events for learning_speed', () => {
+      const events = [makeEvent('logic_deduction', 'prediction_submitted', { correct: true, testsUsed: 1 })];
+      const traits = calculateTraits(events);
+      expect(traits.learning_speed).toBe(0.5);
     });
   });
 });

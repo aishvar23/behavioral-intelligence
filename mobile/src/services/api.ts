@@ -1,8 +1,13 @@
 import axios from 'axios';
 import { UserProfile, GameResult } from '../navigation/AppNavigator';
 import { API_BASE_URL } from '../config';
+import { getAccessToken, setAccessToken, getRefreshToken, setRefreshToken } from './tokenStore';
+import { refreshAccessToken } from './authApi';
+import { saveTokens, loadTokens } from './authStorage';
 
 const BASE_URL = API_BASE_URL;
+
+const api = axios.create({ baseURL: BASE_URL });
 
 export interface GameEvent {
   sessionId: string;
@@ -13,7 +18,7 @@ export interface GameEvent {
 }
 
 export async function logEvent(event: GameEvent): Promise<void> {
-  await axios.post(`${BASE_URL}/event`, event);
+  await api.post('/event', event);
 }
 
 export interface TraitScores {
@@ -36,7 +41,7 @@ export interface BehavioralReport {
 }
 
 export async function getReport(sessionId: string): Promise<BehavioralReport> {
-  const response = await axios.get(`${BASE_URL}/report/${sessionId}`);
+  const response = await api.get<BehavioralReport>(`/report/${sessionId}`);
   return response.data;
 }
 
@@ -84,14 +89,27 @@ export async function registerUser(
   username: string,
   age: string,
   country: string,
-  lifeStage: string
+  lifeStage: string,
 ): Promise<{ userId: number }> {
-  const response = await axios.post(`${BASE_URL}/user`, { username, age, country, lifeStage });
+  const response = await api.post<{ userId: number }>('/user', {
+    username,
+    age,
+    country,
+    lifeStage,
+  });
   return response.data;
 }
 
-export async function selectGames(userProfile: UserProfile, pool: string[], userId?: number): Promise<GameSelectionResult> {
-  const response = await axios.post(`${BASE_URL}/select-games`, { userProfile, pool, userId });
+export async function selectGames(
+  userProfile: UserProfile,
+  pool: string[],
+  userId?: number,
+): Promise<GameSelectionResult> {
+  const response = await api.post<GameSelectionResult>('/select-games', {
+    userProfile,
+    pool,
+    userId,
+  });
   return response.data;
 }
 
@@ -99,9 +117,9 @@ export async function getCareerReport(
   sessionId: string,
   userProfile: UserProfile,
   gameResults: GameResult[],
-  userId?: number
+  userId?: number,
 ): Promise<FullReport> {
-  const response = await axios.post(`${BASE_URL}/career-report`, {
+  const response = await api.post<FullReport>('/career-report', {
     sessionId,
     userId,
     userProfile,
@@ -109,3 +127,56 @@ export async function getCareerReport(
   });
   return response.data;
 }
+
+// ---------------------------------------------------------------------------
+// Axios interceptors
+// ---------------------------------------------------------------------------
+
+// Request: attach Bearer token if one is available in memory
+api.interceptors.request.use(config => {
+  const token = getAccessToken();
+  if (token) {
+    config.headers = config.headers ?? {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Response: on 401, attempt a single token refresh then retry the request
+api.interceptors.response.use(
+  res => res,
+  async err => {
+    // Avoid retry loops
+    if (err.response?.status === 401 && !(err.config as { _retry?: boolean })._retry) {
+      (err.config as { _retry?: boolean })._retry = true;
+
+      const storedRefreshToken = getRefreshToken();
+      if (storedRefreshToken) {
+        try {
+          const { accessToken: newAccessToken } = await refreshAccessToken(storedRefreshToken);
+
+          // Update in-memory token
+          setAccessToken(newAccessToken);
+
+          // Persist the updated access token alongside the existing refresh token and user
+          const stored = await loadTokens();
+          if (stored) {
+            await saveTokens(newAccessToken, stored.refreshToken, stored.user);
+          }
+
+          // Retry original request with new token
+          err.config.headers = err.config.headers ?? {};
+          err.config.headers.Authorization = `Bearer ${newAccessToken}`;
+          return api(err.config);
+        } catch {
+          // Refresh failed — clear in-memory tokens and surface the original error
+          setAccessToken(null);
+          setRefreshToken(null);
+        }
+      }
+    }
+    return Promise.reject(err);
+  },
+);
+
+export default api;

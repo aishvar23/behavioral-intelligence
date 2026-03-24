@@ -34,13 +34,16 @@ function Invoke-Endpoint {
     [string]$Method,
     [string]$Url,
     [hashtable]$Body = $null,
-    [int]$TimeoutSec = 30
+    [int]$TimeoutSec = 30,
+    [hashtable]$Headers = @{}
   )
   try {
+    $defaultHeaders = @{ "Content-Type" = "application/json" }
+    foreach ($key in $Headers.Keys) { $defaultHeaders[$key] = $Headers[$key] }
     $params = @{
       Method          = $Method
       Uri             = $Url
-      Headers         = @{ "Content-Type" = "application/json" }
+      Headers         = $defaultHeaders
       TimeoutSec      = $TimeoutSec
       UseBasicParsing = $true
     }
@@ -143,9 +146,9 @@ Write-Host "4. Game selection (LLM)"
 $r = Invoke-Endpoint -Method POST -Url "$BaseUrl/select-games" -Body @{
   userProfile = @{
     age             = "28"
-    occupation      = "engineer"
-    occupationTitle = "Software Engineer"
-    occupationEmoji = "engineer"
+    occupations      = @("software_engineer")
+    occupationTitles = @("Software Engineer")
+    occupationEmojis = @("💻")
     interests       = "problem solving, systems design"
   }
 }
@@ -158,9 +161,9 @@ $r = Invoke-Endpoint -Method POST -Url "$BaseUrl/career-report" -TimeoutSec 120 
   sessionId   = $SessionId
   userProfile = @{
     age             = "28"
-    occupation      = "engineer"
-    occupationTitle = "Software Engineer"
-    occupationEmoji = "engineer"
+    occupations      = @("software_engineer")
+    occupationTitles = @("Software Engineer")
+    occupationEmojis = @("💻")
     interests       = "problem solving, systems design"
   }
   gameResults = @(
@@ -177,9 +180,9 @@ $r = Invoke-Endpoint -Method POST -Url "$BaseUrl/career-report" -TimeoutSec 120 
   sessionId   = $SessionId
   userProfile = @{
     age             = "28"
-    occupation      = "engineer"
-    occupationTitle = "Software Engineer"
-    occupationEmoji = "engineer"
+    occupations      = @("software_engineer")
+    occupationTitles = @("Software Engineer")
+    occupationEmojis = @("💻")
     interests       = "problem solving, systems design"
   }
   gameResults = @(
@@ -199,6 +202,56 @@ $r = Invoke-Endpoint -Method POST -Url "$BaseUrl/event" -Body @{
   data      = @{}
 }
 Check -Label "POST /event bad uuid -> 400" -Status $r.Status -Body $r.Body -ExpectStatus 400 -ExpectBody '"error"'
+
+# -- 8. Auth flow -------------------------------------------------------------
+Write-Host ""
+Write-Host "8. Auth flow (register / login / me / logout / bad-password)"
+
+$AuthEmail = "smoke_$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())@test.local"
+$AuthPass  = "Smoke1234!"
+$AuthName  = "Smoke User"
+
+# 8a. Register new account
+$r = Invoke-Endpoint -Method POST -Url "$BaseUrl/auth/register" -Body @{
+  email       = $AuthEmail
+  password    = $AuthPass
+  displayName = $AuthName
+}
+Check -Label "POST /auth/register" -Status $r.Status -Body $r.Body -ExpectStatus 201 -ExpectBody '"accessToken"'
+$registerData = $r.Body | ConvertFrom-Json -ErrorAction SilentlyContinue
+$AccessToken  = $registerData.accessToken
+
+# 8b. Login with same credentials
+$r = Invoke-Endpoint -Method POST -Url "$BaseUrl/auth/login" -Body @{
+  email    = $AuthEmail
+  password = $AuthPass
+}
+Check -Label "POST /auth/login" -Status $r.Status -Body $r.Body -ExpectStatus 200 -ExpectBody '"accessToken"'
+$loginData    = $r.Body | ConvertFrom-Json -ErrorAction SilentlyContinue
+$RefreshToken = $loginData.refreshToken
+
+# 8c. GET /auth/me with Bearer token
+$r = Invoke-Endpoint -Method GET -Url "$BaseUrl/auth/me" -Headers @{
+  "Authorization" = "Bearer $AccessToken"
+  "Content-Type"  = "application/json"
+}
+Check -Label "GET /auth/me" -Status $r.Status -Body $r.Body -ExpectStatus 200 -ExpectBody '"email"'
+
+# 8d. Logout (revoke refresh token)
+$r = Invoke-Endpoint -Method POST -Url "$BaseUrl/auth/logout" -Body @{
+  refreshToken = $RefreshToken
+} -Headers @{
+  "Authorization" = "Bearer $AccessToken"
+  "Content-Type"  = "application/json"
+}
+Check -Label "POST /auth/logout" -Status $r.Status -Body $r.Body -ExpectStatus 200 -ExpectBody '"ok"'
+
+# 8e. Login with wrong password -> 401
+$r = Invoke-Endpoint -Method POST -Url "$BaseUrl/auth/login" -Body @{
+  email    = $AuthEmail
+  password = "wrongpassword"
+}
+Check -Label "POST /auth/login bad password -> 401" -Status $r.Status -Body $r.Body -ExpectStatus 401 -ExpectBody '"error"'
 
 # -- Summary ------------------------------------------------------------------
 Write-Host ""
