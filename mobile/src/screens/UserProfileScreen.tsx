@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, UserProfile } from '../navigation/AppNavigator';
 import {
@@ -28,14 +29,33 @@ import { useAuth } from '../context/AuthContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'UserProfile'>;
 
+type SavedProfile = {
+  age: string;
+  country: string;
+  lifeStage: string;
+  interests: string;
+  occupation: string;
+  occupationTitle: string;
+  occupationEmoji: string;
+};
+
 const CATEGORIES_ORDER: OccupationCategory[] = [
   'technology', 'healthcare', 'business', 'education', 'legal', 'engineering', 'science', 'creative',
 ];
 
 const LIFE_STAGES = ['Student', 'Graduate', 'Early Career', 'Mid Career', 'Career Change', 'Exploring'];
 
+function profileKey(userId: number) {
+  return `bi_profile_${userId}`;
+}
+
 export default function UserProfileScreen({ navigation }: Props) {
   const { auth } = useAuth();
+  const isAuthenticated = auth.userId != null && !auth.isGuest;
+
+  const [loaded, setLoaded] = useState(false);
+  const [hasSavedProfile, setHasSavedProfile] = useState(false);
+
   const [userName, setUserName] = useState('');
   const [age, setAge] = useState('');
   const [country, setCountry] = useState('');
@@ -61,6 +81,32 @@ export default function UserProfileScreen({ navigation }: Props) {
     })).filter(s => s.data.length > 0);
   }, [search, byCategory]);
 
+  // Load saved profile for authenticated users
+  useEffect(() => {
+    async function loadProfile() {
+      if (isAuthenticated && auth.userId != null) {
+        try {
+          const raw = await AsyncStorage.getItem(profileKey(auth.userId));
+          if (raw) {
+            const saved: SavedProfile = JSON.parse(raw);
+            setAge(saved.age);
+            setCountry(saved.country);
+            setLifeStage(saved.lifeStage);
+            setInterests(saved.interests);
+            setSelectedOccupation(saved.occupation);
+            setOccupationTitle(saved.occupationTitle);
+            setOccupationEmoji(saved.occupationEmoji);
+            setHasSavedProfile(true);
+          }
+        } catch {
+          // Non-fatal — proceed with empty form
+        }
+      }
+      setLoaded(true);
+    }
+    loadProfile();
+  }, [isAuthenticated, auth.userId]);
+
   function handleSelectOccupation(id: string, title: string, emoji: string) {
     setSelectedOccupation(id);
     setOccupationTitle(title);
@@ -69,17 +115,35 @@ export default function UserProfileScreen({ navigation }: Props) {
     setSearch('');
   }
 
+  async function saveProfile() {
+    if (!isAuthenticated || auth.userId == null || !selectedOccupation) return;
+    const saved: SavedProfile = {
+      age, country, lifeStage, interests,
+      occupation: selectedOccupation,
+      occupationTitle,
+      occupationEmoji,
+    };
+    try {
+      await AsyncStorage.setItem(profileKey(auth.userId), JSON.stringify(saved));
+    } catch {
+      // Non-fatal
+    }
+  }
+
   async function handleStart() {
     if (!selectedOccupation || selecting) return;
-    if (!userName.trim()) {
+
+    const effectiveName = isAuthenticated ? (auth.displayName ?? '') : userName.trim();
+    if (!isAuthenticated && !effectiveName) {
       setError('Please enter a username to track your progress across sessions.');
       return;
     }
+
     setError('');
     setSelecting(true);
 
     const profile: UserProfile = {
-      userName: userName.trim(),
+      userName: effectiveName,
       age: age.trim() || 'Not specified',
       country: country.trim() || 'Not specified',
       lifeStage: lifeStage || 'Not specified',
@@ -90,8 +154,6 @@ export default function UserProfileScreen({ navigation }: Props) {
     };
 
     try {
-      // Authenticated users already have a backend record — use their userId directly.
-      // Guest users call registerUser() to get a session-scoped userId for history tracking.
       let userId: number | undefined;
       if (auth.userId != null) {
         userId = auth.userId;
@@ -100,10 +162,11 @@ export default function UserProfileScreen({ navigation }: Props) {
           const userResult = await registerUser(profile.userName, profile.age, profile.country, profile.lifeStage);
           userId = userResult.userId;
         } catch {
-          // Non-fatal — continue without history tracking if registration fails
           console.warn('User registration failed — proceeding without history');
         }
       }
+
+      await saveProfile();
 
       const pool = OCCUPATION_GAME_POOLS[selectedOccupation] ?? GENERAL_POOL;
       const { selectedIds } = await selectGames(profile, pool, userId);
@@ -135,6 +198,21 @@ export default function UserProfileScreen({ navigation }: Props) {
     }
   }
 
+  if (!loaded) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator color="#5c6bc0" size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const pageTitle = hasSavedProfile ? 'Update your profile' : 'Tell us about yourself';
+  const pageSubtitle = hasSavedProfile
+    ? 'Your previous selections are loaded. Adjust anything before starting.'
+    : "We'll select the right games for your occupation and generate a personalised behavioral report.";
+
   return (
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
@@ -144,26 +222,33 @@ export default function UserProfileScreen({ navigation }: Props) {
           keyboardShouldPersistTaps="handled"
           ListHeaderComponent={
             <View style={styles.content}>
-              <Text style={styles.title}>Tell us about yourself</Text>
-              <Text style={styles.subtitle}>
-                We'll select the right games for your occupation and generate a personalised behavioral report.
-              </Text>
+              <Text style={styles.title}>{pageTitle}</Text>
+              <Text style={styles.subtitle}>{pageSubtitle}</Text>
 
-              {/* Username */}
-              <Text style={styles.label}>
-                Username <Text style={styles.required}>*</Text>
-              </Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. alex_2025"
-                placeholderTextColor="#5555aa"
-                value={userName}
-                onChangeText={setUserName}
-                autoCapitalize="none"
-                autoCorrect={false}
-                maxLength={50}
-              />
-              <Text style={styles.fieldNote}>Used to track your progress across sessions. Never shared externally.</Text>
+              {/* Name — read-only for authenticated users */}
+              {isAuthenticated ? (
+                <View style={styles.identityRow}>
+                  <Text style={styles.identityLabel}>Signed in as</Text>
+                  <Text style={styles.identityName}>{auth.displayName}</Text>
+                </View>
+              ) : (
+                <>
+                  <Text style={styles.label}>
+                    Username <Text style={styles.required}>*</Text>
+                  </Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="e.g. alex_2025"
+                    placeholderTextColor="#5555aa"
+                    value={userName}
+                    onChangeText={setUserName}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    maxLength={50}
+                  />
+                  <Text style={styles.fieldNote}>Used to track your progress across sessions. Never shared externally.</Text>
+                </>
+              )}
 
               {/* Age */}
               <Text style={styles.label}>Your Age</Text>
@@ -210,7 +295,7 @@ export default function UserProfileScreen({ navigation }: Props) {
                 Target / Current Occupation <Text style={styles.required}>*</Text>
               </Text>
               <TouchableOpacity
-                style={[styles.pickerBtn, selectedOccupation && styles.pickerBtnSelected]}
+                style={[styles.pickerBtn, selectedOccupation ? styles.pickerBtnSelected : null]}
                 onPress={() => setShowPicker(true)}
                 activeOpacity={0.8}
               >
@@ -234,10 +319,8 @@ export default function UserProfileScreen({ navigation }: Props) {
                 numberOfLines={3}
               />
 
-              {/* Error */}
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-              {/* CTA */}
               <TouchableOpacity
                 style={[styles.startBtn, (!selectedOccupation || selecting) && styles.startBtnDisabled]}
                 onPress={handleStart}
@@ -313,9 +396,24 @@ export default function UserProfileScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#1a1a2e' },
+  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   content: { padding: 24, paddingBottom: 40 },
   title: { fontSize: 26, fontWeight: 'bold', color: '#e0e0ff', marginBottom: 10, textAlign: 'center' },
   subtitle: { fontSize: 14, color: '#7777aa', textAlign: 'center', lineHeight: 21, marginBottom: 32 },
+  identityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#16213e',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2a2a5e',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 22,
+    gap: 8,
+  },
+  identityLabel: { color: '#5555aa', fontSize: 13 },
+  identityName: { color: '#a0a0ff', fontSize: 15, fontWeight: '700', flex: 1 },
   label: { color: '#c0c0ee', fontSize: 14, fontWeight: '600', marginBottom: 8 },
   required: { color: '#ef5350' },
   fieldNote: { color: '#4a4a7a', fontSize: 11, marginTop: -14, marginBottom: 20 },
@@ -365,7 +463,6 @@ const styles = StyleSheet.create({
   loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   note: { color: '#4a4a7a', fontSize: 12, textAlign: 'center' },
   noteBold: { color: '#6a6aaa' },
-  // Modal
   modal: { flex: 1, backgroundColor: '#1a1a2e' },
   modalHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16 },
   modalTitle: { color: '#e0e0ff', fontSize: 20, fontWeight: 'bold', flex: 1 },
