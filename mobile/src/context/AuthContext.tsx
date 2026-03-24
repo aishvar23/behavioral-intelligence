@@ -5,6 +5,8 @@ import React, {
   useState,
   ReactNode,
 } from 'react';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { GOOGLE_WEB_CLIENT_ID } from '../config';
 import * as authApi from '../services/authApi';
 import {
   saveTokens,
@@ -92,8 +94,9 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [auth, setAuth] = useState<AuthState>(INITIAL_STATE);
 
-  // On mount: attempt to restore session from SecureStore
+  // On mount: configure Google Sign-In + attempt to restore session from SecureStore
   useEffect(() => {
+    GoogleSignin.configure({ webClientId: GOOGLE_WEB_CLIENT_ID });
     (async () => {
       try {
         const stored = await loadTokens();

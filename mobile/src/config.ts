@@ -26,6 +26,6 @@ const RELEASE_ENV: Env = 'dev';
 
 export const API_BASE_URL = __DEV__ ? URLS[DEBUG_ENV] : URLS[RELEASE_ENV];
 
-// Google OAuth client ID — filled in during Phase 6 when Google Cloud Console is configured.
-// This is not a secret; it is platform-specific and public.
-export const GOOGLE_CLIENT_ID = '';
+// Google OAuth web client ID — used by the backend to verify Google ID tokens.
+// Not a secret; safe to commit. The Android client ID is in google-services.json.
+export const GOOGLE_WEB_CLIENT_ID = '818552283324-1gjieq3e2bq6iv1kcirqqpngctbl5aqi.apps.googleusercontent.com';

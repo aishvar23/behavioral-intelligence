@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../navigation/AppNavigator';
 import { useAuth } from '../context/AuthContext';
@@ -12,7 +14,32 @@ import { useAuth } from '../context/AuthContext';
 type Props = NativeStackScreenProps<AuthStackParamList, 'Auth'>;
 
 export default function AuthScreen({ navigation }: Props) {
-  const { continueAsGuest } = useAuth();
+  const { continueAsGuest, signInWithGoogle } = useAuth();
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleGoogleSignIn() {
+    if (googleLoading) return;
+    setError('');
+    setGoogleLoading(true);
+    try {
+      await GoogleSignin.hasPlayServices();
+      const userInfo = await GoogleSignin.signIn();
+      const idToken = userInfo.data?.idToken;
+      if (!idToken) throw new Error('No ID token returned');
+      await signInWithGoogle(idToken);
+    } catch (err: any) {
+      if (err.code === statusCodes.SIGN_IN_CANCELLED) {
+        // user dismissed — no error message needed
+      } else if (err.code === statusCodes.IN_PROGRESS) {
+        // already signing in
+      } else {
+        setError('Google sign-in failed. Please try again.');
+      }
+    } finally {
+      setGoogleLoading(false);
+    }
+  }
 
   return (
     <View style={styles.container}>
@@ -25,13 +52,23 @@ export default function AuthScreen({ navigation }: Props) {
         </Text>
       </View>
 
-      {/* Social buttons — disabled until Phase 6 */}
       <View style={styles.buttons}>
-        <TouchableOpacity style={styles.btnDisabled} disabled activeOpacity={1}>
-          <Text style={styles.btnDisabledText}>Continue with Google  (Coming soon)</Text>
+        {/* Google Sign-In */}
+        <TouchableOpacity
+          style={[styles.btnGoogle, googleLoading && styles.btnDisabled]}
+          onPress={handleGoogleSignIn}
+          disabled={googleLoading}
+          activeOpacity={0.85}
+        >
+          {googleLoading ? (
+            <ActivityIndicator color="#444" size="small" />
+          ) : (
+            <Text style={styles.btnGoogleText}>Continue with Google</Text>
+          )}
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.btnDisabled} disabled activeOpacity={1}>
+        {/* Facebook — still coming soon */}
+        <TouchableOpacity style={styles.btnFbDisabled} disabled activeOpacity={1}>
           <Text style={styles.btnDisabledText}>Continue with Facebook  (Coming soon)</Text>
         </TouchableOpacity>
 
@@ -53,6 +90,8 @@ export default function AuthScreen({ navigation }: Props) {
           <Text style={styles.btnOutlineText}>Create an account</Text>
         </TouchableOpacity>
       </View>
+
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {/* Guest path */}
       <TouchableOpacity onPress={continueAsGuest} activeOpacity={0.7}>
@@ -92,7 +131,17 @@ const styles = StyleSheet.create({
     borderColor: '#5c6bc0',
   },
   btnOutlineText: { color: '#5c6bc0', fontSize: 16, fontWeight: '700' },
-  btnDisabled: {
+  btnGoogle: {
+    width: '100%',
+    paddingVertical: 15,
+    borderRadius: 30,
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    minHeight: 50,
+    justifyContent: 'center',
+  },
+  btnGoogleText: { color: '#333', fontSize: 15, fontWeight: '700' },
+  btnFbDisabled: {
     width: '100%',
     paddingVertical: 15,
     borderRadius: 30,
@@ -101,6 +150,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#2a2a4a',
   },
+  btnDisabled: { opacity: 0.6 },
   btnDisabledText: { color: '#4a4a7a', fontSize: 15, fontWeight: '600' },
+  errorText: { color: '#ef5350', fontSize: 13, textAlign: 'center', marginBottom: 8 },
   guestLink: { color: '#7777aa', fontSize: 14, textDecorationLine: 'underline' },
 });
