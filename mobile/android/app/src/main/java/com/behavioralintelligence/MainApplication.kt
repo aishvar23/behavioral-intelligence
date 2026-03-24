@@ -1,7 +1,4 @@
 package com.behavioralintelligence
-import android.content.res.Configuration
-import expo.modules.ApplicationLifecycleDispatcher
-import expo.modules.ReactNativeHostWrapper
 
 import android.app.Application
 import com.facebook.react.PackageList
@@ -14,6 +11,8 @@ import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.react.flipper.ReactNativeFlipper
 import com.facebook.soloader.SoLoader
+import expo.modules.ApplicationLifecycleDispatcher
+import expo.modules.ReactNativeHostWrapper
 
 class MainApplication : Application(), ReactApplication {
 
@@ -45,10 +44,5 @@ class MainApplication : Application(), ReactApplication {
     }
     ReactNativeFlipper.initializeFlipper(this, reactNativeHost.reactInstanceManager)
     ApplicationLifecycleDispatcher.onApplicationCreate(this)
-  }
-
-  override fun onConfigurationChanged(newConfig: Configuration) {
-    super.onConfigurationChanged(newConfig)
-    ApplicationLifecycleDispatcher.onConfigurationChanged(this, newConfig)
   }
 }
