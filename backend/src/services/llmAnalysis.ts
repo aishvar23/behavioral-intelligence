@@ -35,9 +35,9 @@ const LLM_TIMEOUT_MS = 15_000;
 
 export interface UserProfile {
   age: string;
-  occupation: string;
-  occupationTitle: string;
-  occupationEmoji: string;
+  occupations: string[];
+  occupationTitles: string[];
+  occupationEmojis: string[];
   interests: string;
 }
 
@@ -190,6 +190,8 @@ export async function selectGamesForUser(
   pool?: string[],
   previousTraits?: TraitScores
 ): Promise<GameSelectionResult> {
+  const occupationLabel = userProfile.occupationTitles.join(' / ');
+
   // Use the provided occupation pool, falling back to the full catalog
   const validIds = pool && pool.length >= 5
     ? pool.filter(id => ALL_VALID_GAME_IDS.includes(id))
@@ -225,20 +227,20 @@ A user wants to be assessed for the following occupation:
 
 USER PROFILE:
 - Age: ${userProfile.age}
-- Target / Current Occupation: ${userProfile.occupationTitle}
+- Target / Current Occupation: ${occupationLabel}
 - Areas of Interest: ${userProfile.interests}${adaptiveContext}
 
 Available games for this occupation (${validIds.length} options):
 Format: ID | TYPE | TITLE | DESCRIPTION
 ${poolCatalog}
 
-Your task: Select exactly 5 games from the list above that will best reveal the cognitive and behavioral traits most critical for success as a ${userProfile.occupationTitle}.
+Your task: Select exactly 5 games from the list above that will best reveal the cognitive and behavioral traits most critical for success as a ${occupationLabel}.
 
 MANDATORY RULES — all must be satisfied:
 1. Cognitive variety — you MUST include at least two games from the interactive cognitive category:
    STROOP, MATRIX, SPATIAL, ESTIMATION, SEARCH, RULE_DISC, or PLANNING types.
 2. Type diversity — no type may appear more than twice. Use at least 4 different types across the 5 games.
-3. Relevance — prioritise traits most critical for ${userProfile.occupationTitle}
+3. Relevance — prioritise traits most critical for ${occupationLabel}
 4. Complexity by age — base difficulty on age:
    • Age 18–40 → STRONGLY PREFER 'hard' difficulty games
    • Age 41–55 or 15–17 → prefer 'medium' difficulty games
@@ -248,7 +250,7 @@ MANDATORY RULES — all must be satisfied:
 6. Use ONLY the exact ID strings from the leftmost column above
 
 Respond with valid JSON only (no markdown):
-{"selectedIds": ["id_1","id_2","id_3","id_4","id_5"], "reasoning": "One or two sentences explaining why these 5 games best assess a ${userProfile.occupationTitle}"}`;
+{"selectedIds": ["id_1","id_2","id_3","id_4","id_5"], "reasoning": "One or two sentences explaining why these 5 games best assess a ${occupationLabel}"}`;
 
   try {
     const message = await withRetry(() => client.messages.create({
@@ -392,6 +394,8 @@ export async function generateCareerReport(
   sessionId?: string,
   traitHistory?: TraitHistoryEntry[]
 ): Promise<FullLLMResult> {
+  const occupationLabel = userProfile.occupationTitles.join(' / ');
+
   // Build per-game performance lines with score context
   const scoredGames = gameResults.map(g => {
     const max = GAME_MAX_SCORES[g.gameType] ?? 100;
@@ -438,7 +442,7 @@ export async function generateCareerReport(
 
   const prompt = `You are a behavioral assessment assistant for a career exploration platform.
 
-The user is ${userProfile.age} years old and wants to become a ${userProfile.occupationTitle}.
+The user is ${userProfile.age} years old and wants to become a ${occupationLabel}.
 They played ${gameResults.length} short cognitive games (2–3 minutes total). These provide WEAK behavioral signals — not definitive proof — about cognitive traits.
 Do NOT make strong personality judgments. Use language like "this suggests…" or "this may indicate…" — never "you are…".
 ${historicalContext}
@@ -453,14 +457,14 @@ ${gamePerformance}
 Overall engagement: ${avgPct}% — ${overallEngagement}
 
 ═══ OCCUPATION CONTEXT ═══
-The user wants to become a ${userProfile.occupationTitle}.
+The user wants to become a ${occupationLabel}.
 First, infer the core cognitive traits needed for this occupation from the 10 measured traits above (curiosity, persistence, risk tolerance, learning speed, working memory, processing speed, impulse control, analytical thinking, attention to detail, systematic thinking).
 Then compare the observed game behaviors to those inferred traits.
 
 ═══ YOUR TASK ═══
 1. OBSERVE — Describe what the user actually did in each game using factual, second-person language.
    Example: "In the pattern game, you identified the rule within 8 seconds and made 2 incorrect guesses. This suggests strong analytical reasoning, which is useful for debugging code."
-2. COMPARE — Match each observed behavior to a trait needed for ${userProfile.occupationTitle}.
+2. COMPARE — Match each observed behavior to a trait needed for ${occupationLabel}.
 3. ALIGN — Highlight 2–3 behaviors that align with the occupation.
 4. DEVELOP — Identify 1–2 areas that may need development based on observed data.
 5. SUGGEST — Give age-appropriate skill-building activities for this user.
@@ -470,17 +474,17 @@ Then compare the observed game behaviors to those inferred traits.
 Respond with valid JSON only (no markdown, no code fences):
 {
   "thinkingStyle": "≤12 words describing their cognitive approach based on observed behavior",
-  "report": "2–3 sentences: key observed behaviors → relation to ${userProfile.occupationTitle} → one strength and one area to develop",
+  "report": "2–3 sentences: key observed behaviors → relation to ${occupationLabel} → one strength and one area to develop",
   "progressSummary": "Only include if historical data was provided: 1–2 sentences on trait improvement trends vs previous sessions. Omit this key entirely if no history.",
   "observations": [
     {
       "game": "game title",
       "observation": "1 sentence: what the user did (factual, second-person)",
-      "relevance": "1 sentence: how it relates to ${userProfile.occupationTitle}"
+      "relevance": "1 sentence: how it relates to ${occupationLabel}"
     }
   ],
   "occupationFit": {
-    "occupation": "${userProfile.occupationTitle}",
+    "occupation": "${occupationLabel}",
     "rating": "excellent | good | moderate | low",
     "summary": "1–2 sentences grounded in observed in-game behavior"
   },
@@ -546,7 +550,7 @@ Respond with valid JSON only (no markdown, no code fences):
         aiReport: parsed.report ?? parsed.aiReport ?? parsed.analysis ?? parsed.summary ?? parsed.behavioralAnalysis ?? 'Analysis unavailable.',
         progressSummary: parsed.progressSummary ?? undefined,
         occupationFit: parsed.occupationFit ?? {
-          occupation: userProfile.occupationTitle,
+          occupation: occupationLabel,
           rating: 'low',
           summary: 'Assessment data was insufficient to confirm fit for this role. Consider retaking with full engagement.',
         },
@@ -563,7 +567,7 @@ Respond with valid JSON only (no markdown, no code fences):
       return {
         thinkingStyle: 'Adaptive thinker with room to demonstrate full potential.',
         aiReport: text,
-        occupationFit: { occupation: userProfile.occupationTitle, rating: 'low', summary: 'Analysis unavailable.' },
+        occupationFit: { occupation: occupationLabel, rating: 'low', summary: 'Analysis unavailable.' },
         aiRecommendedCareers: [],
         observations: [],
         skillDevelopment: [],
@@ -574,7 +578,7 @@ Respond with valid JSON only (no markdown, no code fences):
     return {
       thinkingStyle: 'Adaptive thinker with room to demonstrate full potential.',
       aiReport: 'Unable to generate a detailed report at this time.',
-      occupationFit: { occupation: userProfile.occupationTitle, rating: 'low', summary: 'Unable to generate fit analysis.' },
+      occupationFit: { occupation: occupationLabel, rating: 'low', summary: 'Unable to generate fit analysis.' },
       aiRecommendedCareers: [],
       observations: [],
       skillDevelopment: [],

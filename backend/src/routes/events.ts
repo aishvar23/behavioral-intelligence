@@ -38,11 +38,11 @@ const CareerReportSchema = z.object({
   sessionId: z.string().uuid(),
   userId:    z.number().int().positive().optional(),
   userProfile: z.object({
-    age:             z.string(),
-    occupation:      z.string(),
-    occupationTitle: z.string(),
-    occupationEmoji: z.string(),
-    interests:       z.string(),
+    age:              z.string(),
+    occupations:      z.array(z.string()),
+    occupationTitles: z.array(z.string()),
+    occupationEmojis: z.array(z.string()),
+    interests:        z.string(),
   }),
   gameResults: z.array(
     z.object({
@@ -231,7 +231,7 @@ router.get('/report/:sessionId', async (req: Request, res: Response) => {
 router.post('/select-games', authenticateJWT, async (req: Request, res: Response) => {
   try {
     const { userProfile, pool, userId: bodyUserId, sessionId } = req.body;
-    if (!userProfile || !userProfile.occupationTitle) {
+    if (!userProfile || !Array.isArray(userProfile.occupationTitles) || userProfile.occupationTitles.length === 0) {
       return res.status(400).json({ error: 'Missing userProfile' });
     }
 
@@ -386,7 +386,7 @@ router.post('/career-report', careerReportLimiter, authenticateJWT, async (req: 
           sessionId,
           JSON.stringify(traits),
           JSON.stringify(gameResults),
-          userProfile.occupationTitle
+          userProfile.occupationTitles.join(', ')
         );
       } catch (err) {
         console.error('Failed to save trait history:', err);

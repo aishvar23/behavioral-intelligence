@@ -242,9 +242,9 @@ describe('GET /report/:sessionId', () => {
 
 const mockUserProfile = {
   age: '25',
-  occupation: 'software_engineer',
-  occupationTitle: 'Software Engineer',
-  occupationEmoji: '💻',
+  occupations:      ['software_engineer'],
+  occupationTitles: ['Software Engineer'],
+  occupationEmojis: ['💻'],
   interests: 'Machine learning',
 };
 
