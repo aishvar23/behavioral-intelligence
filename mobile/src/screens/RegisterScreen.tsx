@@ -21,20 +21,30 @@ export default function RegisterScreen({ navigation }: Props) {
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   async function handleRegister() {
     if (loading) return;
     setError('');
 
-    // Client-side validation
-    if (!displayName.trim() || !email.trim() || !password) {
+    if (!displayName.trim() || !email.trim() || !password || !confirmPassword) {
       setError('All fields are required.');
+      return;
+    }
+    if (!EMAIL_REGEX.test(email.trim())) {
+      setError('Please enter a valid email address.');
       return;
     }
     if (password.length < 8) {
       setError('Password must be at least 8 characters.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
       return;
     }
 
@@ -96,10 +106,21 @@ export default function RegisterScreen({ navigation }: Props) {
           onChangeText={setPassword}
           secureTextEntry
           editable={!loading}
+          returnKeyType="next"
+        />
+        <Text style={styles.fieldHint}>min 8 characters</Text>
+
+        <TextInput
+          style={styles.input}
+          placeholder="Confirm password"
+          placeholderTextColor="#5555aa"
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          secureTextEntry
+          editable={!loading}
           onSubmitEditing={handleRegister}
           returnKeyType="go"
         />
-        <Text style={styles.fieldHint}>min 8 characters</Text>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
