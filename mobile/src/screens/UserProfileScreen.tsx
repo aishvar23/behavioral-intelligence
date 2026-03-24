@@ -115,21 +115,30 @@ export default function UserProfileScreen({ navigation }: Props) {
         try {
           const raw = await AsyncStorage.getItem(profileKey(auth.userId));
           if (raw) {
-            const saved: SavedProfile = JSON.parse(raw);
-            setAge(saved.age);
-            setCountry(saved.country);
-            setLifeStage(saved.lifeStage);
-            setInterests(saved.interests);
-            setSelectedOccupations(saved.occupations);
+            const saved = JSON.parse(raw);
+            setAge(saved.age ?? '');
+            setCountry(saved.country ?? 'India');
+            setLifeStage(saved.lifeStage ?? '');
+            setInterests(saved.interests ?? '');
+
+            // Migrate old singular format → new array format
+            const occs: string[] = Array.isArray(saved.occupations)
+              ? saved.occupations
+              : saved.occupation ? [saved.occupation] : [];
             const titles: Record<string, string> = {};
             const emojis: Record<string, string> = {};
-            saved.occupations.forEach((id, i) => {
-              titles[id] = saved.occupationTitles[i] ?? id;
-              emojis[id] = saved.occupationEmojis[i] ?? '💼';
+            occs.forEach((id, i) => {
+              titles[id] = (Array.isArray(saved.occupationTitles)
+                ? saved.occupationTitles[i]
+                : saved.occupationTitle) ?? id;
+              emojis[id] = (Array.isArray(saved.occupationEmojis)
+                ? saved.occupationEmojis[i]
+                : saved.occupationEmoji) ?? '💼';
             });
+            setSelectedOccupations(occs);
             setSelectedTitles(titles);
             setSelectedEmojis(emojis);
-            setHasSavedProfile(true);
+            setHasSavedProfile(occs.length > 0);
           }
         } catch {
           // Non-fatal
