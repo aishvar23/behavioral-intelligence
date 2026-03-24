@@ -23,9 +23,9 @@ export interface UserProfile {
   age: string;
   country: string;
   lifeStage: string;
-  occupation: string;       // occupation ID
-  occupationTitle: string;
-  occupationEmoji: string;
+  occupations: string[];      // occupation IDs
+  occupationTitles: string[]; // human-readable titles
+  occupationEmojis: string[]; // per-occupation emojis
   interests: string;
 }
 

@@ -137,9 +137,9 @@ export default function ReportScreen({ navigation, route }: Props) {
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
       {/* User Profile Banner */}
       <View style={styles.profileBanner}>
-        <Text style={styles.profileEmoji}>{userProfile.occupationEmoji}</Text>
+        <Text style={styles.profileEmoji}>{userProfile.occupationEmojis[0] ?? '💼'}</Text>
         <View style={styles.profileInfo}>
-          <Text style={styles.profileName}>{userProfile.occupationTitle}</Text>
+          <Text style={styles.profileName}>{userProfile.occupationTitles.join(', ')}</Text>
           <Text style={styles.profileMeta}>
             {[
               userProfile.userName,
@@ -218,7 +218,7 @@ export default function ReportScreen({ navigation, route }: Props) {
           <Text style={styles.sectionHeading}>Career Fit Assessment</Text>
           <View style={[styles.fitCard, { borderColor: FIT_COLORS[report.occupationFit.rating] ?? '#5c6bc0' }]}>
             <View style={styles.fitHeader}>
-              <Text style={styles.fitOccupation}>{userProfile.occupationEmoji}  {userProfile.occupationTitle}</Text>
+              <Text style={styles.fitOccupation}>{userProfile.occupationEmojis[0]}  {userProfile.occupationTitles.join(', ')}</Text>
               <View style={[styles.fitBadge, { backgroundColor: FIT_COLORS[report.occupationFit.rating] + '33', borderColor: FIT_COLORS[report.occupationFit.rating] }]}>
                 <Text style={[styles.fitBadgeText, { color: FIT_COLORS[report.occupationFit.rating] }]}>
                   {report.occupationFit.rating.toUpperCase()}

@@ -21,6 +21,7 @@ import {
   OccupationCategory,
   getOccupationsByCategory,
 } from '../data/occupations';
+import { COUNTRIES } from '../data/countries';
 import { GAME_CONFIGS } from '../data/gameCatalog';
 import { OCCUPATION_GAME_POOLS, GENERAL_POOL } from '../data/occupationGamePools';
 import { selectGames, registerUser } from '../services/api';
@@ -34,9 +35,9 @@ type SavedProfile = {
   country: string;
   lifeStage: string;
   interests: string;
-  occupation: string;
-  occupationTitle: string;
-  occupationEmoji: string;
+  occupations: string[];
+  occupationTitles: string[];
+  occupationEmojis: string[];
 };
 
 const CATEGORIES_ORDER: OccupationCategory[] = [
@@ -49,6 +50,22 @@ function profileKey(userId: number) {
   return `bi_profile_${userId}`;
 }
 
+/** Merge game pools for multiple occupations, deduplicating entries. */
+function mergeGamePools(occupationIds: string[]): string[] {
+  const seen = new Set<string>();
+  const merged: string[] = [];
+  for (const id of occupationIds) {
+    const pool = OCCUPATION_GAME_POOLS[id] ?? GENERAL_POOL;
+    for (const game of pool) {
+      if (!seen.has(game)) {
+        seen.add(game);
+        merged.push(game);
+      }
+    }
+  }
+  return merged.length > 0 ? merged : GENERAL_POOL;
+}
+
 export default function UserProfileScreen({ navigation }: Props) {
   const { auth } = useAuth();
   const isAuthenticated = auth.userId != null && !auth.isGuest;
@@ -58,28 +75,38 @@ export default function UserProfileScreen({ navigation }: Props) {
 
   const [userName, setUserName] = useState('');
   const [age, setAge] = useState('');
-  const [country, setCountry] = useState('');
+  const [country, setCountry] = useState('India');
   const [lifeStage, setLifeStage] = useState('');
   const [interests, setInterests] = useState('');
-  const [selectedOccupation, setSelectedOccupation] = useState<string | null>(null);
-  const [occupationTitle, setOccupationTitle] = useState('');
-  const [occupationEmoji, setOccupationEmoji] = useState('');
-  const [showPicker, setShowPicker] = useState(false);
-  const [search, setSearch] = useState('');
+
+  // Multi-select occupations
+  const [selectedOccupations, setSelectedOccupations] = useState<string[]>([]);
+  const [selectedTitles, setSelectedTitles] = useState<Record<string, string>>({});
+  const [selectedEmojis, setSelectedEmojis] = useState<Record<string, string>>({});
+
+  const [showOccupationPicker, setShowOccupationPicker] = useState(false);
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const [occSearch, setOccSearch] = useState('');
+  const [countrySearch, setCountrySearch] = useState('');
   const [selecting, setSelecting] = useState(false);
   const [error, setError] = useState('');
 
   const byCategory = useMemo(() => getOccupationsByCategory(), []);
 
-  const filteredSections = useMemo(() => {
-    const q = search.toLowerCase().trim();
+  const filteredOccSections = useMemo(() => {
+    const q = occSearch.toLowerCase().trim();
     return CATEGORIES_ORDER.map(cat => ({
       title: OCCUPATION_CATEGORY_LABELS[cat],
       data: (byCategory[cat] ?? []).filter(o =>
         !q || o.title.toLowerCase().includes(q) || o.description.toLowerCase().includes(q)
       ),
     })).filter(s => s.data.length > 0);
-  }, [search, byCategory]);
+  }, [occSearch, byCategory]);
+
+  const filteredCountries = useMemo(() => {
+    const q = countrySearch.toLowerCase().trim();
+    return q ? COUNTRIES.filter(c => c.toLowerCase().includes(q)) : COUNTRIES;
+  }, [countrySearch]);
 
   // Load saved profile for authenticated users
   useEffect(() => {
@@ -93,13 +120,19 @@ export default function UserProfileScreen({ navigation }: Props) {
             setCountry(saved.country);
             setLifeStage(saved.lifeStage);
             setInterests(saved.interests);
-            setSelectedOccupation(saved.occupation);
-            setOccupationTitle(saved.occupationTitle);
-            setOccupationEmoji(saved.occupationEmoji);
+            setSelectedOccupations(saved.occupations);
+            const titles: Record<string, string> = {};
+            const emojis: Record<string, string> = {};
+            saved.occupations.forEach((id, i) => {
+              titles[id] = saved.occupationTitles[i] ?? id;
+              emojis[id] = saved.occupationEmojis[i] ?? '💼';
+            });
+            setSelectedTitles(titles);
+            setSelectedEmojis(emojis);
             setHasSavedProfile(true);
           }
         } catch {
-          // Non-fatal — proceed with empty form
+          // Non-fatal
         }
       }
       setLoaded(true);
@@ -107,21 +140,24 @@ export default function UserProfileScreen({ navigation }: Props) {
     loadProfile();
   }, [isAuthenticated, auth.userId]);
 
-  function handleSelectOccupation(id: string, title: string, emoji: string) {
-    setSelectedOccupation(id);
-    setOccupationTitle(title);
-    setOccupationEmoji(emoji);
-    setShowPicker(false);
-    setSearch('');
+  function toggleOccupation(id: string, title: string, emoji: string) {
+    setSelectedOccupations(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(x => x !== id);
+      }
+      return [...prev, id];
+    });
+    setSelectedTitles(prev => ({ ...prev, [id]: title }));
+    setSelectedEmojis(prev => ({ ...prev, [id]: emoji }));
   }
 
   async function saveProfile() {
-    if (!isAuthenticated || auth.userId == null || !selectedOccupation) return;
+    if (!isAuthenticated || auth.userId == null || selectedOccupations.length === 0) return;
     const saved: SavedProfile = {
       age, country, lifeStage, interests,
-      occupation: selectedOccupation,
-      occupationTitle,
-      occupationEmoji,
+      occupations: selectedOccupations,
+      occupationTitles: selectedOccupations.map(id => selectedTitles[id] ?? id),
+      occupationEmojis: selectedOccupations.map(id => selectedEmojis[id] ?? '💼'),
     };
     try {
       await AsyncStorage.setItem(profileKey(auth.userId), JSON.stringify(saved));
@@ -131,7 +167,7 @@ export default function UserProfileScreen({ navigation }: Props) {
   }
 
   async function handleStart() {
-    if (!selectedOccupation || selecting) return;
+    if (selectedOccupations.length === 0 || selecting) return;
 
     const effectiveName = isAuthenticated ? (auth.displayName ?? '') : userName.trim();
     if (!isAuthenticated && !effectiveName) {
@@ -145,11 +181,11 @@ export default function UserProfileScreen({ navigation }: Props) {
     const profile: UserProfile = {
       userName: effectiveName,
       age: age.trim() || 'Not specified',
-      country: country.trim() || 'Not specified',
+      country,
       lifeStage: lifeStage || 'Not specified',
-      occupation: selectedOccupation,
-      occupationTitle,
-      occupationEmoji,
+      occupations: selectedOccupations,
+      occupationTitles: selectedOccupations.map(id => selectedTitles[id] ?? id),
+      occupationEmojis: selectedOccupations.map(id => selectedEmojis[id] ?? '💼'),
       interests: interests.trim() || 'Not specified',
     };
 
@@ -168,7 +204,7 @@ export default function UserProfileScreen({ navigation }: Props) {
 
       await saveProfile();
 
-      const pool = OCCUPATION_GAME_POOLS[selectedOccupation] ?? GENERAL_POOL;
+      const pool = mergeGamePools(selectedOccupations);
       const { selectedIds } = await selectGames(profile, pool, userId);
 
       const sessionId = startSession();
@@ -213,6 +249,10 @@ export default function UserProfileScreen({ navigation }: Props) {
     ? 'Your previous selections are loaded. Adjust anything before starting.'
     : "We'll select the right games for your occupation and generate a personalised behavioral report.";
 
+  const occupationSummary = selectedOccupations.length === 0
+    ? null
+    : selectedOccupations.map(id => `${selectedEmojis[id] ?? ''} ${selectedTitles[id] ?? id}`).join('   ');
+
   return (
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
@@ -225,7 +265,7 @@ export default function UserProfileScreen({ navigation }: Props) {
               <Text style={styles.title}>{pageTitle}</Text>
               <Text style={styles.subtitle}>{pageSubtitle}</Text>
 
-              {/* Name — read-only for authenticated users */}
+              {/* Identity row for authenticated users */}
               {isAuthenticated ? (
                 <View style={styles.identityRow}>
                   <Text style={styles.identityLabel}>Signed in as</Text>
@@ -262,16 +302,16 @@ export default function UserProfileScreen({ navigation }: Props) {
                 maxLength={3}
               />
 
-              {/* Country */}
+              {/* Country — dropdown */}
               <Text style={styles.label}>Country</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. United Kingdom"
-                placeholderTextColor="#5555aa"
-                value={country}
-                onChangeText={setCountry}
-                maxLength={60}
-              />
+              <TouchableOpacity
+                style={styles.pickerBtn}
+                onPress={() => setShowCountryPicker(true)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.pickerBtnText}>{country}</Text>
+                <Text style={styles.chevron}>›</Text>
+              </TouchableOpacity>
 
               {/* Life Stage */}
               <Text style={styles.label}>Current Life Stage</Text>
@@ -290,22 +330,26 @@ export default function UserProfileScreen({ navigation }: Props) {
                 ))}
               </View>
 
-              {/* Occupation */}
+              {/* Occupation — multi-select */}
               <Text style={styles.label}>
                 Target / Current Occupation <Text style={styles.required}>*</Text>
               </Text>
+              <Text style={styles.fieldNote2}>Select one or more occupations</Text>
               <TouchableOpacity
-                style={[styles.pickerBtn, selectedOccupation ? styles.pickerBtnSelected : null]}
-                onPress={() => setShowPicker(true)}
+                style={[styles.pickerBtn, selectedOccupations.length > 0 && styles.pickerBtnSelected]}
+                onPress={() => setShowOccupationPicker(true)}
                 activeOpacity={0.8}
               >
-                {selectedOccupation ? (
-                  <Text style={styles.pickerBtnText}>{occupationEmoji}  {occupationTitle}</Text>
+                {occupationSummary ? (
+                  <Text style={styles.pickerBtnText} numberOfLines={2}>{occupationSummary}</Text>
                 ) : (
-                  <Text style={styles.pickerPlaceholder}>Select your occupation…</Text>
+                  <Text style={styles.pickerPlaceholder}>Select occupation(s)…</Text>
                 )}
                 <Text style={styles.chevron}>›</Text>
               </TouchableOpacity>
+              {selectedOccupations.length > 0 && (
+                <Text style={styles.selectionCount}>{selectedOccupations.length} selected</Text>
+              )}
 
               {/* Area of Interest */}
               <Text style={styles.label}>Area of Interest</Text>
@@ -322,9 +366,9 @@ export default function UserProfileScreen({ navigation }: Props) {
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
               <TouchableOpacity
-                style={[styles.startBtn, (!selectedOccupation || selecting) && styles.startBtnDisabled]}
+                style={[styles.startBtn, (selectedOccupations.length === 0 || selecting) && styles.startBtnDisabled]}
                 onPress={handleStart}
-                disabled={!selectedOccupation || selecting}
+                disabled={selectedOccupations.length === 0 || selecting}
               >
                 {selecting ? (
                   <View style={styles.loadingRow}>
@@ -337,32 +381,76 @@ export default function UserProfileScreen({ navigation }: Props) {
               </TouchableOpacity>
 
               <Text style={styles.note}>
-                5 games selected specifically for <Text style={styles.noteBold}>{occupationTitle || 'your occupation'}</Text>
+                5 games selected for{' '}
+                <Text style={styles.noteBold}>
+                  {selectedOccupations.length > 0
+                    ? selectedOccupations.map(id => selectedTitles[id]).join(', ')
+                    : 'your occupation'}
+                </Text>
               </Text>
             </View>
           }
         />
       </KeyboardAvoidingView>
 
-      {/* Occupation Picker Modal */}
-      <Modal visible={showPicker} animationType="slide" onRequestClose={() => setShowPicker(false)}>
+      {/* Country Picker Modal */}
+      <Modal visible={showCountryPicker} animationType="slide" onRequestClose={() => setShowCountryPicker(false)}>
         <SafeAreaView style={styles.modal}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Select Occupation</Text>
-            <TouchableOpacity onPress={() => setShowPicker(false)} style={styles.closeBtn}>
+            <Text style={styles.modalTitle}>Select Country</Text>
+            <TouchableOpacity onPress={() => setShowCountryPicker(false)} style={styles.closeBtn}>
               <Text style={styles.closeBtnText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search countries…"
+            placeholderTextColor="#5555aa"
+            value={countrySearch}
+            onChangeText={setCountrySearch}
+            autoFocus
+          />
+          <FlatList
+            data={filteredCountries}
+            keyExtractor={item => item}
+            keyboardShouldPersistTaps="handled"
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[styles.listItem, country === item && styles.listItemSelected]}
+                onPress={() => { setCountry(item); setShowCountryPicker(false); setCountrySearch(''); }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.listItemText, country === item && styles.listItemTextSelected]}>{item}</Text>
+                {country === item && <Text style={styles.checkmark}>✓</Text>}
+              </TouchableOpacity>
+            )}
+            contentContainerStyle={{ paddingBottom: 40 }}
+          />
+        </SafeAreaView>
+      </Modal>
+
+      {/* Occupation Picker Modal */}
+      <Modal visible={showOccupationPicker} animationType="slide" onRequestClose={() => setShowOccupationPicker(false)}>
+        <SafeAreaView style={styles.modal}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Select Occupation(s)</Text>
+            <TouchableOpacity
+              onPress={() => { setShowOccupationPicker(false); setOccSearch(''); }}
+              style={styles.doneBtn}
+            >
+              <Text style={styles.doneBtnText}>Done{selectedOccupations.length > 0 ? ` (${selectedOccupations.length})` : ''}</Text>
             </TouchableOpacity>
           </View>
           <TextInput
             style={styles.searchInput}
             placeholder="Search occupations…"
             placeholderTextColor="#5555aa"
-            value={search}
-            onChangeText={setSearch}
+            value={occSearch}
+            onChangeText={setOccSearch}
             autoFocus
           />
           <SectionList
-            sections={filteredSections}
+            sections={filteredOccSections}
             keyExtractor={item => item.id}
             keyboardShouldPersistTaps="handled"
             renderSectionHeader={({ section }) => (
@@ -370,22 +458,25 @@ export default function UserProfileScreen({ navigation }: Props) {
                 <Text style={styles.sectionHeaderText}>{section.title}</Text>
               </View>
             )}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[styles.occItem, selectedOccupation === item.id && styles.occItemSelected]}
-                onPress={() => handleSelectOccupation(item.id, item.title, item.emoji)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.occEmoji}>{item.emoji}</Text>
-                <View style={styles.occText}>
-                  <Text style={[styles.occTitle, selectedOccupation === item.id && styles.occTitleSelected]}>
-                    {item.title}
-                  </Text>
-                  <Text style={styles.occDesc}>{item.description}</Text>
-                </View>
-                {selectedOccupation === item.id && <Text style={styles.checkmark}>✓</Text>}
-              </TouchableOpacity>
-            )}
+            renderItem={({ item }) => {
+              const isSelected = selectedOccupations.includes(item.id);
+              return (
+                <TouchableOpacity
+                  style={[styles.occItem, isSelected && styles.occItemSelected]}
+                  onPress={() => toggleOccupation(item.id, item.title, item.emoji)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.occEmoji}>{item.emoji}</Text>
+                  <View style={styles.occText}>
+                    <Text style={[styles.occTitle, isSelected && styles.occTitleSelected]}>{item.title}</Text>
+                    <Text style={styles.occDesc}>{item.description}</Text>
+                  </View>
+                  <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+                    {isSelected && <Text style={styles.checkboxTick}>✓</Text>}
+                  </View>
+                </TouchableOpacity>
+              );
+            }}
             contentContainerStyle={{ paddingBottom: 40 }}
           />
         </SafeAreaView>
@@ -417,6 +508,7 @@ const styles = StyleSheet.create({
   label: { color: '#c0c0ee', fontSize: 14, fontWeight: '600', marginBottom: 8 },
   required: { color: '#ef5350' },
   fieldNote: { color: '#4a4a7a', fontSize: 11, marginTop: -14, marginBottom: 20 },
+  fieldNote2: { color: '#4a4a7a', fontSize: 11, marginTop: -4, marginBottom: 10 },
   input: {
     backgroundColor: '#16213e',
     borderRadius: 12,
@@ -450,12 +542,13 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 22,
+    marginBottom: 8,
   },
   pickerBtnSelected: { borderColor: '#5c6bc0' },
   pickerBtnText: { color: '#e0e0ff', fontSize: 15, flex: 1 },
   pickerPlaceholder: { color: '#5555aa', fontSize: 15, flex: 1 },
   chevron: { color: '#5c6bc0', fontSize: 22 },
+  selectionCount: { color: '#5c6bc0', fontSize: 12, marginBottom: 16, marginLeft: 4 },
   errorText: { color: '#ef5350', fontSize: 13, textAlign: 'center', marginBottom: 16 },
   startBtn: { backgroundColor: '#5c6bc0', paddingVertical: 18, borderRadius: 30, alignItems: 'center', marginBottom: 16 },
   startBtnDisabled: { backgroundColor: '#2a2a4e' },
@@ -463,11 +556,14 @@ const styles = StyleSheet.create({
   loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   note: { color: '#4a4a7a', fontSize: 12, textAlign: 'center' },
   noteBold: { color: '#6a6aaa' },
+  // Modals
   modal: { flex: 1, backgroundColor: '#1a1a2e' },
   modalHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16 },
   modalTitle: { color: '#e0e0ff', fontSize: 20, fontWeight: 'bold', flex: 1 },
   closeBtn: { padding: 6 },
   closeBtnText: { color: '#9999cc', fontSize: 20 },
+  doneBtn: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#5c6bc0', borderRadius: 20 },
+  doneBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   searchInput: {
     backgroundColor: '#16213e',
     borderRadius: 12,
@@ -480,14 +576,44 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 12,
   },
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1a1a3e',
+  },
+  listItemSelected: { backgroundColor: '#1e2050' },
+  listItemText: { color: '#c0c0ee', fontSize: 15, flex: 1 },
+  listItemTextSelected: { color: '#e0e0ff', fontWeight: '600' },
   sectionHeader: { backgroundColor: '#0f1228', paddingHorizontal: 20, paddingVertical: 8 },
   sectionHeaderText: { color: '#5c6bc0', fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
-  occItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#1a1a3e', gap: 12 },
+  occItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1a1a3e',
+    gap: 12,
+  },
   occItemSelected: { backgroundColor: '#1e2050' },
   occEmoji: { fontSize: 24, width: 36 },
   occText: { flex: 1 },
   occTitle: { color: '#c0c0ee', fontSize: 15, fontWeight: '600' },
   occTitleSelected: { color: '#e0e0ff' },
   occDesc: { color: '#5555aa', fontSize: 12, marginTop: 2 },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#2a2a5e',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxSelected: { backgroundColor: '#5c6bc0', borderColor: '#5c6bc0' },
+  checkboxTick: { color: '#fff', fontSize: 13, fontWeight: 'bold' },
   checkmark: { color: '#5c6bc0', fontSize: 18, fontWeight: 'bold' },
 });
