@@ -112,9 +112,9 @@ RESP=$(curl -s -o /tmp/bi_body.txt -w "%{http_code}" \
   -d '{
     "userProfile": {
       "age": "28",
-      "occupation": "engineer",
-      "occupationTitle": "Software Engineer",
-      "occupationEmoji": "💻",
+      "occupations": ["software_engineer"],
+      "occupationTitles": ["Software Engineer"],
+      "occupationEmojis": ["💻"],
       "interests": "problem solving, systems design"
     }
   }')

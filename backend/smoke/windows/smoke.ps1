@@ -146,9 +146,9 @@ Write-Host "4. Game selection (LLM)"
 $r = Invoke-Endpoint -Method POST -Url "$BaseUrl/select-games" -Body @{
   userProfile = @{
     age             = "28"
-    occupation      = "engineer"
-    occupationTitle = "Software Engineer"
-    occupationEmoji = "engineer"
+    occupations      = @("software_engineer")
+    occupationTitles = @("Software Engineer")
+    occupationEmojis = @("💻")
     interests       = "problem solving, systems design"
   }
 }
@@ -161,9 +161,9 @@ $r = Invoke-Endpoint -Method POST -Url "$BaseUrl/career-report" -TimeoutSec 120 
   sessionId   = $SessionId
   userProfile = @{
     age             = "28"
-    occupation      = "engineer"
-    occupationTitle = "Software Engineer"
-    occupationEmoji = "engineer"
+    occupations      = @("software_engineer")
+    occupationTitles = @("Software Engineer")
+    occupationEmojis = @("💻")
     interests       = "problem solving, systems design"
   }
   gameResults = @(
@@ -180,9 +180,9 @@ $r = Invoke-Endpoint -Method POST -Url "$BaseUrl/career-report" -TimeoutSec 120 
   sessionId   = $SessionId
   userProfile = @{
     age             = "28"
-    occupation      = "engineer"
-    occupationTitle = "Software Engineer"
-    occupationEmoji = "engineer"
+    occupations      = @("software_engineer")
+    occupationTitles = @("Software Engineer")
+    occupationEmojis = @("💻")
     interests       = "problem solving, systems design"
   }
   gameResults = @(
