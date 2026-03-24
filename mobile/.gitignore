@@ -1,2 +1,7 @@
 # Local dev env — host-specific, never commit
 .env
+
+# Expo
+.expo
+dist/
+web-build/
