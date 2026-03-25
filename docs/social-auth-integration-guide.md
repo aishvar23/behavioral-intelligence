@@ -18,6 +18,7 @@ This guide documents the end-to-end setup for Google Sign-In and Facebook Login 
 **Why you need both:**
 - Creating an Android OAuth client in GCP alone is not enough — Firebase won't include it in `google-services.json`
 - You must register the SHA-1 fingerprint in **Firebase** (not just GCP) for it to appear in `google-services.json`
+- When the SHA-1 changes, you must update it in **both** Firebase AND the GCP Android OAuth client — updating only Firebase does not trigger `client_type: 1` to appear in `google-services.json` unless GCP also has the matching fingerprint
 
 ---
 
@@ -58,14 +59,11 @@ The mobile app never stores the provider token long-term — only our own JWTs.
 
 #### Get SHA-1 fingerprint
 
-If the debug keystore doesn't exist yet, generate it:
-```powershell
-keytool -genkey -v -keystore "C:\Users\<USER>\.android\debug.keystore" -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US"
-```
+> **Important:** This project's `build.gradle` signs debug builds with `mobile/android/app/debug.keystore` (committed to the repo), **not** the standard `~/.android/debug.keystore`. Always get the SHA-1 from the project keystore, not your home directory keystore — they have different fingerprints and using the wrong one is a common cause of error code 10.
 
-Then get the SHA-1:
+Get the SHA-1 from the **project** keystore:
 ```powershell
-keytool -keystore "C:\Users\<USER>\.android\debug.keystore" -list -v -alias androiddebugkey -storepass android -keypass android
+keytool -list -v -keystore mobile\android\app\debug.keystore -alias androiddebugkey -storepass android -keypass android
 ```
 
 Copy the **SHA-1** line from the output.
@@ -296,6 +294,8 @@ See `backend/src/services/auth.ts → upsertSocialUser` for implementation.
 | `The filename, directory name, or volume label syntax is incorrect` | Invalid `sdk.dir` in `local.properties` | Use forward slashes: `sdk.dir=C:/Users/.../Android/Sdk` — backslashes are escape chars in `.properties` files |
 | Google sign-in error code `10` (DEVELOPER_ERROR) | SHA-1 not registered in Firebase | Add fingerprint in Firebase Console → Project Settings → Android app → Add fingerprint, then re-download `google-services.json` |
 | Google sign-in error code `10` after SHA-1 added | `google-services.json` missing `client_type: 1` | Re-download `google-services.json` from Firebase after adding fingerprint — the old file won't have the Android OAuth client entry |
+| `client_type: 1` still missing after adding SHA-1 to Firebase | GCP Android OAuth client still has old SHA-1 | Update the SHA-1 in GCP too: APIs & Services → Credentials → Behavioral Intelligence Android → Edit → replace fingerprint → Save → re-download `google-services.json` |
+| Used wrong SHA-1 (wrong keystore) | Got SHA-1 from `~/.android/debug.keystore` instead of project keystore | This project uses `mobile/android/app/debug.keystore` — always run keytool against that file, not the home directory one |
 | Backend returns `Google auth not configured` | `GOOGLE_CLIENT_ID` env var missing or wrong | Set `GOOGLE_CLIENT_ID` to the **Web** OAuth client ID (not the Android client ID) in backend `.env` |
 | GitGuardian alert for `google-services.json` | File committed to public repo | Add `android/app/google-services.json` to `.gitignore`, rotate the exposed API key in GCP, re-download the file |
 | GitGuardian alert for Facebook secrets | Secrets committed in `strings.xml` | Move to `local.properties` + Gradle `resValue` injection (see Android config section above) |
