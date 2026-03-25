@@ -40,6 +40,12 @@ export default function HomeScreen({ navigation }: Props) {
         <Text style={styles.btnText}>Begin Assessment →</Text>
       </TouchableOpacity>
 
+      {!auth.isGuest && auth.userId ? (
+        <TouchableOpacity style={styles.historyBtn} onPress={() => navigation.navigate('History')} activeOpacity={0.85}>
+          <Text style={styles.historyBtnText}>📊 My Progress</Text>
+        </TouchableOpacity>
+      ) : null}
+
       <Text style={styles.note}>Takes about 10–15 minutes</Text>
       {!auth.isGuest && auth.userId ? (
         <TouchableOpacity onPress={logout} activeOpacity={0.7} style={styles.signOutRow}>
@@ -77,6 +83,11 @@ const styles = StyleSheet.create({
   btnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
   note: { color: '#4a4a7a', fontSize: 12 },
   greeting: { fontSize: 18, color: '#a0a0dd', marginBottom: 8, fontWeight: '600' },
+  historyBtn: {
+    width: '100%', paddingVertical: 14, borderRadius: 30, alignItems: 'center',
+    marginBottom: 16, borderWidth: 1.5, borderColor: '#5c6bc0',
+  },
+  historyBtnText: { color: '#9999dd', fontSize: 15, fontWeight: '600' },
   signOutRow: { marginTop: 12 },
   signOutText: { color: '#4a4a7a', fontSize: 12, textDecorationLine: 'underline' },
 });

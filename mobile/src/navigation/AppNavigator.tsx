@@ -7,6 +7,7 @@ import OccupationIntentScreen from '../screens/OccupationIntentScreen';
 import UserProfileScreen from '../screens/UserProfileScreen';
 import GameScreen from '../screens/GameScreen';
 import ReportScreen from '../screens/ReportScreen';
+import HistoryScreen from '../screens/HistoryScreen';
 import AuthScreen from '../screens/AuthScreen';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
@@ -53,6 +54,7 @@ export type AuthStackParamList = {
 
 export type RootStackParamList = {
   Home: undefined;
+  History: undefined;
   OccupationIntent: undefined;
   UserProfile: undefined;
   Game: {
@@ -115,6 +117,11 @@ function AppNavigatorInner() {
         name="Home"
         component={HomeScreen}
         options={{ title: 'Behavioral Intelligence', headerShown: false }}
+      />
+      <AppStack.Screen
+        name="History"
+        component={HistoryScreen}
+        options={{ title: 'My Progress', ...HEADER_OPTS }}
       />
       <AppStack.Screen
         name="OccupationIntent"

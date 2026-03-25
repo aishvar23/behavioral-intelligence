@@ -264,6 +264,23 @@ export function saveUserTraitHistory(
   `).run(userId, sessionId, traitsJson, gameResultsJson, occupation, Date.now());
 }
 
+/**
+ * Returns the most recent trait snapshot for every user except the given one.
+ * Used to compute cross-user percentile rankings.
+ */
+export function getAllLatestTraitsExcluding(excludeUserId: number): string[] {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT traits_json FROM user_trait_history
+    WHERE id IN (
+      SELECT MAX(id) FROM user_trait_history
+      WHERE user_id != ?
+      GROUP BY user_id
+    )
+  `).all(excludeUserId) as Array<{ traits_json: string }>;
+  return rows.map(r => r.traits_json);
+}
+
 export async function logLlmCall(log: LlmCallLog): Promise<void> {
   const ts = Date.now();
   try {
