@@ -22,7 +22,7 @@
           <action android:name="android.intent.action.VIEW" />
           <category android:name="android.intent.category.DEFAULT" />
           <category android:name="android.intent.category.BROWSABLE" />
-          <data android:scheme="fbconnect" android:host="cct.com.behavioralintelligence" />
+          <data android:scheme="fb1655685855631376" android:host="authorize" />
         </intent-filter>
       </activity>
 
