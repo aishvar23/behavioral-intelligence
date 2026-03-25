@@ -48,7 +48,7 @@ export default function AuthScreen({ navigation }: Props) {
     setError('');
     setFbLoading(true);
     try {
-      const result = await LoginManager.logInWithPermissions(['public_profile', 'email']);
+      const result = await LoginManager.logInWithPermissions(['public_profile']);
       if (result.isCancelled) return;
       const data = await AccessToken.getCurrentAccessToken();
       if (!data?.accessToken) throw new Error('No access token returned');
