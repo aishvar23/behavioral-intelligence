@@ -1,3 +1,5 @@
 <resources>
-    <string name="app_name">Cognito</string>
+    <string name="app_name">Behavioral Intelligence</string>
+    <string name="facebook_app_id">165568585631376</string>
+    <string name="facebook_client_token">565f9736c0717c6f07d4cac0b01f96ea</string>
 </resources>
