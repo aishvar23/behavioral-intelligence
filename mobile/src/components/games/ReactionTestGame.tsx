@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { logEvent } from '../../services/api';
+import { logTrial, logGamePlay } from '../../services/api';
 
 type Variant = 'basic' | 'inhibition' | 'speed';
 
@@ -34,6 +34,7 @@ export default function ReactionTestGame({ sessionId, onComplete, config }: Prop
   const [reactionTimes, setReactionTimes] = useState<number[]>([]);
   const waitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const missTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const gameStartRef = useRef(0);
 
   const cleanup = () => {
     if (waitTimerRef.current) clearTimeout(waitTimerRef.current);
@@ -42,13 +43,13 @@ export default function ReactionTestGame({ sessionId, onComplete, config }: Prop
 
   const nextRound = useCallback((r: number, currentScore: number, times: number[]) => {
     if (r >= TOTAL_ROUNDS) {
-      const avgRT = times.length > 0 ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : 999;
-      logEvent({
+      const avgRT = times.length > 0 ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : 0;
+      logGamePlay({
         sessionId,
         gameId: `reaction_${variant}`,
-        eventType: 'game_complete',
-        timestamp: Date.now(),
-        data: { score: currentScore, avgReactionTime: avgRT, rounds: TOTAL_ROUNDS },
+        startedAt: gameStartRef.current,
+        endedAt: Date.now(),
+        strategyJson: { variant, avg_go_reaction_ms: avgRT, total_trials: TOTAL_ROUNDS },
       }).catch(() => {});
       setPhase('done');
       onComplete(currentScore);
@@ -78,12 +79,15 @@ export default function ReactionTestGame({ sessionId, onComplete, config }: Prop
         setLastResult(sType === 'nogo' ? '✓ Good — correctly ignored' : '✗ Too slow!');
         setPhase('feedback');
 
-        logEvent({
+        logTrial({
           sessionId,
           gameId: `reaction_${variant}`,
-          eventType: 'stimulus_response',
-          timestamp: Date.now(),
-          data: { correct, reactionTime: STIMULUS_WINDOW, stimulusType: sType, responded: false },
+          trialIndex: r,
+          stimulus: { stimulus_type: sType, highlight_index: hi, variant },
+          response: { responded: false, too_early: false },
+          isCorrect: correct,
+          responseTimeMs: STIMULUS_WINDOW,
+          skipped: false,
         }).catch(() => {});
 
         setTimeout(() => nextRound(r + 1, newScore, times), 800);
@@ -97,7 +101,16 @@ export default function ReactionTestGame({ sessionId, onComplete, config }: Prop
       cleanup();
       setLastResult('✗ Too early!');
       setPhase('feedback');
-      logEvent({ sessionId, gameId: `reaction_${variant}`, eventType: 'stimulus_response', timestamp: Date.now(), data: { correct: false, reactionTime: 0, stimulusType: 'go', responded: true, tooEarly: true } }).catch(() => {});
+      logTrial({
+        sessionId,
+        gameId: `reaction_${variant}`,
+        trialIndex: round,
+        stimulus: { stimulus_type: 'go' as const, highlight_index: null, variant },
+        response: { responded: true, too_early: true },
+        isCorrect: false,
+        responseTimeMs: 0,
+        skipped: false,
+      }).catch(() => {});
       setTimeout(() => nextRound(round + 1, score, reactionTimes), 800);
       return;
     }
@@ -128,12 +141,15 @@ export default function ReactionTestGame({ sessionId, onComplete, config }: Prop
     setLastResult(result);
     setPhase('feedback');
 
-    logEvent({
+    logTrial({
       sessionId,
       gameId: `reaction_${variant}`,
-      eventType: 'stimulus_response',
-      timestamp: Date.now(),
-      data: { correct, reactionTime: rt, stimulusType, responded: true },
+      trialIndex: round,
+      stimulus: { stimulus_type: stimulusType, highlight_index: tapIndex ?? null, variant },
+      response: { responded: true, too_early: false },
+      isCorrect: correct,
+      responseTimeMs: rt,
+      skipped: false,
     }).catch(() => {});
 
     setTimeout(() => nextRound(round + 1, newScore, newTimes), 800);
@@ -163,7 +179,7 @@ export default function ReactionTestGame({ sessionId, onComplete, config }: Prop
         <View style={styles.center}>
           <Text style={styles.infoText}>{gameDesc}</Text>
           <Text style={styles.infoSub}>{TOTAL_ROUNDS} rounds</Text>
-          <TouchableOpacity style={styles.btn} onPress={() => nextRound(0, 0, [])}>
+          <TouchableOpacity style={styles.btn} onPress={() => { gameStartRef.current = Date.now(); nextRound(0, 0, []); }}>
             <Text style={styles.btnText}>Start</Text>
           </TouchableOpacity>
         </View>

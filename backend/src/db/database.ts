@@ -106,6 +106,37 @@ export function initSchema(db: Database.Database) {
     );
 
     CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
+
+    CREATE TABLE IF NOT EXISTS trials (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id       TEXT    NOT NULL,
+      game_id          TEXT    NOT NULL,
+      game_variant     TEXT,
+      trial_index      INTEGER NOT NULL,
+      difficulty       TEXT    NOT NULL DEFAULT 'normal',
+      stimulus_json    TEXT    NOT NULL,
+      response_json    TEXT    NOT NULL,
+      is_correct       INTEGER NOT NULL DEFAULT 0,
+      response_error   REAL    NOT NULL DEFAULT 0,
+      response_time_ms INTEGER NOT NULL DEFAULT 0,
+      timeout_extended INTEGER NOT NULL DEFAULT 0,
+      skipped          INTEGER NOT NULL DEFAULT 0,
+      created_at       INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_trials_session ON trials(session_id);
+
+    CREATE TABLE IF NOT EXISTS game_plays (
+      id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id         TEXT    NOT NULL,
+      game_id            TEXT    NOT NULL,
+      game_variant       TEXT,
+      difficulty_adapted TEXT,
+      strategy_json      TEXT,
+      started_at         INTEGER NOT NULL,
+      ended_at           INTEGER,
+      created_at         INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_game_plays_session ON game_plays(session_id);
   `);
 
   // Migrations for existing databases — add columns that may be missing

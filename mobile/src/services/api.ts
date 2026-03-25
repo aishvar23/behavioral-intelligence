@@ -21,6 +21,39 @@ export async function logEvent(event: GameEvent): Promise<void> {
   await api.post('/event', event);
 }
 
+export interface TrialPayload {
+  sessionId:       string;
+  gameId:          string;
+  gameVariant?:    string | null;
+  trialIndex:      number;
+  difficulty?:     string;
+  stimulus:        Record<string, unknown>;
+  response:        Record<string, unknown>;
+  isCorrect:       boolean;
+  responseError?:  number;
+  responseTimeMs:  number;
+  timeoutExtended?:boolean;
+  skipped?:        boolean;
+}
+
+export interface GamePlayPayload {
+  sessionId:         string;
+  gameId:            string;
+  gameVariant?:      string | null;
+  difficultyAdapted?:string | null;
+  strategyJson?:     Record<string, unknown> | null;
+  startedAt:         number;
+  endedAt?:          number | null;
+}
+
+export async function logTrial(trial: TrialPayload): Promise<void> {
+  await api.post('/trial', trial);
+}
+
+export async function logGamePlay(play: GamePlayPayload): Promise<void> {
+  await api.post('/game-play', play);
+}
+
 export interface TraitScores {
   curiosity: number;
   persistence: number;

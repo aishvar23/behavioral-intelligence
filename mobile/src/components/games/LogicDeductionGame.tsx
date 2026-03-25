@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { logEvent } from '../../services/api';
+import { logTrial, logGamePlay } from '../../services/api';
 
 type Variant = 'deduction' | 'patterns' | 'verbal' | 'boolean' | 'quantitative' | 'spatial' | 'situational' | 'attention';
 
@@ -135,20 +135,22 @@ export default function LogicDeductionGame({ sessionId, onComplete, config }: Pr
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nextTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const qStartRef = useRef(0);
+  const gameStartRef = useRef(0);
 
   const advance = useCallback((finalScore: number, correct: number) => {
-    logEvent({
+    logGamePlay({
       sessionId,
       gameId: `logic_${variant}`,
-      eventType: 'game_complete',
-      timestamp: Date.now(),
-      data: { score: finalScore, correctCount: correct, totalQuestions: QUESTIONS_PER_GAME },
+      startedAt: gameStartRef.current,
+      endedAt: Date.now(),
+      strategyJson: { variant, correct_count: correct, total_questions: QUESTIONS_PER_GAME },
     }).catch(() => {});
     setPhase('done');
     onComplete(finalScore);
   }, [sessionId, variant, onComplete]);
 
   function startGame() {
+    gameStartRef.current = Date.now();
     const pool = [...QUESTIONS[variant]]
       .sort(() => Math.random() - 0.5)
       .slice(0, QUESTIONS_PER_GAME)
@@ -192,13 +194,6 @@ export default function LogicDeductionGame({ sessionId, onComplete, config }: Pr
   }, [phase, currentQ, timerKey]);
 
   function handleMoreTime() {
-    logEvent({
-      sessionId,
-      gameId: `logic_${variant}`,
-      eventType: 'timeout_extended',
-      timestamp: Date.now(),
-      data: { questionIndex: currentQ, extensionSecs: 20 },
-    }).catch(() => {});
     if (timerRef.current) clearInterval(timerRef.current);
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     qStartRef.current = Date.now();
@@ -208,13 +203,6 @@ export default function LogicDeductionGame({ sessionId, onComplete, config }: Pr
   }
 
   function handleSkipRound() {
-    logEvent({
-      sessionId,
-      gameId: `logic_${variant}`,
-      eventType: 'timeout_skip',
-      timestamp: Date.now(),
-      data: { questionIndex: currentQ },
-    }).catch(() => {});
     setShowTimeoutDialog(false);
     // Show correct answer for 2s then advance
     handleAnswer(-1);
@@ -227,8 +215,9 @@ export default function LogicDeductionGame({ sessionId, onComplete, config }: Pr
 
     const q = questions[currentQ];
     const correct = optionIndex === q.answer;
-    const timeSpent = (Date.now() - qStartRef.current) / 1000;
-    const timeBonus = correct ? Math.round(Math.max(0, (TIME_PER_QUESTION - timeSpent) / TIME_PER_QUESTION) * 5) : 0;
+    const isSkipped = optionIndex === -1;
+    const rt = Date.now() - qStartRef.current;
+    const timeBonus = correct ? Math.round(Math.max(0, (TIME_PER_QUESTION * 1000 - rt) / (TIME_PER_QUESTION * 1000)) * 5) : 0;
     const qScore = correct ? 10 + timeBonus : 0;
     const newScore = score + qScore;
     const newCorrect = correctCount + (correct ? 1 : 0);
@@ -238,12 +227,15 @@ export default function LogicDeductionGame({ sessionId, onComplete, config }: Pr
     setCorrectCount(newCorrect);
     setPhase('feedback');
 
-    logEvent({
+    logTrial({
       sessionId,
       gameId: `logic_${variant}`,
-      eventType: 'question_answer',
-      timestamp: Date.now(),
-      data: { questionIndex: currentQ, correct, timeSpent, score: qScore },
+      trialIndex: currentQ,
+      stimulus: { question_text: q.prompt, options: q.options, correct_option_index: q.answer, question_type: variant },
+      response: { selected_option_index: isSkipped ? null : optionIndex },
+      isCorrect: correct,
+      responseTimeMs: isSkipped ? TIME_PER_QUESTION * 1000 : rt,
+      skipped: isSkipped,
     }).catch(() => {});
 
     // Wrong answer: show correct answer for 5000ms; correct/skip: 1000ms

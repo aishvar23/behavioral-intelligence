@@ -11,7 +11,7 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { logEvent } from '../../services/api';
+import { logTrial, logGamePlay } from '../../services/api';
 
 interface Props {
   sessionId: string;
@@ -157,11 +157,15 @@ export default function MatrixPuzzleGame({ sessionId, onComplete }: Props) {
   const answered = useRef(false);
   const timerInterval = useRef<ReturnType<typeof setInterval>>();
   const nextTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const gameStartRef = useRef(0);
+  const timeoutExtendedRef = useRef(false);
+  const ruleHintRef = useRef('');
 
   const startRound = useCallback((r: number) => {
     const { grid: newGrid, answer, distractors, typeLabel } = buildPuzzle(r);
     setGrid(newGrid);
     setRuleHint(typeLabel);
+    ruleHintRef.current = typeLabel;
     const allOptions = [...distractors];
     const ci = Math.floor(Math.random() * 4);
     allOptions.splice(ci, 0, answer);
@@ -170,6 +174,7 @@ export default function MatrixPuzzleGame({ sessionId, onComplete }: Props) {
     setSelected(null);
     setTimerPct(1);
     answered.current = false;
+    timeoutExtendedRef.current = false;
     roundStart.current = Date.now();
     setPhase('playing');
   }, []);
@@ -188,8 +193,7 @@ export default function MatrixPuzzleGame({ sessionId, onComplete }: Props) {
   }, [phase, round, timerKey]);
 
   function handleMoreTime() {
-    logEvent({ sessionId, gameId: 'matrix_puzzle', eventType: 'timeout_extended',
-      timestamp: Date.now(), data: { round, extensionSecs: 20 } }).catch(() => {});
+    timeoutExtendedRef.current = true;
     roundStart.current = Date.now();
     answered.current = false;
     setShowTimeoutDialog(false);
@@ -197,10 +201,18 @@ export default function MatrixPuzzleGame({ sessionId, onComplete }: Props) {
   }
 
   function handleSkipRound() {
-    logEvent({ sessionId, gameId: 'matrix_puzzle', eventType: 'timeout_skip',
-      timestamp: Date.now(), data: { round } }).catch(() => {});
     answered.current = true;
-    void logEvent({ sessionId, gameId: 'matrix_puzzle', eventType: 'option_selected', timestamp: Date.now(), data: { correct: false, responseTime: TIME_PER_ROUND, selectedIdx: null, correctIdx, round, timedOut: true } });
+    logTrial({
+      sessionId,
+      gameId: 'matrix_puzzle',
+      trialIndex: round,
+      stimulus: { rule_description: ruleHintRef.current, correct_option_index: correctIdx },
+      response: { selected_option_index: null, timed_out: true },
+      isCorrect: false,
+      responseTimeMs: TIME_PER_ROUND,
+      timeoutExtended: timeoutExtendedRef.current,
+      skipped: true,
+    }).catch(() => {});
     setSelected(-1);
     setShowTimeoutDialog(false);
     advance(round + 1);
@@ -213,16 +225,34 @@ export default function MatrixPuzzleGame({ sessionId, onComplete }: Props) {
     clearInterval(timerInterval.current);
     const rt = Date.now() - roundStart.current;
     const isCorrect = idx === correctIdx;
-    // Harder rounds (later = more rules to track) award more base points
     const difficultyBonus = Math.floor(round / 2) * 5;
     const pts = isCorrect ? Math.max(5, Math.round((20 + difficultyBonus) * timerPct)) : 0;
     scoreRef.current += pts;
-    void logEvent({ sessionId, gameId: 'matrix_puzzle', eventType: 'option_selected', timestamp: Date.now(), data: { correct: isCorrect, responseTime: rt, selectedIdx: idx, correctIdx, round } });
+    logTrial({
+      sessionId,
+      gameId: 'matrix_puzzle',
+      trialIndex: round,
+      stimulus: { rule_description: ruleHintRef.current, correct_option_index: correctIdx },
+      response: { selected_option_index: idx, timed_out: false },
+      isCorrect,
+      responseTimeMs: rt,
+      timeoutExtended: timeoutExtendedRef.current,
+      skipped: false,
+    }).catch(() => {});
     nextTimerRef.current = setTimeout(() => advance(round + 1), isCorrect ? 900 : 5000);
   }
 
   function advance(next: number) {
-    if (next >= ROUNDS) { setPhase('done'); onComplete(scoreRef.current); }
+    if (next >= ROUNDS) {
+      logGamePlay({
+        sessionId,
+        gameId: 'matrix_puzzle',
+        startedAt: gameStartRef.current,
+        endedAt: Date.now(),
+        strategyJson: { total_rounds: ROUNDS },
+      }).catch(() => {});
+      setPhase('done'); onComplete(scoreRef.current);
+    }
     else { setRound(next); startRound(next); }
   }
 
@@ -235,7 +265,7 @@ export default function MatrixPuzzleGame({ sessionId, onComplete }: Props) {
         Each puzzle has <Text style={s.em}>two hidden rules</Text>: one for the shapes,{'\n'}one for the count, one for the colors.{'\n\n'}
         Find all the rules and pick the missing piece.
       </Text>
-      <TouchableOpacity style={s.startBtn} onPress={() => startRound(0)}>
+      <TouchableOpacity style={s.startBtn} onPress={() => { gameStartRef.current = Date.now(); startRound(0); }}>
         <Text style={s.startBtnTxt}>Start →</Text>
       </TouchableOpacity>
     </View>
