@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "818552283324",
+    "project_id": "behavioralintelligence",
+    "storage_bucket": "behavioralintelligence.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:818552283324:android:804581b82222e74f8af0b9",
+        "android_client_info": {
+          "package_name": "com.behavioralintelligence"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "818552283324-1gjieq3e2bq6iv1kcirqqpngctbl5aqi.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC16N5ErT5wi0cAU6NylnS5wtwGn5_Odk0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "818552283324-1gjieq3e2bq6iv1kcirqqpngctbl5aqi.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
