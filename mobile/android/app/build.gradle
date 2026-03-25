@@ -63,6 +63,13 @@ react {
  */
 def enableProguardInReleaseBuilds = false
 
+// Load secrets from local.properties (not committed to git)
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader('UTF-8') { reader -> localProperties.load(reader) }
+}
+
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
  *
@@ -84,6 +91,8 @@ android {
     namespace "com.behavioralintelligence"
     defaultConfig {
         applicationId "com.behavioralintelligence"
+        resValue "string", "facebook_app_id",      localProperties.getProperty('FACEBOOK_APP_ID', '')
+        resValue "string", "facebook_client_token", localProperties.getProperty('FACEBOOK_CLIENT_TOKEN', '')
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 2

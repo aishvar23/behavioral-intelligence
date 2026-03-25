@@ -1,5 +1,6 @@
 # Local dev env — host-specific, never commit
 .env
+android/local.properties
 
 # Expo
 .expo
