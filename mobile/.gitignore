@@ -1,6 +1,7 @@
 # Local dev env — host-specific, never commit
 .env
 android/local.properties
+android/app/google-services.json
 
 # Expo
 .expo
