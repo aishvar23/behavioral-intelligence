@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
-import { getDb, getPgPool, isPostgres, getUserTraitHistory, saveUserTraitHistory } from '../db/database';
+import { getDb, getPgPool, isPostgres, getUserTraitHistory, saveUserTraitHistory, getAllLatestTraitsExcluding } from '../db/database';
 import { calculateTraits, TraitScores, TrialRecord } from '../services/traitEngine';
 import { generateBehaviorReport, generateCareerReport, selectGamesForUser, TraitHistoryEntry } from '../services/llmAnalysis';
 import { extractStructuredBehaviorData } from '../services/behavioralSignals';
@@ -86,6 +86,39 @@ const CareerReportSchema = z.object({
     })
   ),
 });
+
+// ── Trait percentile computation ──────────────────────────────────────────────
+const TRAIT_KEYS: (keyof TraitScores)[] = [
+  'curiosity', 'persistence', 'risk_tolerance', 'learning_speed',
+  'working_memory', 'processing_speed', 'impulse_control',
+  'analytical_thinking', 'attention_to_detail', 'systematic_thinking',
+];
+
+/**
+ * For each trait in `userTraits`, returns a percentile (0–100) representing
+ * what fraction of `otherTraitsJson` entries scored strictly below this user.
+ * Returns null percentiles when the pool is too small (<3 other users).
+ */
+function computeTraitPercentiles(
+  userTraits: TraitScores,
+  otherTraitsJson: string[]
+): Record<string, number | null> {
+  const pool = otherTraitsJson
+    .map(j => { try { return JSON.parse(j) as TraitScores; } catch { return null; } })
+    .filter((t): t is TraitScores => t !== null);
+
+  const result: Record<string, number | null> = {};
+  for (const key of TRAIT_KEYS) {
+    if (pool.length < 3) {
+      result[key] = null; // not enough data
+    } else {
+      const userVal = userTraits[key] ?? 0;
+      const below = pool.filter(t => (t[key] ?? 0) < userVal).length;
+      result[key] = Math.round((below / pool.length) * 100);
+    }
+  }
+  return result;
+}
 
 // Helper: fetch TrialRecord[] for a session from SQLite
 function getTrialsForSession(sessionId: string): TrialRecord[] {
@@ -497,11 +530,23 @@ router.post('/career-report', careerReportLimiter, authenticateJWT, async (req: 
     }
   }
 
+  // ── Trait percentiles (compare against all other users) ──────────────────
+  let traitPercentiles: Record<string, number | null> = {};
+  if (userId) {
+    try {
+      const otherTraitsJson = getAllLatestTraitsExcluding(userId);
+      traitPercentiles = computeTraitPercentiles(traits, otherTraitsJson);
+    } catch (err) {
+      console.error('Percentile computation failed:', err);
+    }
+  }
+
   try {
     const llmResult = await generateCareerReport(traits, userProfile, gameResults, gameBehaviorData, sessionId, traitHistory);
     const response = {
       traits,
       gameResults,
+      traitPercentiles,
       thinkingStyle: llmResult.thinkingStyle,
       aiReport: llmResult.aiReport,
       progressSummary: llmResult.progressSummary,
@@ -556,6 +601,51 @@ router.post('/career-report', careerReportLimiter, authenticateJWT, async (req: 
   }
   } catch (err) {
     console.error('POST /career-report error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /user-history — return past sessions + current percentile rankings
+router.get('/user-history', authenticateJWT, (req: Request, res: Response) => {
+  const userId = req.userId;
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+  try {
+    const db = getDb();
+    const rows = db.prepare(`
+      SELECT session_id, traits_json, game_results_json, occupation, created_at
+      FROM user_trait_history
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+      LIMIT 10
+    `).all(userId) as Array<{
+      session_id: string;
+      traits_json: string;
+      game_results_json: string;
+      occupation: string;
+      created_at: number;
+    }>;
+
+    const history = rows.map(r => ({
+      sessionId:    r.session_id,
+      traits:       JSON.parse(r.traits_json),
+      gameResults:  JSON.parse(r.game_results_json),
+      occupation:   r.occupation,
+      createdAt:    r.created_at,
+    }));
+
+    // Compute current percentiles for the most recent session
+    let currentPercentiles: Record<string, number | null> = {};
+    if (history.length > 0) {
+      try {
+        const otherTraitsJson = getAllLatestTraitsExcluding(userId);
+        currentPercentiles = computeTraitPercentiles(history[0].traits as TraitScores, otherTraitsJson);
+      } catch { /* non-fatal */ }
+    }
+
+    return res.json({ history, currentPercentiles });
+  } catch (err) {
+    console.error('GET /user-history error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });

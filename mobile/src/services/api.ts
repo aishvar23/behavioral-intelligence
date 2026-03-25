@@ -101,9 +101,12 @@ export interface SkillDevelopment {
   activities: string[];
 }
 
+export type TraitPercentiles = Record<keyof TraitScores, number | null>;
+
 export interface FullReport {
   traits: TraitScores;
   gameResults: GameResult[];
+  traitPercentiles?: TraitPercentiles;
   thinkingStyle: string;
   aiReport: string;
   progressSummary?: string;
@@ -143,6 +146,26 @@ export async function selectGames(
     pool,
     userId,
   });
+  return response.data;
+}
+
+// ── History ───────────────────────────────────────────────────────────────────
+
+export interface SessionHistory {
+  sessionId:   string;
+  traits:      TraitScores;
+  gameResults: Array<{ configId: string; gameType: string; title: string; emoji: string; score: number }>;
+  occupation:  string;
+  createdAt:   number;
+}
+
+export interface UserHistoryResponse {
+  history:            SessionHistory[];
+  currentPercentiles: TraitPercentiles;
+}
+
+export async function getUserHistory(): Promise<UserHistoryResponse> {
+  const response = await api.get<UserHistoryResponse>('/user-history');
   return response.data;
 }
 
