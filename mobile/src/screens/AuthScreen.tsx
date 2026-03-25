@@ -36,7 +36,7 @@ export default function AuthScreen({ navigation }: Props) {
       } else if (err.code === statusCodes.IN_PROGRESS) {
         // already signing in
       } else {
-        setError('Google sign-in failed. Please try again.');
+        setError(`Google sign-in failed (code: ${err?.code ?? err?.message ?? 'unknown'})`);
       }
     } finally {
       setGoogleLoading(false);
@@ -54,7 +54,7 @@ export default function AuthScreen({ navigation }: Props) {
       if (!data?.accessToken) throw new Error('No access token returned');
       await signInWithFacebook(data.accessToken.toString());
     } catch (err: any) {
-      setError('Facebook sign-in failed. Please try again.');
+      setError(`Facebook sign-in failed (code: ${err?.code ?? err?.message ?? 'unknown'})`);
     } finally {
       setFbLoading(false);
     }
