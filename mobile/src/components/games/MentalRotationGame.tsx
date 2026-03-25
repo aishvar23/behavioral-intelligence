@@ -6,7 +6,7 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { logEvent } from '../../services/api';
+import { logTrial, logGamePlay } from '../../services/api';
 
 interface Props {
   sessionId: string;
@@ -154,6 +154,8 @@ export default function MentalRotationGame({ sessionId, onComplete }: Props) {
   const answered = useRef(false);
   const advancing = useRef(false);
   const timerInterval = useRef<ReturnType<typeof setInterval>>();
+  const gameStartRef = useRef(0);
+  const timeoutExtendedRef = useRef(false);
 
   const startRound = useCallback((r: number) => {
     const data = generateRound(r);
@@ -165,6 +167,7 @@ export default function MentalRotationGame({ sessionId, onComplete }: Props) {
     setShowTimeoutDialog(false);
     answered.current = false;
     advancing.current = false;
+    timeoutExtendedRef.current = false;
     roundStart.current = Date.now();
     setPhase('playing');
   }, []);
@@ -183,22 +186,27 @@ export default function MentalRotationGame({ sessionId, onComplete }: Props) {
   }, [phase, round, timerKey]);
 
   function handleMoreTime() {
-    logEvent({ sessionId, gameId: 'spatial_rotation', eventType: 'timeout_extended',
-      timestamp: Date.now(), data: { round, extensionSecs: 20 } }).catch(() => {});
+    timeoutExtendedRef.current = true;
     roundStart.current = Date.now();
     setShowTimeoutDialog(false);
     setTimerKey(k => k + 1);
   }
 
   function handleSkipRound() {
-    logEvent({ sessionId, gameId: 'spatial_rotation', eventType: 'timeout_skip',
-      timestamp: Date.now(), data: { round } }).catch(() => {});
     answered.current = true;
-    void logEvent({ sessionId, gameId: 'spatial_rotation', eventType: 'option_selected',
-      timestamp: Date.now(), data: { correct: false, responseTime: TIME_PER_ROUND, selectedIdx: null, correctIdx, round, timedOut: true } });
+    logTrial({
+      sessionId,
+      gameId: 'spatial_rotation',
+      trialIndex: round,
+      stimulus: { target_cells: target, correct_option_index: correctIdx, shape_index: round % BASE_SHAPES.length },
+      response: { selected_option_index: null, timed_out: true },
+      isCorrect: false,
+      responseTimeMs: TIME_PER_ROUND,
+      timeoutExtended: timeoutExtendedRef.current,
+      skipped: true,
+    }).catch(() => {});
     setSelected(-1);
     setShowTimeoutDialog(false);
-    // Show correct answer highlighted for 1.5s then advance
     setTimeout(() => advance(round + 1, 0), 1500);
   }
 
@@ -211,9 +219,17 @@ export default function MentalRotationGame({ sessionId, onComplete }: Props) {
     const isCorrect = idx === correctIdx;
     const pts = isCorrect ? Math.max(5, Math.round(20 * timerPct)) : 0;
     scoreRef.current += pts;
-    void logEvent({ sessionId, gameId: 'spatial_rotation', eventType: 'option_selected',
-      timestamp: Date.now(), data: { correct: isCorrect, responseTime: rt, selectedIdx: idx, correctIdx, round } });
-    // Wrong answer: show correct highlighted for 1.5s; correct: 900ms
+    logTrial({
+      sessionId,
+      gameId: 'spatial_rotation',
+      trialIndex: round,
+      stimulus: { target_cells: target, correct_option_index: correctIdx, shape_index: round % BASE_SHAPES.length },
+      response: { selected_option_index: idx, timed_out: false },
+      isCorrect,
+      responseTimeMs: rt,
+      timeoutExtended: timeoutExtendedRef.current,
+      skipped: false,
+    }).catch(() => {});
     setTimeout(() => advance(round + 1, pts), isCorrect ? 900 : 1500);
   }
 
@@ -221,6 +237,13 @@ export default function MentalRotationGame({ sessionId, onComplete }: Props) {
     if (advancing.current) return;
     advancing.current = true;
     if (next >= ROUNDS) {
+      logGamePlay({
+        sessionId,
+        gameId: 'spatial_rotation',
+        startedAt: gameStartRef.current,
+        endedAt: Date.now(),
+        strategyJson: { total_rounds: ROUNDS },
+      }).catch(() => {});
       setPhase('done');
       onComplete(scoreRef.current);
     } else {
@@ -238,7 +261,7 @@ export default function MentalRotationGame({ sessionId, onComplete }: Props) {
         Pick the option that is the <Text style={s.em}>same shape, just rotated</Text>.{'\n'}
         Watch out for mirror images — they don't count!
       </Text>
-      <TouchableOpacity style={s.startBtn} onPress={() => startRound(0)}>
+      <TouchableOpacity style={s.startBtn} onPress={() => { gameStartRef.current = Date.now(); startRound(0); }}>
         <Text style={s.startBtnTxt}>Start →</Text>
       </TouchableOpacity>
     </View>

@@ -6,7 +6,7 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { logEvent } from '../../services/api';
+import { logTrial, logGamePlay } from '../../services/api';
 
 interface Props {
   sessionId: string;
@@ -49,10 +49,18 @@ export default function StroopGame({ sessionId, onComplete }: Props) {
   const trialStart = useRef(0);
   const answered = useRef(false);
   const interval = useRef<ReturnType<typeof setInterval>>();
+  const gameStartRef = useRef(0);
 
   const advance = useCallback((pts: number, next: number) => {
     scoreRef.current += pts;
     if (next >= TOTAL_TRIALS) {
+      logGamePlay({
+        sessionId,
+        gameId: 'stroop',
+        startedAt: gameStartRef.current,
+        endedAt: Date.now(),
+        strategyJson: { total_trials: TOTAL_TRIALS },
+      }).catch(() => {});
       setPhase('done');
       onComplete(scoreRef.current);
       return;
@@ -75,7 +83,7 @@ export default function StroopGame({ sessionId, onComplete }: Props) {
       if (pct === 0 && !answered.current) {
         clearInterval(interval.current);
         answered.current = true;
-        void logEvent({ sessionId, gameId: 'stroop', eventType: 'color_tapped', timestamp: Date.now(), data: { correct: false, responseTime: TRIAL_MS, tapped: null, inkColor: trial.ink, word: trial.word, congruent: trial.congruent, timedOut: true } });
+        void logTrial({ sessionId, gameId: 'stroop', trialIndex: trialNum, stimulus: { word: trial.word, ink_color: trial.ink, congruent: trial.congruent }, response: { selected_color: null, timed_out: true }, isCorrect: false, responseTimeMs: TRIAL_MS, skipped: false });
         setFeedback('wrong');
         setTimeout(() => advance(0, trialNum + 1), 600);
       }
@@ -92,7 +100,7 @@ export default function StroopGame({ sessionId, onComplete }: Props) {
     // Congruent trials are easier — lower max points so incongruent performance weighs more
     const maxPts = trial.congruent ? 8 : 15;
     const pts = isCorrect ? Math.max(3, Math.round(maxPts * (1 - rt / TRIAL_MS))) : 0;
-    void logEvent({ sessionId, gameId: 'stroop', eventType: 'color_tapped', timestamp: Date.now(), data: { correct: isCorrect, responseTime: rt, tapped, inkColor: trial.ink, word: trial.word, congruent: trial.congruent } });
+    void logTrial({ sessionId, gameId: 'stroop', trialIndex: trialNum, stimulus: { word: trial.word, ink_color: trial.ink, congruent: trial.congruent }, response: { selected_color: tapped, timed_out: false }, isCorrect, responseTimeMs: rt, skipped: false });
     setFeedback(isCorrect ? 'correct' : 'wrong');
     setTimeout(() => advance(pts, trialNum + 1), 600);
   }
@@ -111,7 +119,7 @@ export default function StroopGame({ sessionId, onComplete }: Props) {
         <Text style={[s.exWord, { color: COLORS.GREEN, marginTop: 12 }]}>GREEN</Text>
         <Text style={s.exLabel}>→ tap GREEN (word and ink match)</Text>
       </View>
-      <TouchableOpacity style={s.startBtn} onPress={() => setPhase('playing')}>
+      <TouchableOpacity style={s.startBtn} onPress={() => { gameStartRef.current = Date.now(); setPhase('playing'); }}>
         <Text style={s.startBtnTxt}>Start →</Text>
       </TouchableOpacity>
     </View>

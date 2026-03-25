@@ -6,7 +6,7 @@ import {
   View,
   Animated,
 } from 'react-native';
-import { logEvent } from '../../services/api';
+import { logTrial, logGamePlay } from '../../services/api';
 
 type Variant = 'colors' | 'numbers' | 'positions';
 
@@ -39,6 +39,7 @@ export default function MemorySequenceGame({ sessionId, onComplete, config }: Pr
   const [totalScore, setTotalScore] = useState(0);
   const [roundStart, setRoundStart] = useState(0);
   const flashAnim = useRef(new Animated.Value(1)).current;
+  const gameStartRef = useRef(0);
 
   const startRound = useCallback((r: number) => {
     const len = BASE_SEQUENCE_LENGTH + (r - 1);
@@ -87,22 +88,25 @@ export default function MemorySequenceGame({ sessionId, onComplete, config }: Pr
       setLastCorrect(correct);
       setPhase('feedback');
 
-      logEvent({
+      logTrial({
         sessionId,
         gameId: `memory_${variant}`,
-        eventType: 'round_complete',
-        timestamp: Date.now(),
-        data: { round, correct, sequenceLength: sequence.length, responseTime: elapsed * 1000 },
+        trialIndex: round - 1,
+        stimulus: { sequence, sequence_length: sequence.length, variant },
+        response: { recalled_sequence: next },
+        isCorrect: correct,
+        responseTimeMs: Math.round(elapsed * 1000),
+        skipped: false,
       }).catch(() => {});
 
       setTimeout(() => {
         if (round >= TOTAL_ROUNDS) {
-          logEvent({
+          logGamePlay({
             sessionId,
             gameId: `memory_${variant}`,
-            eventType: 'game_complete',
-            timestamp: Date.now(),
-            data: { score: newTotal },
+            startedAt: gameStartRef.current,
+            endedAt: Date.now(),
+            strategyJson: { variant, total_rounds: TOTAL_ROUNDS, max_sequence_length: BASE_SEQUENCE_LENGTH + TOTAL_ROUNDS - 1 },
           }).catch(() => {});
           setPhase('done');
           onComplete(newTotal);
@@ -138,7 +142,7 @@ export default function MemorySequenceGame({ sessionId, onComplete, config }: Pr
               : 'Watch which cells highlight.\nThen tap them back in order.'}
           </Text>
           <Text style={styles.infoSub}>Sequence grows each round.</Text>
-          <TouchableOpacity style={styles.btn} onPress={() => startRound(1)}>
+          <TouchableOpacity style={styles.btn} onPress={() => { gameStartRef.current = Date.now(); startRound(1); }}>
             <Text style={styles.btnText}>Start</Text>
           </TouchableOpacity>
         </View>

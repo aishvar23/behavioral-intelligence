@@ -5,7 +5,7 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { logEvent } from '../../services/api';
+import { logTrial, logGamePlay } from '../../services/api';
 
 interface Props {
   sessionId: string;
@@ -76,6 +76,7 @@ export default function DotEstimationGame({ sessionId, onComplete }: Props) {
   const respondStart = useRef(0);
   const answered = useRef(false);
   const timerInterval = useRef<ReturnType<typeof setInterval>>();
+  const gameStartRef = useRef(0);
 
   const setupTrial = useCallback((index: number) => {
     const cfg = trialsRef.current[index];
@@ -111,7 +112,10 @@ export default function DotEstimationGame({ sessionId, onComplete }: Props) {
         clearInterval(timerInterval.current);
         answered.current = true;
         const cfg = trialsRef.current[trialNum];
-        void logEvent({ sessionId, gameId: 'dot_estimation', eventType: 'group_selected', timestamp: Date.now(), data: { correct: false, responseTime: RESPOND_MS, side: null, timedOut: true, ratio: cfg.a / cfg.b, band: cfg.band } });
+        void logTrial({ sessionId, gameId: 'dot_estimation', trialIndex: trialNum,
+          stimulus: { left_count: leftCount, right_count: rightCount, ratio: cfg.a / cfg.b, band: cfg.band },
+          response: { selected_side: null, timed_out: true },
+          isCorrect: false, responseError: 1, responseTimeMs: RESPOND_MS, skipped: false });
         setCorrect(false);
         setPhase('feedback');
         setTimeout(() => advance(0, trialNum + 1), 800);
@@ -132,7 +136,10 @@ export default function DotEstimationGame({ sessionId, onComplete }: Props) {
     const ratio = cfg.a / cfg.b;
     const bandBonus = [0, 4, 8, 12][cfg.band]; // harder bands worth more
     const pts = isCorrect ? 8 + bandBonus : 0;
-    void logEvent({ sessionId, gameId: 'dot_estimation', eventType: 'group_selected', timestamp: Date.now(), data: { correct: isCorrect, responseTime: rt, side, ratio, band: cfg.band } });
+    void logTrial({ sessionId, gameId: 'dot_estimation', trialIndex: trialNum,
+      stimulus: { left_count: leftCount, right_count: rightCount, ratio, band: cfg.band },
+      response: { selected_side: side, timed_out: false },
+      isCorrect, responseError: isCorrect ? 0 : 1, responseTimeMs: rt, skipped: false });
     scoreRef.current += pts;
     setCorrect(isCorrect);
     setPhase('feedback');
@@ -142,6 +149,13 @@ export default function DotEstimationGame({ sessionId, onComplete }: Props) {
   function advance(pts: number, next: number) {
     void pts;
     if (next >= TOTAL_TRIALS) {
+      logGamePlay({
+        sessionId,
+        gameId: 'dot_estimation',
+        startedAt: gameStartRef.current,
+        endedAt: Date.now(),
+        strategyJson: { total_trials: TOTAL_TRIALS },
+      }).catch(() => {});
       setPhase('done');
       onComplete(scoreRef.current);
     } else {
@@ -159,7 +173,7 @@ export default function DotEstimationGame({ sessionId, onComplete }: Props) {
         Tap the side with <Text style={s.em}>more dots</Text>.{'\n'}
         You can't count — use your instinct!
       </Text>
-      <TouchableOpacity style={s.startBtn} onPress={() => setupTrial(0)}>
+      <TouchableOpacity style={s.startBtn} onPress={() => { gameStartRef.current = Date.now(); setupTrial(0); }}>
         <Text style={s.startBtnTxt}>Start →</Text>
       </TouchableOpacity>
     </View>
