@@ -1,0 +1,5 @@
+# Copy this file to local.properties and fill in your values.
+# local.properties is gitignored — never commit it.
+sdk.dir=C\:\\Users\\<YOUR_USER>\\AppData\\Local\\Android\\Sdk
+FACEBOOK_APP_ID=your_facebook_app_id_here
+FACEBOOK_CLIENT_TOKEN=your_facebook_client_token_here
