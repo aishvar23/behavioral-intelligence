@@ -27,8 +27,12 @@ import { OCCUPATION_GAME_POOLS, GENERAL_POOL } from '../data/occupationGamePools
 import { selectGames, registerUser } from '../services/api';
 import { startSession } from '../services/session';
 import { useAuth } from '../context/AuthContext';
+import { guestStore } from '../services/guestStore';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'UserProfile'>;
+
+// mode === 'edit': just save profile and go back (no game start)
+// mode === undefined: full flow — save profile and start assessment
 
 type SavedProfile = {
   age: string;
@@ -66,16 +70,20 @@ function mergeGamePools(occupationIds: string[]): string[] {
   return merged.length > 0 ? merged : GENERAL_POOL;
 }
 
-export default function UserProfileScreen({ navigation }: Props) {
+export default function UserProfileScreen({ navigation, route }: Props) {
   const { auth } = useAuth();
   const isAuthenticated = auth.userId != null && !auth.isGuest;
+  const editMode = route.params?.mode === 'edit';
+
+  // Pre-fill name/age/country from guestStore for guests coming through GuestSetup
+  const guestBasic = guestStore.get();
 
   const [loaded, setLoaded] = useState(false);
   const [hasSavedProfile, setHasSavedProfile] = useState(false);
 
-  const [userName, setUserName] = useState('');
-  const [age, setAge] = useState('');
-  const [country, setCountry] = useState('India');
+  const [userName, setUserName] = useState(guestBasic?.name ?? '');
+  const [age, setAge] = useState(guestBasic?.age ?? '');
+  const [country, setCountry] = useState(guestBasic?.country ?? 'India');
   const [lifeStage, setLifeStage] = useState('');
   const [interests, setInterests] = useState('');
 
@@ -175,6 +183,16 @@ export default function UserProfileScreen({ navigation }: Props) {
     }
   }
 
+  async function handleSave() {
+    if (selectedOccupations.length === 0) {
+      setError('Please select at least one occupation.');
+      return;
+    }
+    setError('');
+    await saveProfile();
+    navigation.goBack();
+  }
+
   async function handleStart() {
     if (selectedOccupations.length === 0 || selecting) return;
 
@@ -228,6 +246,7 @@ export default function UserProfileScreen({ navigation }: Props) {
         };
       });
 
+      guestStore.clear();
       navigation.replace('Game', {
         sessionId,
         userProfile: profile,
@@ -253,10 +272,12 @@ export default function UserProfileScreen({ navigation }: Props) {
     );
   }
 
-  const pageTitle = hasSavedProfile ? 'Update your profile' : 'Tell us about yourself';
-  const pageSubtitle = hasSavedProfile
-    ? 'Your previous selections are loaded. Adjust anything before starting.'
-    : "We'll select the right games for your occupation and generate a personalised behavioral report.";
+  const pageTitle = editMode ? 'Your Profile' : hasSavedProfile ? 'Update your profile' : 'Tell us about yourself';
+  const pageSubtitle = editMode
+    ? 'Update your details. Changes are saved and used in your next assessment.'
+    : hasSavedProfile
+      ? 'Your previous selections are loaded. Adjust anything before starting.'
+      : "We'll select the right games for your occupation and generate a personalised behavioral report.";
 
   const occupationSummary = selectedOccupations.length === 0
     ? null
@@ -374,29 +395,40 @@ export default function UserProfileScreen({ navigation }: Props) {
 
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-              <TouchableOpacity
-                style={[styles.startBtn, (selectedOccupations.length === 0 || selecting) && styles.startBtnDisabled]}
-                onPress={handleStart}
-                disabled={selectedOccupations.length === 0 || selecting}
-              >
-                {selecting ? (
-                  <View style={styles.loadingRow}>
-                    <ActivityIndicator color="#fff" size="small" />
-                    <Text style={styles.startBtnText}>Selecting your games…</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.startBtnText}>Start Assessment →</Text>
-                )}
-              </TouchableOpacity>
-
-              <Text style={styles.note}>
-                5 games selected for{' '}
-                <Text style={styles.noteBold}>
-                  {selectedOccupations.length > 0
-                    ? selectedOccupations.map(id => selectedTitles[id]).join(', ')
-                    : 'your occupation'}
-                </Text>
-              </Text>
+              {editMode ? (
+                <TouchableOpacity
+                  style={[styles.startBtn, selectedOccupations.length === 0 && styles.startBtnDisabled]}
+                  onPress={handleSave}
+                  disabled={selectedOccupations.length === 0}
+                >
+                  <Text style={styles.startBtnText}>Save Profile ✓</Text>
+                </TouchableOpacity>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={[styles.startBtn, (selectedOccupations.length === 0 || selecting) && styles.startBtnDisabled]}
+                    onPress={handleStart}
+                    disabled={selectedOccupations.length === 0 || selecting}
+                  >
+                    {selecting ? (
+                      <View style={styles.loadingRow}>
+                        <ActivityIndicator color="#fff" size="small" />
+                        <Text style={styles.startBtnText}>Selecting your games…</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.startBtnText}>Start Assessment →</Text>
+                    )}
+                  </TouchableOpacity>
+                  <Text style={styles.note}>
+                    5 games selected for{' '}
+                    <Text style={styles.noteBold}>
+                      {selectedOccupations.length > 0
+                        ? selectedOccupations.map(id => selectedTitles[id]).join(', ')
+                        : 'your occupation'}
+                    </Text>
+                  </Text>
+                </>
+              )}
             </View>
           }
         />

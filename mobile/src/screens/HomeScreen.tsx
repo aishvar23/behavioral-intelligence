@@ -1,14 +1,22 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useAuth } from '../context/AuthContext';
+import { guestStore } from '../services/guestStore';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
 export default function HomeScreen({ navigation }: Props) {
   const { auth, logout } = useAuth();
-  const name = auth.displayName;
+  const name = auth.displayName ?? guestStore.get()?.name;
+
+  // If the user just completed GuestSetup, skip Home and go straight to assessment
+  useEffect(() => {
+    if (auth.isGuest && guestStore.get()) {
+      navigation.replace('OccupationIntent');
+    }
+  }, [auth.isGuest]);
 
   return (
     <View style={styles.container}>
@@ -43,6 +51,12 @@ export default function HomeScreen({ navigation }: Props) {
       {!auth.isGuest && auth.userId ? (
         <TouchableOpacity style={styles.historyBtn} onPress={() => navigation.navigate('History')} activeOpacity={0.85}>
           <Text style={styles.historyBtnText}>📊 My Progress</Text>
+        </TouchableOpacity>
+      ) : null}
+
+      {!auth.isGuest && auth.userId ? (
+        <TouchableOpacity style={styles.profileBtn} onPress={() => navigation.navigate('UserProfile', { mode: 'edit' })} activeOpacity={0.85}>
+          <Text style={styles.profileBtnText}>👤 Edit Profile</Text>
         </TouchableOpacity>
       ) : null}
 
@@ -85,9 +99,14 @@ const styles = StyleSheet.create({
   greeting: { fontSize: 18, color: '#a0a0dd', marginBottom: 8, fontWeight: '600' },
   historyBtn: {
     width: '100%', paddingVertical: 14, borderRadius: 30, alignItems: 'center',
-    marginBottom: 16, borderWidth: 1.5, borderColor: '#5c6bc0',
+    marginBottom: 10, borderWidth: 1.5, borderColor: '#5c6bc0',
   },
   historyBtnText: { color: '#9999dd', fontSize: 15, fontWeight: '600' },
+  profileBtn: {
+    width: '100%', paddingVertical: 14, borderRadius: 30, alignItems: 'center',
+    marginBottom: 16, borderWidth: 1, borderColor: '#2a2a5e',
+  },
+  profileBtnText: { color: '#6666aa', fontSize: 15, fontWeight: '600' },
   signOutRow: { marginTop: 12 },
   signOutText: { color: '#4a4a7a', fontSize: 12, textDecorationLine: 'underline' },
 });

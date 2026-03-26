@@ -7,7 +7,6 @@ import {
   View,
 } from 'react-native';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
-import { LoginManager, AccessToken } from 'react-native-fbsdk-next';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../navigation/AppNavigator';
 import { useAuth } from '../context/AuthContext';
@@ -15,9 +14,8 @@ import { useAuth } from '../context/AuthContext';
 type Props = NativeStackScreenProps<AuthStackParamList, 'Auth'>;
 
 export default function AuthScreen({ navigation }: Props) {
-  const { continueAsGuest, signInWithGoogle, signInWithFacebook } = useAuth();
+  const { signInWithGoogle } = useAuth();
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [fbLoading, setFbLoading] = useState(false);
   const [error, setError] = useState('');
 
   async function handleGoogleSignIn() {
@@ -36,27 +34,10 @@ export default function AuthScreen({ navigation }: Props) {
       } else if (err.code === statusCodes.IN_PROGRESS) {
         // already signing in
       } else {
-        setError(`Google sign-in failed (code: ${err?.code ?? err?.message ?? 'unknown'})`);
+        setError('Google sign-in failed. Please try again.');
       }
     } finally {
       setGoogleLoading(false);
-    }
-  }
-
-  async function handleFacebookSignIn() {
-    if (fbLoading) return;
-    setError('');
-    setFbLoading(true);
-    try {
-      const result = await LoginManager.logInWithPermissions(['public_profile']);
-      if (result.isCancelled) return;
-      const data = await AccessToken.getCurrentAccessToken();
-      if (!data?.accessToken) throw new Error('No access token returned');
-      await signInWithFacebook(data.accessToken.toString());
-    } catch (err: any) {
-      setError(`Facebook sign-in failed (code: ${err?.code ?? err?.message ?? 'unknown'})`);
-    } finally {
-      setFbLoading(false);
     }
   }
 
@@ -86,18 +67,9 @@ export default function AuthScreen({ navigation }: Props) {
           )}
         </TouchableOpacity>
 
-        {/* Facebook Sign-In */}
-        <TouchableOpacity
-          style={[styles.btnFacebook, fbLoading && styles.btnDisabled]}
-          onPress={handleFacebookSignIn}
-          disabled={fbLoading}
-          activeOpacity={0.85}
-        >
-          {fbLoading ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <Text style={styles.btnFacebookText}>Continue with Facebook</Text>
-          )}
+        {/* Facebook — still coming soon */}
+        <TouchableOpacity style={styles.btnFbDisabled} disabled activeOpacity={1}>
+          <Text style={styles.btnDisabledText}>Continue with Facebook  (Coming soon)</Text>
         </TouchableOpacity>
 
         {/* Email sign-in */}
@@ -122,8 +94,8 @@ export default function AuthScreen({ navigation }: Props) {
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {/* Guest path */}
-      <TouchableOpacity onPress={continueAsGuest} activeOpacity={0.7}>
-        <Text style={styles.guestLink}>Continue as Guest</Text>
+      <TouchableOpacity onPress={() => navigation.navigate('GuestSetup')} activeOpacity={0.7}>
+        <Text style={styles.guestLink}>Continue without login →</Text>
       </TouchableOpacity>
     </View>
   );
@@ -169,16 +141,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   btnGoogleText: { color: '#333', fontSize: 15, fontWeight: '700' },
-  btnFacebook: {
+  btnFbDisabled: {
     width: '100%',
     paddingVertical: 15,
     borderRadius: 30,
     alignItems: 'center',
-    backgroundColor: '#1877F2',
-    minHeight: 50,
-    justifyContent: 'center',
+    backgroundColor: '#1e1e3a',
+    borderWidth: 1,
+    borderColor: '#2a2a4a',
   },
-  btnFacebookText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   btnDisabled: { opacity: 0.6 },
   btnDisabledText: { color: '#4a4a7a', fontSize: 15, fontWeight: '600' },
   errorText: { color: '#ef5350', fontSize: 13, textAlign: 'center', marginBottom: 8 },
