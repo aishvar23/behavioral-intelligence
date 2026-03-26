@@ -167,17 +167,34 @@ export default function ReportScreen({ navigation, route }: Props) {
 
       {/* Trait Bars */}
       <Text style={styles.sectionHeading}>Behavioral Traits</Text>
+      {report.traitPercentiles && Object.values(report.traitPercentiles).some(v => v !== null) && (
+        <Text style={styles.sectionSubtitle}>Score · percentile vs all users</Text>
+      )}
       <View style={styles.traitsSection}>
         {Object.entries(typeof report.traits === 'string' ? JSON.parse(report.traits) : report.traits).map(([key, value]) => {
           const meta = TRAIT_META[key] ?? { label: key, color: '#9999cc', emoji: '📊' };
-          const pct = Math.round(value * 100);
+          const pct = Math.round((value as number) * 100);
+          const percentile = report.traitPercentiles?.[key as keyof typeof report.traitPercentiles] ?? null;
+          const topPct = percentile !== null ? 100 - percentile : null;
+          const pillColor = topPct !== null
+            ? topPct <= 20 ? '#66bb6a' : topPct <= 40 ? '#42a5f5' : topPct <= 60 ? '#ffd54f' : '#ef9a9a'
+            : '#3a3a6e';
           return (
             <View key={key} style={styles.traitRow}>
               <Text style={styles.traitEmoji}>{meta.emoji}</Text>
               <View style={styles.traitInfo}>
                 <View style={styles.traitHeader}>
                   <Text style={styles.traitLabel}>{meta.label}</Text>
-                  <Text style={[styles.traitScore, { color: meta.color }]}>{pct}%</Text>
+                  <View style={styles.traitScoreRow}>
+                    <Text style={[styles.traitScore, { color: meta.color }]}>{pct}%</Text>
+                    {topPct !== null && (
+                      <View style={[styles.percentilePill, { backgroundColor: pillColor + '22', borderColor: pillColor }]}>
+                        <Text style={[styles.percentilePillText, { color: pillColor }]}>
+                          {topPct <= 1 ? 'Top 1%' : `Top ${topPct}%`}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
                 <View style={styles.barTrack}>
                   <View style={[styles.barFill, { width: `${pct}%` as any, backgroundColor: meta.color }]} />
@@ -320,9 +337,12 @@ const styles = StyleSheet.create({
   traitRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   traitEmoji: { fontSize: 22, width: 32 },
   traitInfo: { flex: 1 },
-  traitHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  traitHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   traitLabel: { color: '#c0c0ee', fontSize: 14 },
+  traitScoreRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   traitScore: { fontSize: 14, fontWeight: 'bold' },
+  percentilePill: { borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2, borderWidth: 1 },
+  percentilePillText: { fontSize: 10, fontWeight: '700' },
   barTrack: { height: 8, backgroundColor: '#16213e', borderRadius: 4, overflow: 'hidden' },
   barFill: { height: 8, borderRadius: 4 },
   // Text sections

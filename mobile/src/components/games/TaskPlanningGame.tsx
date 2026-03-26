@@ -12,7 +12,7 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { logEvent } from '../../services/api';
+import { logTrial, logGamePlay } from '../../services/api';
 
 interface Props {
   sessionId: string;
@@ -135,8 +135,10 @@ export default function TaskPlanningGame({ sessionId, onComplete }: Props) {
   const timerInterval = useRef<ReturnType<typeof setInterval>>();
   const adaptMode = useRef<'normal' | 'hard' | 'easy'>('normal');
   const totalMistakesRef = useRef(0);
-  // Track per-round mistakes to accumulate accurately
   const roundMistakesRef = useRef(0);
+  const gameStartRef = useRef(0);
+  const timeoutExtendedRef = useRef(false);
+  const executionOrderRef = useRef<string[]>([]);
 
   const startRound = useCallback((r: number) => {
     const def = getRoundDef(r, adaptMode.current);
@@ -145,6 +147,8 @@ export default function TaskPlanningGame({ sessionId, onComplete }: Props) {
     setMistakes(0);
     setAdaptBanner(null);
     roundMistakesRef.current = 0;
+    timeoutExtendedRef.current = false;
+    executionOrderRef.current = [];
     roundStart.current = Date.now();
     setRound(r);
     setPhase('playing');
@@ -164,18 +168,26 @@ export default function TaskPlanningGame({ sessionId, onComplete }: Props) {
   }, [phase, round, timerKey]);
 
   function handleMoreTime() {
-    logEvent({ sessionId, gameId: 'task_planning', eventType: 'timeout_extended',
-      timestamp: Date.now(), data: { round, extensionSecs: 30 } }).catch(() => {});
+    timeoutExtendedRef.current = true;
     roundStart.current = Date.now();
     setShowTimeoutDialog(false);
     setTimerKey(k => k + 1);
   }
 
   function handleSkipRound() {
-    logEvent({ sessionId, gameId: 'task_planning', eventType: 'timeout_skip',
-      timestamp: Date.now(), data: { round } }).catch(() => {});
-    void logEvent({ sessionId, gameId: 'task_planning', eventType: 'round_complete',
-      timestamp: Date.now(), data: { round, completed: false, timedOut: true, mistakes: roundMistakesRef.current } });
+    const def = getRoundDef(round, adaptMode.current);
+    logTrial({
+      sessionId,
+      gameId: 'task_planning',
+      trialIndex: round,
+      difficulty: adaptMode.current,
+      stimulus: { description: def.description, tasks: def.tasks.map(t => ({ id: t.id, label: t.label, emoji: t.emoji, deps: t.deps })), task_count: def.tasks.length },
+      response: { completed: false, mistakes: roundMistakesRef.current, timed_out: true, execution_order: executionOrderRef.current },
+      isCorrect: false,
+      responseTimeMs: Date.now() - roundStart.current,
+      timeoutExtended: timeoutExtendedRef.current,
+      skipped: true,
+    }).catch(() => {});
     setShowTimeoutDialog(false);
     advance(round + 1);
   }
@@ -186,11 +198,6 @@ export default function TaskPlanningGame({ sessionId, onComplete }: Props) {
     if (s.status === 'done') return;
 
     if (s.status !== 'available') {
-      const missingDeps = s.task.deps.filter(dep =>
-        states.find(st => st.task.id === dep)?.status !== 'done'
-      );
-      void logEvent({ sessionId, gameId: 'task_planning', eventType: 'wrong_tap',
-        timestamp: Date.now(), data: { round, taskId: s.task.id, missingDeps } });
       roundMistakesRef.current += 1;
       totalMistakesRef.current += 1;
       setMistakes(m => m + 1);
@@ -210,8 +217,7 @@ export default function TaskPlanningGame({ sessionId, onComplete }: Props) {
     }
 
     // Correct tap
-    void logEvent({ sessionId, gameId: 'task_planning', eventType: 'task_done',
-      timestamp: Date.now(), data: { round, taskId: s.task.id, rt: Date.now() - roundStart.current } });
+    executionOrderRef.current = [...executionOrderRef.current, s.task.id];
 
     const next = recomputeAvailability(
       states.map((st, i) => i === idx ? { ...st, status: 'done' } : st)
@@ -224,33 +230,48 @@ export default function TaskPlanningGame({ sessionId, onComplete }: Props) {
       const timeBonus = Math.round(timerPct * 20);
       const pts = Math.max(0, 20 + timeBonus - mistakePenalty);
       scoreRef.current += pts;
-      void logEvent({ sessionId, gameId: 'task_planning', eventType: 'round_complete',
-        timestamp: Date.now(), data: { round, completed: true, mistakes: roundMistakesRef.current, pts } });
+      const def = getRoundDef(round, adaptMode.current);
+      logTrial({
+        sessionId,
+        gameId: 'task_planning',
+        trialIndex: round,
+        difficulty: adaptMode.current,
+        stimulus: { description: def.description, tasks: def.tasks.map(t => ({ id: t.id, label: t.label, emoji: t.emoji, deps: t.deps })), task_count: def.tasks.length },
+        response: { completed: true, mistakes: roundMistakesRef.current, timed_out: false, execution_order: executionOrderRef.current },
+        isCorrect: true,
+        responseTimeMs: Date.now() - roundStart.current,
+        timeoutExtended: timeoutExtendedRef.current,
+        skipped: false,
+      }).catch(() => {});
       setTimeout(() => advance(round + 1), 600);
     }
   }
 
   function checkAdaptation(completedRound: number) {
-    // Evaluate after round index 1 (2 rounds played) if still in normal mode
     if (completedRound !== 2 || adaptMode.current !== 'normal') return null;
     const total = totalMistakesRef.current;
 
     if (total === 0) {
       adaptMode.current = 'hard';
-      void logEvent({ sessionId, gameId: 'task_planning', eventType: 'adapt_difficulty',
-        timestamp: Date.now(), data: { mode: 'hard', totalMistakes: total } });
       return 'hard';
     } else if (total >= 4) {
       adaptMode.current = 'easy';
-      void logEvent({ sessionId, gameId: 'task_planning', eventType: 'adapt_difficulty',
-        timestamp: Date.now(), data: { mode: 'easy', totalMistakes: total } });
       return 'easy';
     }
     return null;
   }
 
   function advance(next: number) {
-    if (next >= ROUNDS) { setPhase('done'); onComplete(scoreRef.current); return; }
+    if (next >= ROUNDS) {
+      logGamePlay({
+        sessionId,
+        gameId: 'task_planning',
+        startedAt: gameStartRef.current,
+        endedAt: Date.now(),
+        strategyJson: { difficulty_mode: adaptMode.current, total_mistakes: totalMistakesRef.current },
+      }).catch(() => {});
+      setPhase('done'); onComplete(scoreRef.current); return;
+    }
     const newMode = checkAdaptation(next);
     if (newMode === 'hard') {
       setAdaptBanner('🔥 Impressive! Increasing complexity.');
@@ -269,7 +290,7 @@ export default function TaskPlanningGame({ sessionId, onComplete }: Props) {
         Figure out the correct order and tap them in sequence.{'\n\n'}
         Tap a task that isn't ready yet and you lose points — choose carefully.
       </Text>
-      <TouchableOpacity style={s.startBtn} onPress={() => startRound(0)}>
+      <TouchableOpacity style={s.startBtn} onPress={() => { gameStartRef.current = Date.now(); startRound(0); }}>
         <Text style={s.startBtnTxt}>Start →</Text>
       </TouchableOpacity>
     </View>

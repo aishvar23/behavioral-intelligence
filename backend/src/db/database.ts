@@ -106,6 +106,37 @@ export function initSchema(db: Database.Database) {
     );
 
     CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
+
+    CREATE TABLE IF NOT EXISTS trials (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id       TEXT    NOT NULL,
+      game_id          TEXT    NOT NULL,
+      game_variant     TEXT,
+      trial_index      INTEGER NOT NULL,
+      difficulty       TEXT    NOT NULL DEFAULT 'normal',
+      stimulus_json    TEXT    NOT NULL,
+      response_json    TEXT    NOT NULL,
+      is_correct       INTEGER NOT NULL DEFAULT 0,
+      response_error   REAL    NOT NULL DEFAULT 0,
+      response_time_ms INTEGER NOT NULL DEFAULT 0,
+      timeout_extended INTEGER NOT NULL DEFAULT 0,
+      skipped          INTEGER NOT NULL DEFAULT 0,
+      created_at       INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_trials_session ON trials(session_id);
+
+    CREATE TABLE IF NOT EXISTS game_plays (
+      id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id         TEXT    NOT NULL,
+      game_id            TEXT    NOT NULL,
+      game_variant       TEXT,
+      difficulty_adapted TEXT,
+      strategy_json      TEXT,
+      started_at         INTEGER NOT NULL,
+      ended_at           INTEGER,
+      created_at         INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_game_plays_session ON game_plays(session_id);
   `);
 
   // Migrations for existing databases — add columns that may be missing
@@ -231,6 +262,23 @@ export function saveUserTraitHistory(
     INSERT INTO user_trait_history (user_id, session_id, traits_json, game_results_json, occupation, created_at)
     VALUES (?, ?, ?, ?, ?, ?)
   `).run(userId, sessionId, traitsJson, gameResultsJson, occupation, Date.now());
+}
+
+/**
+ * Returns the most recent trait snapshot for every user except the given one.
+ * Used to compute cross-user percentile rankings.
+ */
+export function getAllLatestTraitsExcluding(excludeUserId: number): string[] {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT traits_json FROM user_trait_history
+    WHERE id IN (
+      SELECT MAX(id) FROM user_trait_history
+      WHERE user_id != ?
+      GROUP BY user_id
+    )
+  `).all(excludeUserId) as Array<{ traits_json: string }>;
+  return rows.map(r => r.traits_json);
 }
 
 export async function logLlmCall(log: LlmCallLog): Promise<void> {

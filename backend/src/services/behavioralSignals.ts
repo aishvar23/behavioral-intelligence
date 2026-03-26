@@ -1,21 +1,28 @@
 /**
  * Behavioral Signals Extractor
- * Converts raw DB events into human-readable signal strings for the LLM prompt.
+ * Converts structured TrialRecord rows into human-readable signal strings for the LLM prompt.
  * Each game type produces a 1-2 line summary of observed behaviors.
  */
 
-interface GameEvent {
-  game_id: string;
-  event_type: string;
-  timestamp: number;
-  data: Record<string, unknown>;
-}
+import { TrialRecord } from './traitEngine';
 
 interface GameResult {
   configId: string;
   gameType: string;
   title: string;
 }
+
+// Game ID sets — mirrors traitEngine groupings
+const RULE_DISCOVERY_IDS = ['black_box', 'black_box_standard', 'black_box_hard'];
+const PLANNING_IDS       = ['task_planning', 'task_planning_standard', 'task_planning_hard'];
+const MEMORY_IDS         = ['memory_colors', 'memory_numbers', 'memory_positions', 'memory_sequential', 'memory_faces', 'memory_code'];
+const LOGIC_IDS          = ['logic_verbal', 'logic_situational', 'logic_deduction', 'logic_patterns', 'logic_boolean', 'logic_quantitative'];
+const REACTION_IDS       = ['reaction_basic', 'reaction_inhibition', 'reaction_speed'];
+const STROOP_IDS         = ['stroop', 'stroop_classic'];
+const MATRIX_IDS         = ['matrix_puzzle', 'matrix_standard', 'matrix_advanced'];
+const SPATIAL_IDS        = ['spatial_rotation', 'spatial'];
+const ESTIMATION_IDS     = ['dot_estimation'];
+const SEARCH_IDS         = ['visual_search', 'visual_search_standard', 'visual_search_hard'];
 
 function avg(nums: number[]): number {
   return nums.length > 0 ? nums.reduce((a, b) => a + b, 0) / nums.length : 0;
@@ -25,68 +32,153 @@ function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
 
-// ── Memory ────────────────────────────────────────────────────────────────────
-function describeMemory(events: GameEvent[], title: string): string {
-  const rounds = events.filter(e => e.event_type === 'round_complete');
-  if (rounds.length === 0) return `${title}: No rounds recorded — game may have been skipped.`;
+function pct(n: number, total: number): number {
+  return total === 0 ? 0 : Math.round((n / total) * 100);
+}
 
-  const correctRounds = rounds.filter(e => e.data.correct === true).length;
-  const accuracy = Math.round((correctRounds / rounds.length) * 100);
-  const times = rounds
-    .map(e => e.data.responseTime as number)
-    .filter(t => typeof t === 'number' && t > 0);
-  const avgMs = times.length > 0 ? Math.round(avg(times)) : null;
+// ── Per-game description helpers ──────────────────────────────────────────────
 
-  const lastRound = rounds[rounds.length - 1];
-  const maxSeqLen = lastRound.data.sequenceLength as number ?? rounds.length + 3;
+function describeRuleDiscovery(trials: TrialRecord[], title: string): string {
+  const active = trials.filter(t => !t.skipped);
+  if (active.length === 0) return `${title}: No rounds recorded — game may have been skipped.`;
 
-  let line = `${title}: ${correctRounds}/${rounds.length} rounds recalled correctly (${accuracy}% accuracy), max sequence length reached: ${maxSeqLen}`;
-  if (avgMs !== null) line += `, avg response time ${(avgMs / 1000).toFixed(1)}s`;
+  const correct = active.filter(t => t.is_correct).length;
+  const testsPerRound = active.map(t => ((t.response.inputs_tested as unknown[]) ?? []).length);
+  const avgTests = round1(avg(testsPerRound));
+  const patterns = active.map(t => t.response.exploration_pattern as string).filter(Boolean);
+  const patternCounts: Record<string, number> = {};
+  for (const p of patterns) patternCounts[p] = (patternCounts[p] ?? 0) + 1;
+  const dominantPattern = Object.entries(patternCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
+
+  let line = `${title}: ${correct}/${active.length} predictions correct (${pct(correct, active.length)}% accuracy), avg ${avgTests} test inputs used per rule`;
+  if (dominantPattern) line += `, predominant exploration: ${dominantPattern}`;
   return line + '.';
 }
 
-// ── Logic / Deduction ─────────────────────────────────────────────────────────
-function describeLogic(events: GameEvent[], title: string): string {
-  const answers = events.filter(e => e.event_type === 'question_answer');
-  if (answers.length === 0) return `${title}: No answers recorded — game may have been skipped.`;
+function describePlanning(trials: TrialRecord[], title: string): string {
+  if (trials.length === 0) return `${title}: No rounds recorded — game may have been skipped.`;
 
-  const correct = answers.filter(e => e.data.correct === true).length;
-  const accuracy = Math.round((correct / answers.length) * 100);
-  const times = answers
-    .map(e => e.data.timeSpent as number)
-    .filter(t => typeof t === 'number' && t > 0);
-  const avgSec = times.length > 0 ? round1(avg(times)) : null;
+  const completed = trials.filter(t => t.response.completed === true);
+  const avgMistakes = completed.length > 0
+    ? round1(avg(completed.map(t => (t.response.mistakes as number) ?? 0)))
+    : 0;
 
-  let line = `${title}: ${correct}/${answers.length} questions answered correctly (${accuracy}% accuracy)`;
-  if (avgSec !== null) line += `, avg ${avgSec}s per question`;
-  if (answers.length < 7) line += ` — only ${answers.length}/7 questions attempted`;
+  let line = `${title}: ${completed.length}/${trials.length} tasks completed`;
+  if (completed.length > 0) line += `, avg ${avgMistakes} mistakes on completed tasks`;
   return line + '.';
 }
 
-// ── Reaction / Inhibition ─────────────────────────────────────────────────────
-function describeReaction(events: GameEvent[], title: string): string {
-  const responses = events.filter(e => e.event_type === 'stimulus_response');
-  if (responses.length === 0) return `${title}: No responses recorded — game may have been skipped.`;
+function describeMemory(trials: TrialRecord[], title: string): string {
+  const active = trials.filter(t => !t.skipped);
+  if (active.length === 0) return `${title}: No rounds recorded — game may have been skipped.`;
 
-  const correct = responses.filter(e => e.data.correct === true).length;
-  const accuracy = Math.round((correct / responses.length) * 100);
+  const correct = active.filter(t => t.is_correct).length;
+  const avgRt = Math.round(avg(active.map(t => t.response_time_ms)));
+  const maxSeqLen = Math.max(...active.map(t => (t.stimulus.sequence_length as number) ?? 0), 0);
 
-  const reactionTimes = responses
-    .filter(e => e.data.correct === true)
-    .map(e => e.data.reactionTime as number)
-    .filter(t => typeof t === 'number' && t > 0);
-  const avgMs = reactionTimes.length > 0 ? Math.round(avg(reactionTimes)) : null;
+  let line = `${title}: ${correct}/${active.length} sequences recalled correctly (${pct(correct, active.length)}% accuracy)`;
+  if (maxSeqLen > 0) line += `, max sequence length ${maxSeqLen}`;
+  if (avgRt > 0) line += `, avg response time ${(avgRt / 1000).toFixed(1)}s`;
+  return line + '.';
+}
 
-  // Impulse control: nogo trials where the user incorrectly responded
-  const nogoTrials = responses.filter(e => e.data.stimulusType === 'nogo');
-  const falseStarts = nogoTrials.filter(e => e.data.responded === true).length;
+function describeLogic(trials: TrialRecord[], title: string): string {
+  const active = trials.filter(t => !t.skipped);
+  if (active.length === 0) return `${title}: No questions recorded — game may have been skipped.`;
 
-  let line = `${title}: ${correct}/${responses.length} rounds correct (${accuracy}% accuracy)`;
-  if (avgMs !== null) line += `, avg reaction time ${avgMs}ms`;
+  const correct = active.filter(t => t.is_correct).length;
+  const avgSec = round1(avg(active.map(t => t.response_time_ms)) / 1000);
+
+  let line = `${title}: ${correct}/${active.length} questions answered correctly (${pct(correct, active.length)}% accuracy)`;
+  if (avgSec > 0) line += `, avg ${avgSec}s per question`;
+  if (active.length < 7) line += ` — only ${active.length}/7 questions attempted`;
+  return line + '.';
+}
+
+function describeReaction(trials: TrialRecord[], title: string): string {
+  const active = trials.filter(t => !t.skipped);
+  if (active.length === 0) return `${title}: No stimuli recorded — game may have been skipped.`;
+
+  const correct = active.filter(t => t.is_correct).length;
+  const goCorrect = active.filter(t => (t.stimulus.stimulus_type as string) === 'go' && t.is_correct);
+  const avgRt = goCorrect.length > 0 ? Math.round(avg(goCorrect.map(t => t.response_time_ms))) : null;
+
+  const nogoTrials = active.filter(t => (t.stimulus.stimulus_type as string) === 'nogo');
+  const falseStarts = nogoTrials.filter(t => !t.is_correct).length;
+
+  let line = `${title}: ${correct}/${active.length} stimuli correct (${pct(correct, active.length)}% accuracy)`;
+  if (avgRt !== null) line += `, avg go-reaction ${avgRt}ms`;
   if (nogoTrials.length > 0) {
-    const impulseLabel = falseStarts > nogoTrials.length * 0.5 ? 'high impulsivity' : falseStarts > 0 ? 'some impulsivity' : 'good impulse control';
-    line += `, ${falseStarts}/${nogoTrials.length} stop-signals failed (${impulseLabel})`;
+    const label = falseStarts > nogoTrials.length * 0.5 ? 'high impulsivity'
+                : falseStarts > 0 ? 'some impulsivity'
+                : 'good impulse control';
+    line += `, ${falseStarts}/${nogoTrials.length} stop-signals failed (${label})`;
   }
+  return line + '.';
+}
+
+function describeStroop(trials: TrialRecord[], title: string): string {
+  const active = trials.filter(t => !t.skipped);
+  if (active.length === 0) return `${title}: No trials recorded — game may have been skipped.`;
+
+  const correct = active.filter(t => t.is_correct).length;
+  const avgRt = Math.round(avg(active.filter(t => t.is_correct).map(t => t.response_time_ms)));
+
+  const incongruent = active.filter(t => t.stimulus.congruent === false);
+  const congruent   = active.filter(t => t.stimulus.congruent === true);
+  let interferenceLine = '';
+  if (incongruent.length > 0 && congruent.length > 0) {
+    const incRt = Math.round(avg(incongruent.filter(t => t.is_correct).map(t => t.response_time_ms)));
+    const conRt = Math.round(avg(congruent.filter(t => t.is_correct).map(t => t.response_time_ms)));
+    if (incRt > 0 && conRt > 0) interferenceLine = `, interference cost ${incRt - conRt}ms`;
+  }
+
+  return `${title}: ${correct}/${active.length} correct (${pct(correct, active.length)}% accuracy), avg correct RT ${avgRt}ms${interferenceLine}.`;
+}
+
+function describeMatrix(trials: TrialRecord[], title: string): string {
+  const active = trials.filter(t => !t.skipped);
+  if (active.length === 0) return `${title}: No puzzles recorded — game may have been skipped.`;
+
+  const correct = active.filter(t => t.is_correct).length;
+  const avgRt = Math.round(avg(active.map(t => t.response_time_ms)));
+
+  return `${title}: ${correct}/${active.length} patterns solved correctly (${pct(correct, active.length)}% accuracy), avg ${(avgRt / 1000).toFixed(1)}s per puzzle.`;
+}
+
+function describeSpatial(trials: TrialRecord[], title: string): string {
+  const active = trials.filter(t => !t.skipped);
+  if (active.length === 0) return `${title}: No rotations recorded — game may have been skipped.`;
+
+  const correct = active.filter(t => t.is_correct).length;
+  const avgRt = Math.round(avg(active.map(t => t.response_time_ms)));
+
+  return `${title}: ${correct}/${active.length} rotations identified correctly (${pct(correct, active.length)}% accuracy), avg ${(avgRt / 1000).toFixed(1)}s per item.`;
+}
+
+function describeEstimation(trials: TrialRecord[], title: string): string {
+  const active = trials.filter(t => !t.skipped);
+  if (active.length === 0) return `${title}: No estimation rounds recorded — game may have been skipped.`;
+
+  const correct = active.filter(t => t.is_correct).length;
+  const avgError = round1(avg(active.map(t => t.response_error)));
+  const avgRt = Math.round(avg(active.filter(t => t.is_correct).map(t => t.response_time_ms)));
+
+  let line = `${title}: ${correct}/${active.length} estimates within acceptable range (${pct(correct, active.length)}% accuracy), avg error ${avgError}`;
+  if (avgRt > 0) line += `, avg decision time ${avgRt}ms`;
+  return line + '.';
+}
+
+function describeVisualSearch(trials: TrialRecord[], title: string): string {
+  if (trials.length === 0) return `${title}: No search rounds recorded — game may have been skipped.`;
+
+  const totalTargets = trials.reduce((s, t) => s + ((t.stimulus.total_targets as number) ?? 0), 0);
+  const found        = trials.reduce((s, t) => s + ((t.response.targets_found as number) ?? 0), 0);
+  const falseTaps    = trials.reduce((s, t) => s + ((t.response.false_taps as number) ?? 0), 0);
+  const hitRate = totalTargets > 0 ? pct(found, totalTargets) : 0;
+
+  let line = `${title}: ${found}/${totalTargets} targets found (${hitRate}% hit rate)`;
+  if (falseTaps > 0) line += `, ${falseTaps} false taps`;
   return line + '.';
 }
 
@@ -96,11 +188,12 @@ export interface GameBehaviorData {
     correctPredictions: number;
     totalPredictions: number;
     avgTestsUsed: number;
+    dominantExplorationPattern?: string;
   };
   planning_game?: {
     completedRounds: number;
     totalRounds: number;
-    totalMistakes: number;
+    avgMistakesOnCompleted: number;
   };
   memory_game?: {
     correctRounds: number;
@@ -119,88 +212,153 @@ export interface GameBehaviorData {
     falseStarts: number;
     totalTrials: number;
   };
+  stroop_game?: {
+    accuracy: number;
+    avgCorrectRtMs: number;
+    interferenceCostMs: number;
+  };
+  matrix_game?: {
+    accuracy: number;
+    avgRtSec: number;
+  };
+  spatial_game?: {
+    accuracy: number;
+    avgRtSec: number;
+  };
+  estimation_game?: {
+    accuracy: number;
+    avgError: number;
+  };
+  visual_search_game?: {
+    hitRate: number;
+    totalTargets: number;
+    targetsFound: number;
+    falseTaps: number;
+  };
+}
+
+// Map a gameResult configId/gameType to one of the ID sets above
+function trialsForGame(trials: TrialRecord[], game: GameResult): TrialRecord[] {
+  return trials.filter(
+    t => t.game_id === game.configId ||
+         t.game_id === game.gameType  ||
+         RULE_DISCOVERY_IDS.includes(t.game_id) && game.gameType === 'rule_discovery' ||
+         PLANNING_IDS.includes(t.game_id)       && game.gameType === 'planning'       ||
+         MEMORY_IDS.includes(t.game_id)         && game.gameType === 'memory'         ||
+         LOGIC_IDS.includes(t.game_id)          && game.gameType === 'logic'          ||
+         REACTION_IDS.includes(t.game_id)       && game.gameType === 'reaction'       ||
+         STROOP_IDS.includes(t.game_id)         && game.gameType === 'stroop'         ||
+         MATRIX_IDS.includes(t.game_id)         && game.gameType === 'matrix'         ||
+         SPATIAL_IDS.includes(t.game_id)        && game.gameType === 'spatial'        ||
+         ESTIMATION_IDS.includes(t.game_id)     && game.gameType === 'estimation'     ||
+         SEARCH_IDS.includes(t.game_id)         && game.gameType === 'visual_search'
+  );
 }
 
 export function extractStructuredBehaviorData(
-  events: GameEvent[],
+  trials: TrialRecord[],
   gameResults: GameResult[]
 ): GameBehaviorData {
   const data: GameBehaviorData = {};
 
   for (const game of gameResults) {
-    const gameEvents = events.filter(e => e.game_id === game.configId || e.game_id === game.gameType);
+    const gt = trialsForGame(trials, game);
 
     switch (game.gameType) {
       case 'rule_discovery': {
-        const predictions = gameEvents.filter(e => e.event_type === 'prediction_submitted' && !e.data.timedOut);
-        const correctPredictions = predictions.filter(e => e.data.correct).length;
-        const testsUsed = predictions.map(e => (e.data.testsUsed as number) ?? 6);
-        const avgTestsUsed = testsUsed.length > 0 ? round1(avg(testsUsed)) : 0;
-        data.rule_discovery_game = {
-          correctPredictions,
-          totalPredictions: predictions.length,
-          avgTestsUsed,
-        };
+        const active = gt.filter(t => !t.skipped);
+        if (active.length === 0) break;
+        const correct = active.filter(t => t.is_correct).length;
+        const testsUsed = active.map(t => ((t.response.inputs_tested as unknown[]) ?? []).length);
+        const avgTestsUsed = round1(avg(testsUsed));
+        const patterns = active.map(t => t.response.exploration_pattern as string).filter(Boolean);
+        const patternCounts: Record<string, number> = {};
+        for (const p of patterns) patternCounts[p] = (patternCounts[p] ?? 0) + 1;
+        const dominantExplorationPattern = Object.entries(patternCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
+        data.rule_discovery_game = { correctPredictions: correct, totalPredictions: active.length, avgTestsUsed, dominantExplorationPattern };
         break;
       }
       case 'planning': {
-        const completions = gameEvents.filter(e => e.event_type === 'round_complete');
-        const completedRounds = completions.filter(e => e.data.completed).length;
-        const totalMistakes = completions.reduce((sum, e) => sum + ((e.data.mistakes as number) ?? 0), 0);
-        data.planning_game = {
-          completedRounds,
-          totalRounds: completions.length,
-          totalMistakes,
-        };
+        if (gt.length === 0) break;
+        const completed = gt.filter(t => t.response.completed === true);
+        const avgMistakesOnCompleted = completed.length > 0
+          ? round1(avg(completed.map(t => (t.response.mistakes as number) ?? 0)))
+          : 0;
+        data.planning_game = { completedRounds: completed.length, totalRounds: gt.length, avgMistakesOnCompleted };
         break;
       }
       case 'memory': {
-        const rounds = gameEvents.filter(e => e.event_type === 'round_complete');
-        if (rounds.length === 0) break;
-
-        const correctRounds = rounds.filter(e => e.data.correct === true).length;
-        const times = rounds
-          .map(e => e.data.responseTime as number)
-          .filter(t => typeof t === 'number' && t > 0);
+        const active = gt.filter(t => !t.skipped);
+        if (active.length === 0) break;
+        const correct = active.filter(t => t.is_correct).length;
+        const times = active.map(t => t.response_time_ms).filter(t => t > 0);
         const avgResponseTimeSec = times.length > 0 ? round1(avg(times) / 1000) : 0;
-        const lastRound = rounds[rounds.length - 1];
-        const maxSequenceLength = (lastRound.data.sequenceLength as number) ?? rounds.length + 3;
-
-        data.memory_game = { correctRounds, totalRounds: rounds.length, maxSequenceLength, avgResponseTimeSec };
+        const maxSequenceLength = Math.max(...active.map(t => (t.stimulus.sequence_length as number) ?? 0), 0);
+        data.memory_game = { correctRounds: correct, totalRounds: active.length, maxSequenceLength, avgResponseTimeSec };
         break;
       }
       case 'logic': {
-        const answers = gameEvents.filter(e => e.event_type === 'question_answer');
-        if (answers.length === 0) break;
-
-        const correct = answers.filter(e => e.data.correct === true).length;
-        const times = answers
-          .map(e => e.data.timeSpent as number)
-          .filter(t => typeof t === 'number' && t > 0);
-        const avgTimePerQuestionSec = times.length > 0 ? round1(avg(times)) : 0;
-
-        data.logic_game = { correctAnswers: correct, totalQuestions: answers.length, avgTimePerQuestionSec };
+        const active = gt.filter(t => !t.skipped);
+        if (active.length === 0) break;
+        const correct = active.filter(t => t.is_correct).length;
+        const avgTimePerQuestionSec = round1(avg(active.map(t => t.response_time_ms)) / 1000);
+        data.logic_game = { correctAnswers: correct, totalQuestions: active.length, avgTimePerQuestionSec };
         break;
       }
       case 'reaction': {
-        const responses = gameEvents.filter(e => e.event_type === 'stimulus_response');
-        if (responses.length === 0) break;
-
-        const correct = responses.filter(e => e.data.correct === true).length;
-        const reactionTimes = responses
-          .filter(e => e.data.correct === true)
-          .map(e => e.data.reactionTime as number)
-          .filter(t => typeof t === 'number' && t > 0);
-        const avgReactionTimeMs = reactionTimes.length > 0 ? Math.round(avg(reactionTimes)) : 0;
-        const nogoTrials = responses.filter(e => e.data.stimulusType === 'nogo');
-        const falseStarts = nogoTrials.filter(e => e.data.responded === true).length;
-
-        data.reaction_game = {
-          accuracy: Math.round((correct / responses.length) * 100),
-          avgReactionTimeMs,
-          falseStarts,
-          totalTrials: responses.length,
-        };
+        const active = gt.filter(t => !t.skipped);
+        if (active.length === 0) break;
+        const correct = active.filter(t => t.is_correct).length;
+        const goCorrect = active.filter(t => (t.stimulus.stimulus_type as string) === 'go' && t.is_correct);
+        const avgReactionTimeMs = goCorrect.length > 0 ? Math.round(avg(goCorrect.map(t => t.response_time_ms))) : 0;
+        const nogoTrials = active.filter(t => (t.stimulus.stimulus_type as string) === 'nogo');
+        const falseStarts = nogoTrials.filter(t => !t.is_correct).length;
+        data.reaction_game = { accuracy: pct(correct, active.length), avgReactionTimeMs, falseStarts, totalTrials: active.length };
+        break;
+      }
+      case 'stroop': {
+        const active = gt.filter(t => !t.skipped);
+        if (active.length === 0) break;
+        const correct = active.filter(t => t.is_correct).length;
+        const avgCorrectRtMs = Math.round(avg(active.filter(t => t.is_correct).map(t => t.response_time_ms)));
+        const incongruent = active.filter(t => t.stimulus.congruent === false && t.is_correct);
+        const congruent   = active.filter(t => t.stimulus.congruent === true  && t.is_correct);
+        const interferenceCostMs = (incongruent.length > 0 && congruent.length > 0)
+          ? Math.round(avg(incongruent.map(t => t.response_time_ms)) - avg(congruent.map(t => t.response_time_ms)))
+          : 0;
+        data.stroop_game = { accuracy: pct(correct, active.length), avgCorrectRtMs, interferenceCostMs };
+        break;
+      }
+      case 'matrix': {
+        const active = gt.filter(t => !t.skipped);
+        if (active.length === 0) break;
+        const correct = active.filter(t => t.is_correct).length;
+        const avgRtSec = round1(avg(active.map(t => t.response_time_ms)) / 1000);
+        data.matrix_game = { accuracy: pct(correct, active.length), avgRtSec };
+        break;
+      }
+      case 'spatial': {
+        const active = gt.filter(t => !t.skipped);
+        if (active.length === 0) break;
+        const correct = active.filter(t => t.is_correct).length;
+        const avgRtSec = round1(avg(active.map(t => t.response_time_ms)) / 1000);
+        data.spatial_game = { accuracy: pct(correct, active.length), avgRtSec };
+        break;
+      }
+      case 'estimation': {
+        const active = gt.filter(t => !t.skipped);
+        if (active.length === 0) break;
+        const correct = active.filter(t => t.is_correct).length;
+        const avgError = round1(avg(active.map(t => t.response_error)));
+        data.estimation_game = { accuracy: pct(correct, active.length), avgError };
+        break;
+      }
+      case 'visual_search': {
+        if (gt.length === 0) break;
+        const totalTargets = gt.reduce((s, t) => s + ((t.stimulus.total_targets as number) ?? 0), 0);
+        const targetsFound = gt.reduce((s, t) => s + ((t.response.targets_found as number) ?? 0), 0);
+        const falseTaps    = gt.reduce((s, t) => s + ((t.response.false_taps as number) ?? 0), 0);
+        data.visual_search_game = { hitRate: pct(targetsFound, totalTargets), totalTargets, targetsFound, falseTaps };
         break;
       }
     }
@@ -209,32 +367,31 @@ export function extractStructuredBehaviorData(
   return data;
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
+// ── Public text summary API ───────────────────────────────────────────────────
 export function extractBehavioralSignals(
-  events: GameEvent[],
+  trials: TrialRecord[],
   gameResults: GameResult[]
 ): string {
-  if (events.length === 0) return 'No behavioral event data was recorded for this session.';
+  if (trials.length === 0) return 'No behavioral trial data was recorded for this session.';
 
   const lines: string[] = [];
 
   for (const game of gameResults) {
-    const gameEvents = events.filter(e => e.game_id === game.configId || e.game_id === game.gameType);
+    const gt = trialsForGame(trials, game);
 
     switch (game.gameType) {
-      case 'memory':
-        lines.push(describeMemory(gameEvents, game.title));
-        break;
-      case 'logic':
-        lines.push(describeLogic(gameEvents, game.title));
-        break;
-      case 'reaction':
-        lines.push(describeReaction(gameEvents, game.title));
-        break;
+      case 'rule_discovery':  lines.push(describeRuleDiscovery(gt, game.title)); break;
+      case 'planning':        lines.push(describePlanning(gt, game.title));      break;
+      case 'memory':          lines.push(describeMemory(gt, game.title));        break;
+      case 'logic':           lines.push(describeLogic(gt, game.title));         break;
+      case 'reaction':        lines.push(describeReaction(gt, game.title));      break;
+      case 'stroop':          lines.push(describeStroop(gt, game.title));        break;
+      case 'matrix':          lines.push(describeMatrix(gt, game.title));        break;
+      case 'spatial':         lines.push(describeSpatial(gt, game.title));       break;
+      case 'estimation':      lines.push(describeEstimation(gt, game.title));    break;
+      case 'visual_search':   lines.push(describeVisualSearch(gt, game.title));  break;
       default:
-        if (gameEvents.length > 0) {
-          lines.push(`${game.title}: ${gameEvents.length} events recorded.`);
-        }
+        if (gt.length > 0) lines.push(`${game.title}: ${gt.length} trials recorded.`);
     }
   }
 

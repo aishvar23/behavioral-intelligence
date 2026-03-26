@@ -21,6 +21,39 @@ export async function logEvent(event: GameEvent): Promise<void> {
   await api.post('/event', event);
 }
 
+export interface TrialPayload {
+  sessionId:       string;
+  gameId:          string;
+  gameVariant?:    string | null;
+  trialIndex:      number;
+  difficulty?:     string;
+  stimulus:        Record<string, unknown>;
+  response:        Record<string, unknown>;
+  isCorrect:       boolean;
+  responseError?:  number;
+  responseTimeMs:  number;
+  timeoutExtended?:boolean;
+  skipped?:        boolean;
+}
+
+export interface GamePlayPayload {
+  sessionId:         string;
+  gameId:            string;
+  gameVariant?:      string | null;
+  difficultyAdapted?:string | null;
+  strategyJson?:     Record<string, unknown> | null;
+  startedAt:         number;
+  endedAt?:          number | null;
+}
+
+export async function logTrial(trial: TrialPayload): Promise<void> {
+  await api.post('/trial', trial);
+}
+
+export async function logGamePlay(play: GamePlayPayload): Promise<void> {
+  await api.post('/game-play', play);
+}
+
 export interface TraitScores {
   curiosity: number;
   persistence: number;
@@ -68,9 +101,12 @@ export interface SkillDevelopment {
   activities: string[];
 }
 
+export type TraitPercentiles = Record<keyof TraitScores, number | null>;
+
 export interface FullReport {
   traits: TraitScores;
   gameResults: GameResult[];
+  traitPercentiles?: TraitPercentiles;
   thinkingStyle: string;
   aiReport: string;
   progressSummary?: string;
@@ -110,6 +146,26 @@ export async function selectGames(
     pool,
     userId,
   });
+  return response.data;
+}
+
+// ── History ───────────────────────────────────────────────────────────────────
+
+export interface SessionHistory {
+  sessionId:   string;
+  traits:      TraitScores;
+  gameResults: Array<{ configId: string; gameType: string; title: string; emoji: string; score: number }>;
+  occupation:  string;
+  createdAt:   number;
+}
+
+export interface UserHistoryResponse {
+  history:            SessionHistory[];
+  currentPercentiles: TraitPercentiles;
+}
+
+export async function getUserHistory(): Promise<UserHistoryResponse> {
+  const response = await api.get<UserHistoryResponse>('/user-history');
   return response.data;
 }
 

@@ -6,7 +6,7 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { logEvent } from '../../services/api';
+import { logTrial, logGamePlay } from '../../services/api';
 
 interface Props {
   sessionId: string;
@@ -88,6 +88,9 @@ export default function VisualSearchGame({ sessionId, onComplete }: Props) {
   const scoreRef = useRef(0);
   const roundStart = useRef(0);
   const timerInterval = useRef<ReturnType<typeof setInterval>>();
+  const gameStartRef = useRef(0);
+  const falseTapsRef = useRef(0);
+  const timeoutExtendedRef = useRef(false);
 
   const startRound = useCallback((r: number) => {
     const pairIdx = pairOrderRef.current[r];
@@ -97,6 +100,8 @@ export default function VisualSearchGame({ sessionId, onComplete }: Props) {
     setFoundCount(0);
     setTimerPct(1);
     setShowTimeoutDialog(false);
+    falseTapsRef.current = 0;
+    timeoutExtendedRef.current = false;
     roundStart.current = Date.now();
     setPhase('playing');
   }, []);
@@ -115,16 +120,25 @@ export default function VisualSearchGame({ sessionId, onComplete }: Props) {
   }, [phase, round, timerKey]);
 
   function handleMoreTime() {
-    logEvent({ sessionId, gameId: 'visual_search', eventType: 'timeout_extended',
-      timestamp: Date.now(), data: { round, extensionSecs: 20 } }).catch(() => {});
+    timeoutExtendedRef.current = true;
     roundStart.current = Date.now();
     setShowTimeoutDialog(false);
     setTimerKey(k => k + 1);
   }
 
   function handleSkipRound() {
-    logEvent({ sessionId, gameId: 'visual_search', eventType: 'timeout_skip',
-      timestamp: Date.now(), data: { round } }).catch(() => {});
+    const pair = SYMBOL_PAIRS[pairOrderRef.current[round] ?? 0];
+    logTrial({
+      sessionId,
+      gameId: 'visual_search',
+      trialIndex: round,
+      stimulus: { target_symbol: pair.target, distractor_symbol: pair.distractor, total_targets: targetCount, grid_size: GRID_SIZE },
+      response: { targets_found: foundCount, false_taps: falseTapsRef.current, timed_out: true },
+      isCorrect: false,
+      responseTimeMs: Date.now() - roundStart.current,
+      timeoutExtended: timeoutExtendedRef.current,
+      skipped: true,
+    }).catch(() => {});
     // Reveal unfound targets briefly before advancing
     setCells(prev => prev.map(c => c.isTarget && !c.tapped ? { ...c, wrong: true } : c));
     setShowTimeoutDialog(false);
@@ -136,9 +150,7 @@ export default function VisualSearchGame({ sessionId, onComplete }: Props) {
     const cell = cells[idx];
     if (cell.tapped || cell.wrong) return;
 
-    const rt = Date.now() - roundStart.current;
     const isCorrect = cell.isTarget;
-    void logEvent({ sessionId, gameId: 'visual_search', eventType: 'target_tapped', timestamp: Date.now(), data: { correct: isCorrect, responseTime: rt, round } });
 
     if (isCorrect) {
       const newFound = foundCount + 1;
@@ -149,12 +161,24 @@ export default function VisualSearchGame({ sessionId, onComplete }: Props) {
         const timeBonus = Math.round(timerPct * 10);
         const pts = 15 + timeBonus;
         scoreRef.current += pts;
+        const pair = SYMBOL_PAIRS[pairOrderRef.current[round] ?? 0];
+        logTrial({
+          sessionId,
+          gameId: 'visual_search',
+          trialIndex: round,
+          stimulus: { target_symbol: pair.target, distractor_symbol: pair.distractor, total_targets: targetCount, grid_size: GRID_SIZE },
+          response: { targets_found: newFound, false_taps: falseTapsRef.current, timed_out: false },
+          isCorrect: true,
+          responseTimeMs: Date.now() - roundStart.current,
+          timeoutExtended: timeoutExtendedRef.current,
+          skipped: false,
+        }).catch(() => {});
         setTimeout(() => nextRound(round, true, pts), 600);
       }
     } else {
+      falseTapsRef.current += 1;
       setCells(prev => prev.map((c, i) => i === idx ? { ...c, wrong: true } : c));
-      scoreRef.current = Math.max(0, scoreRef.current - 5); // increased penalty for wrong taps
-      // Reset wrong highlight after a moment
+      scoreRef.current = Math.max(0, scoreRef.current - 5);
       setTimeout(() => {
         setCells(prev => prev.map((c, i) => i === idx ? { ...c, wrong: false } : c));
       }, 500);
@@ -164,6 +188,13 @@ export default function VisualSearchGame({ sessionId, onComplete }: Props) {
   function nextRound(currentRound: number, _completed: boolean, _pts: number) {
     const next = currentRound + 1;
     if (next >= ROUNDS) {
+      logGamePlay({
+        sessionId,
+        gameId: 'visual_search',
+        startedAt: gameStartRef.current,
+        endedAt: Date.now(),
+        strategyJson: { total_rounds: ROUNDS, grid_size: GRID_SIZE },
+      }).catch(() => {});
       setPhase('done');
       onComplete(scoreRef.current);
     } else {
@@ -180,7 +211,7 @@ export default function VisualSearchGame({ sessionId, onComplete }: Props) {
         A grid of symbols will appear.{'\n'}Most are the same — a few are different.{'\n\n'}
         Tap all the <Text style={s.em}>odd ones out</Text> as fast as you can!
       </Text>
-      <TouchableOpacity style={s.startBtn} onPress={() => startRound(0)}>
+      <TouchableOpacity style={s.startBtn} onPress={() => { gameStartRef.current = Date.now(); startRound(0); }}>
         <Text style={s.startBtnTxt}>Start →</Text>
       </TouchableOpacity>
     </View>

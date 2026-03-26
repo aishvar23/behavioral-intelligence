@@ -11,7 +11,7 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { logEvent } from '../../services/api';
+import { logTrial, logGamePlay } from '../../services/api';
 
 interface Props {
   sessionId: string;
@@ -69,6 +69,9 @@ export default function BlackBoxGame({ sessionId, onComplete }: Props) {
   const adaptMode = useRef<'normal' | 'hard' | 'easy'>('normal');
   const timeLimit = useRef(TIME_NORMAL);
   const roundResults = useRef<RoundResult[]>([]);
+  const gameStartRef = useRef(0);
+  const backspaceCountRef = useRef(0);
+  const timeoutExtendedRef = useRef(false);
 
   // Current rule derived from round + adaptMode (re-derived each render)
   const ruleIdx = getRuleIndex(round, adaptMode.current);
@@ -82,6 +85,8 @@ export default function BlackBoxGame({ sessionId, onComplete }: Props) {
     setTimerPct(1);
     setAdaptBanner(null);
     roundStart.current = Date.now();
+    backspaceCountRef.current = 0;
+    timeoutExtendedRef.current = false;
     setRound(r);
     setPhase('playing');
   }, []);
@@ -100,9 +105,20 @@ export default function BlackBoxGame({ sessionId, onComplete }: Props) {
     return () => clearInterval(timerInterval.current);
   }, [phase, round, submitted, timerKey]);
 
+  function computeExplorationPattern(tests: TestPair[]): string {
+    if (tests.length <= 1) return 'single';
+    const inputs = tests.map(p => p.input);
+    const diffs = inputs.slice(1).map((v, i) => v - inputs[i]);
+    const allPos = diffs.every(d => d > 0);
+    const allNeg = diffs.every(d => d < 0);
+    if (allPos || allNeg) return 'sequential';
+    const range = Math.max(...inputs) - Math.min(...inputs);
+    if (range >= 4) return 'sparse';
+    return 'scattered';
+  }
+
   function handleMoreTime() {
-    logEvent({ sessionId, gameId: 'black_box', eventType: 'timeout_extended',
-      timestamp: Date.now(), data: { round, extensionSecs: 30 } }).catch(() => {});
+    timeoutExtendedRef.current = true;
     roundStart.current = Date.now();
     timeLimit.current = 30_000;
     setShowTimeoutDialog(false);
@@ -110,11 +126,26 @@ export default function BlackBoxGame({ sessionId, onComplete }: Props) {
   }
 
   function handleSkipRound() {
-    logEvent({ sessionId, gameId: 'black_box', eventType: 'timeout_skip',
-      timestamp: Date.now(), data: { round } }).catch(() => {});
+    const rt = Date.now() - roundStart.current;
     roundResults.current.push({ correct: false, testsUsed: 0 });
-    void logEvent({ sessionId, gameId: 'black_box', eventType: 'prediction_submitted',
-      timestamp: Date.now(), data: { round, predicted: null, correct: false, testsUsed: tested.length, timedOut: true } });
+    logTrial({
+      sessionId,
+      gameId: 'black_box',
+      trialIndex: round,
+      difficulty: adaptMode.current,
+      stimulus: { rule_label: rule.label, challenge_input: rule.challenge, correct_answer: rule.fn(rule.challenge) },
+      response: {
+        inputs_tested: tested.map((p, i) => ({ input: p.input, output: p.output, position: i + 1 })),
+        exploration_pattern: computeExplorationPattern(tested),
+        prediction: null,
+        backspace_count: backspaceCountRef.current,
+      },
+      isCorrect: false,
+      responseError: 1,
+      responseTimeMs: rt,
+      timeoutExtended: timeoutExtendedRef.current,
+      skipped: true,
+    }).catch(() => {});
     setSubmitted(true);
     setWasCorrect(false);
     setShowTimeoutDialog(false);
@@ -127,8 +158,6 @@ export default function BlackBoxGame({ sessionId, onComplete }: Props) {
     const output = rule.fn(val);
     const next = [...tested, { input: val, output }];
     setTested(next);
-    void logEvent({ sessionId, gameId: 'black_box', eventType: 'input_tested',
-      timestamp: Date.now(), data: { round, input: val, output } });
   }
 
   function handleDigit(d: string) {
@@ -138,6 +167,7 @@ export default function BlackBoxGame({ sessionId, onComplete }: Props) {
   }
 
   function handleBackspace() {
+    backspaceCountRef.current += 1;
     setAnswerDigits(prev => prev.slice(0, -1));
   }
 
@@ -145,7 +175,8 @@ export default function BlackBoxGame({ sessionId, onComplete }: Props) {
     if (submitted || answerDigits.length === 0) return;
     clearInterval(timerInterval.current);
     const predicted = parseInt(answerDigits, 10);
-    const correct = predicted === rule.fn(rule.challenge);
+    const correctAnswer = rule.fn(rule.challenge);
+    const correct = predicted === correctAnswer;
     const testsUsed = tested.length;
     const rt = Date.now() - roundStart.current;
 
@@ -157,13 +188,28 @@ export default function BlackBoxGame({ sessionId, onComplete }: Props) {
 
     setSubmitted(true); // set immediately for instant visual feedback
     setWasCorrect(correct);
-    void logEvent({ sessionId, gameId: 'black_box', eventType: 'prediction_submitted',
-      timestamp: Date.now(), data: { round, predicted, correct, testsUsed, responseTime: rt } });
+    logTrial({
+      sessionId,
+      gameId: 'black_box',
+      trialIndex: round,
+      difficulty: adaptMode.current,
+      stimulus: { rule_label: rule.label, challenge_input: rule.challenge, correct_answer: correctAnswer },
+      response: {
+        inputs_tested: tested.map((p, i) => ({ input: p.input, output: p.output, position: i + 1 })),
+        exploration_pattern: computeExplorationPattern(tested),
+        prediction: predicted,
+        backspace_count: backspaceCountRef.current,
+      },
+      isCorrect: correct,
+      responseError: correct ? 0 : Math.min(1, Math.abs(predicted - correctAnswer) / Math.max(1, Math.abs(correctAnswer))),
+      responseTimeMs: rt,
+      timeoutExtended: timeoutExtendedRef.current,
+      skipped: false,
+    }).catch(() => {});
     nextTimerRef.current = setTimeout(() => advance(round + 1), correct ? 1500 : 5000);
   }
 
   function checkAdaptation(completedRound: number) {
-    // Evaluate after round index 2 (3 rounds played) if still in normal mode
     if (completedRound !== 3 || adaptMode.current !== 'normal') return null;
     const results = roundResults.current.slice(0, 3);
     const correctCount = results.filter(r => r.correct).length;
@@ -172,21 +218,29 @@ export default function BlackBoxGame({ sessionId, onComplete }: Props) {
     if (correctCount >= 2 && avgTests <= 2.5) {
       adaptMode.current = 'hard';
       timeLimit.current = TIME_HARD;
-      void logEvent({ sessionId, gameId: 'black_box', eventType: 'adapt_difficulty',
-        timestamp: Date.now(), data: { mode: 'hard', correctCount, avgTests } });
       return 'hard';
     } else if (correctCount <= 1) {
       adaptMode.current = 'easy';
       timeLimit.current = TIME_EASY;
-      void logEvent({ sessionId, gameId: 'black_box', eventType: 'adapt_difficulty',
-        timestamp: Date.now(), data: { mode: 'easy', correctCount, avgTests } });
       return 'easy';
     }
     return null;
   }
 
   function advance(next: number) {
-    if (next >= ROUNDS) { setPhase('done'); onComplete(scoreRef.current); return; }
+    if (next >= ROUNDS) {
+      const results = roundResults.current;
+      const correctCount = results.filter(r => r.correct).length;
+      const avgTests = results.length > 0 ? results.reduce((s, r) => s + r.testsUsed, 0) / results.length : 0;
+      logGamePlay({
+        sessionId,
+        gameId: 'black_box',
+        startedAt: gameStartRef.current,
+        endedAt: Date.now(),
+        strategyJson: { difficulty_mode: adaptMode.current, correct_rounds: correctCount, avg_tests_per_round: Math.round(avgTests * 10) / 10 },
+      }).catch(() => {});
+      setPhase('done'); onComplete(scoreRef.current); return;
+    }
     const newMode = checkAdaptation(next);
     if (newMode === 'hard') {
       setAdaptBanner('🔥 Stepping it up — harder rules ahead!');
@@ -205,7 +259,7 @@ export default function BlackBoxGame({ sessionId, onComplete }: Props) {
         Test input numbers to see their outputs.{'\n'}
         Deduce the rule, then predict the output{'\n'}for a mystery number.
       </Text>
-      <TouchableOpacity style={s.startBtn} onPress={() => startRound(0)}>
+      <TouchableOpacity style={s.startBtn} onPress={() => { gameStartRef.current = Date.now(); startRound(0); }}>
         <Text style={s.startBtnTxt}>Start →</Text>
       </TouchableOpacity>
     </View>
