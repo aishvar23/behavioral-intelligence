@@ -14,7 +14,7 @@ import { useAuth } from '../context/AuthContext';
 type Props = NativeStackScreenProps<AuthStackParamList, 'Auth'>;
 
 export default function AuthScreen({ navigation }: Props) {
-  const { continueAsGuest, signInWithGoogle } = useAuth();
+  const { signInWithGoogle } = useAuth();
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -94,8 +94,8 @@ export default function AuthScreen({ navigation }: Props) {
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {/* Guest path */}
-      <TouchableOpacity onPress={continueAsGuest} activeOpacity={0.7}>
-        <Text style={styles.guestLink}>Continue as Guest</Text>
+      <TouchableOpacity onPress={() => navigation.navigate('GuestSetup')} activeOpacity={0.7}>
+        <Text style={styles.guestLink}>Continue without login →</Text>
       </TouchableOpacity>
     </View>
   );

@@ -11,6 +11,7 @@ import HistoryScreen from '../screens/HistoryScreen';
 import AuthScreen from '../screens/AuthScreen';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
+import GuestSetupScreen from '../screens/GuestSetupScreen';
 import { GameType } from '../data/gameCatalog';
 import { initSession } from '../services/session';
 import { AuthProvider, useAuth } from '../context/AuthContext';
@@ -50,13 +51,14 @@ export type AuthStackParamList = {
   Auth: undefined;
   Login: undefined;
   Register: undefined;
+  GuestSetup: undefined;
 };
 
 export type RootStackParamList = {
   Home: undefined;
   History: undefined;
   OccupationIntent: undefined;
-  UserProfile: undefined;
+  UserProfile: { mode?: 'edit' } | undefined;
   Game: {
     sessionId: string;
     userProfile: UserProfile;
@@ -102,6 +104,11 @@ function AuthNavigator() {
         name="Register"
         component={RegisterScreen}
         options={{ title: 'Create Account' }}
+      />
+      <AuthStack.Screen
+        name="GuestSetup"
+        component={GuestSetupScreen}
+        options={{ title: 'Quick Setup' }}
       />
     </AuthStack.Navigator>
   );
