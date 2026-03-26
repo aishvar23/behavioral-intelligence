@@ -12,6 +12,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { getCareerReport, FullReport, CareerRecommendation, GameObservation, SkillDevelopment } from '../services/api';
 import CareerCard from '../components/report/CareerCard';
+import { useAuth } from '../context/AuthContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Report'>;
 
@@ -47,6 +48,7 @@ const REPORT_PIN = '0987654321';
 
 export default function ReportScreen({ navigation, route }: Props) {
   const { sessionId, userProfile, gameResults, userId } = route.params;
+  const { auth, logout } = useAuth();
   const [report, setReport] = useState<FullReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMsg, setLoadingMsg] = useState(LOADING_MESSAGES[0]);
@@ -297,6 +299,16 @@ export default function ReportScreen({ navigation, route }: Props) {
       <TouchableOpacity style={styles.button} onPress={() => navigation.popToTop()}>
         <Text style={styles.buttonText}>Play Again</Text>
       </TouchableOpacity>
+
+      {!auth.isGuest && auth.userId ? (
+        <TouchableOpacity
+          onPress={async () => { await logout(); }}
+          activeOpacity={0.7}
+          style={styles.signOutRow}
+        >
+          <Text style={styles.signOutText}>Sign out</Text>
+        </TouchableOpacity>
+      ) : null}
     </ScrollView>
   );
 }
@@ -308,6 +320,8 @@ const styles = StyleSheet.create({
   loadingText: { color: '#9999cc', marginTop: 16, fontSize: 15, textAlign: 'center' },
   errorText: { color: '#ff6b6b', textAlign: 'center', fontSize: 16, marginBottom: 24 },
   button: { backgroundColor: '#5c6bc0', padding: 16, borderRadius: 30, alignItems: 'center', marginTop: 24, width: '100%' },
+  signOutRow: { alignItems: 'center', marginTop: 16, marginBottom: 8 },
+  signOutText: { color: '#4a4a7a', fontSize: 13, textDecorationLine: 'underline' },
   buttonDisabled: { backgroundColor: '#3a3a6e' },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   // PIN gate
