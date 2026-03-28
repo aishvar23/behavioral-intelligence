@@ -72,17 +72,24 @@ const CONFLICT_RULES: ConflictRule[] = [
     },
   },
 
-  // Panic vs. Priority — stress degrades triage = stress-fragile
+  // Panic vs. Priority — stress degrades triage accuracy = stress-fragile
+  // Spec: if high-priority accuracy drops >10% in Level 9 Meltdown vs earlier levels
+  // We approximate via scores: if Triage avg drops significantly below Panic Management level
   {
     name: 'Panic vs. Priority',
     traitA: 'T04', traitB: 'T01',
     check(panic, triage) {
-      // Panic Management score being low while triage drops hints stress fragility
-      // We approximate: if panic < 50 and triage < 70 → stress-fragile
-      if (panic < 50 && triage < 70) {
+      // Stress-Fragile: if panic management is low AND triage is low, OR
+      // if triage score drops well below panic score (indicating fair-weather triage only)
+      const stressFragile  = panic < 50 && triage < 70;
+      const fairWeather    = triage >= 70 && panic < triage - 15; // triage looks good but stress collapses it
+      if (stressFragile || fairWeather) {
+        const label = fairWeather ? 'Fair-Weather Triage' : 'Stress-Fragile';
         return {
-          rule: 'Panic vs. Priority', flag: 'Stress-Fragile',
-          description: `Both Panic Management (${Math.round(panic)}) and Triage (${Math.round(triage)}) are low, suggesting accuracy collapses under high-speed chaos conditions.`,
+          rule: 'Panic vs. Priority', flag: label,
+          description: fairWeather
+            ? `Triage score is solid (${Math.round(triage)}) but Panic Management is significantly lower (${Math.round(panic)}), suggesting priority accuracy will degrade during the Meltdown phase when conditions deteriorate.`
+            : `Both Panic Management (${Math.round(panic)}) and Triage (${Math.round(triage)}) are low, indicating accuracy collapses under high-speed chaos conditions — a Stress-Fragile profile.`,
           traitA: 'T04', traitB: 'T01', severity: 'warning',
         };
       }

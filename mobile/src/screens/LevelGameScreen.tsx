@@ -50,6 +50,7 @@ import LogicDeductionGame   from '../components/games/LogicDeductionGame';
 import ReactionTestGame     from '../components/games/ReactionTestGame';
 import StroopGame           from '../components/games/StroopGame';
 import VisualSearchGame     from '../components/games/VisualSearchGame';
+import TheReactorGame       from '../components/games/TheReactorGame';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LevelGame'>;
 
@@ -441,6 +442,14 @@ function renderGameComponent(
     case 'search':
       return (
         <VisualSearchGame
+          onComplete={onComplete}
+          sessionId={sid}
+        />
+      );
+    case 'reactor':
+      return (
+        <TheReactorGame
+          config={params as Parameters<typeof TheReactorGame>[0]['config']}
           onComplete={onComplete}
           sessionId={sid}
         />

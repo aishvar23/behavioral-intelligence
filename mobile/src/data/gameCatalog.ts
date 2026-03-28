@@ -6,7 +6,7 @@
  * near-unlimited variety. Add more GameConfig entries to scale toward 50,000+ configs.
  */
 
-export type GameType = 'memory' | 'logic' | 'reaction' | 'stroop' | 'matrix' | 'spatial' | 'estimation' | 'search' | 'rule_discovery' | 'planning';
+export type GameType = 'memory' | 'logic' | 'reaction' | 'stroop' | 'matrix' | 'spatial' | 'estimation' | 'search' | 'rule_discovery' | 'planning' | 'reactor';
 
 export interface GameConfig {
   id: string;
@@ -193,6 +193,20 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     title: 'Speed Challenge', emoji: '🏎️', difficulty: 'hard',
     description: 'Four targets, one highlighted — tap fast and accurately.',
     config: { variant: 'speed' },
+  },
+
+  // ── The Reactor variants (T01 Triage) ────────────────────────────────────
+  the_reactor_standard: {
+    id: 'the_reactor_standard', type: 'reactor',
+    title: 'The Reactor', emoji: '☢️', difficulty: 'medium',
+    description: 'Fuel rods fall into the core. Tap glowing rods into their bins — ignore steam distractors.',
+    config: { numBins: 2, fallDurationMs: 3500, distractors: false, highRatio: 0.4, distractorRatio: 0, totalRods: 12 },
+  },
+  the_reactor_hard: {
+    id: 'the_reactor_hard', type: 'reactor',
+    title: 'The Reactor: Meltdown', emoji: '⚡', difficulty: 'hard',
+    description: 'Meltdown mode — 6 bins, screen shakes, rods flicker, and priority rules flip every 15 seconds.',
+    config: { numBins: 6, fallDurationMs: 1800, distractors: true, highPriorityBoost: 0.25, oscillate: true, meltdown: true, highRatio: 0.35, distractorRatio: 0.2, totalRods: 24 },
   },
 };
 

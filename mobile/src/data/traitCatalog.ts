@@ -28,6 +28,14 @@ export interface LevelConfig {
   eliteLatencyMs: number;         // latency below this = elite
 }
 
+export interface ProfessionalBenchmark {
+  profession: string;
+  minLevel: number;
+  minAccuracy: number;       // 0–1
+  maxLatencyMs?: number;
+  notes?: string;
+}
+
 export interface TraitDefinition {
   id: string;               // T01, T04 …
   name: string;             // "Triage"
@@ -42,6 +50,10 @@ export interface TraitDefinition {
   // Skip rule threshold (only applied to Level 1)
   skipScore: number;        // e.g. 95 → jump to level 4 if score ≥ this
   skipToLevel: number;      // 4
+  // Professional benchmarks for the Archetype Card verdict
+  benchmarks?: ProfessionalBenchmark[];
+  // Trait Talk: which other trait validates this one
+  validatedBy?: string;     // trait ID
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -66,25 +78,95 @@ function levels(
 
 export const TRAIT_CATALOG: Record<string, TraitDefinition> = {
 
-  // ── T01 · Triage ─────────────────────────────────────────────────────────
+  // ── T01 · Triage — The Reactor ───────────────────────────────────────────
+  // Nuclear Core Maintenance: fuel rods fall into bins. Tap glowing (high-
+  // priority) rods, ignore steam/static distractors.
+  //
+  // Professional benchmarks:
+  //   Commercial Pilot : Level 9+ · ≥98% high-priority accuracy
+  //   ER Surgeon       : Level 8+ · decision latency < 300ms
+  //   Project Manager  : Level 7+ · 5+ bins, high sort efficiency
+  //
+  // Validated by: T04 Panic Management (Trait Talk — Stress-Fragile rule)
   T01: {
     id: 'T01', name: 'Triage', icon: '🚨',
-    description: 'Correctly prioritising high-importance signals under time pressure while ignoring distractors.',
-    gameEngine: 'reaction',
-    primaryGameId: 'reaction_inhibition',
+    description: 'Rapidly categorising incoming signals by importance — catching critical items while ignoring noise under escalating time pressure.',
+    gameEngine: 'reactor',
+    primaryGameId: 'the_reactor_standard',
     ceilingDropPct: 0.40, ceilingLevels: 3,
     skipScore: 95, skipToLevel: 4,
+    validatedBy: 'T04',
+    benchmarks: [
+      { profession: 'Commercial Pilot',  minLevel: 9, minAccuracy: 0.98, notes: '≥98% high-priority accuracy in Meltdown phase' },
+      { profession: 'ER Surgeon',        minLevel: 8, minAccuracy: 0.95, maxLatencyMs: 300, notes: 'Ultra-low decision latency (<300ms) required' },
+      { profession: 'Project Manager',   minLevel: 7, minAccuracy: 0.85, notes: 'High efficiency across 5+ bin configurations' },
+    ],
     levels: levels([
-      { level: 1,  label: 'Orientation',    speedMultiplier: 1.0, distractorDensity: 0.10, ruleShifting: false, uiInterference: false, gameParams: { variant: 'inhibition', trials: 10, goInterval: 1800 }, targetAccuracy: 0.70, eliteLatencyMs: 350 },
-      { level: 2,  label: 'Warm-up',        speedMultiplier: 1.1, distractorDensity: 0.15, ruleShifting: false, uiInterference: false, gameParams: { variant: 'inhibition', trials: 12, goInterval: 1600 }, targetAccuracy: 0.72, eliteLatencyMs: 340 },
-      { level: 3,  label: 'Active',         speedMultiplier: 1.2, distractorDensity: 0.20, ruleShifting: false, uiInterference: false, gameParams: { variant: 'inhibition', trials: 14, goInterval: 1400 }, targetAccuracy: 0.75, eliteLatencyMs: 320 },
-      { level: 4,  label: 'Pressure',       speedMultiplier: 1.3, distractorDensity: 0.30, ruleShifting: false, uiInterference: false, gameParams: { variant: 'inhibition', trials: 16, goInterval: 1200 }, targetAccuracy: 0.77, eliteLatencyMs: 310 },
-      { level: 5,  label: 'Surge',          speedMultiplier: 1.4, distractorDensity: 0.40, ruleShifting: false, uiInterference: false, gameParams: { variant: 'inhibition', trials: 18, goInterval: 1100 }, targetAccuracy: 0.78, eliteLatencyMs: 300 },
-      { level: 6,  label: 'Escalation',     speedMultiplier: 1.5, distractorDensity: 0.50, ruleShifting: true,  uiInterference: false, gameParams: { variant: 'inhibition', trials: 20, goInterval: 1000 }, targetAccuracy: 0.80, eliteLatencyMs: 290 },
-      { level: 7,  label: 'High Tempo',     speedMultiplier: 1.6, distractorDensity: 0.60, ruleShifting: true,  uiInterference: false, gameParams: { variant: 'speed',      trials: 20, goInterval: 900  }, targetAccuracy: 0.80, eliteLatencyMs: 280 },
-      { level: 8,  label: 'Chaos',          speedMultiplier: 1.7, distractorDensity: 0.70, ruleShifting: true,  uiInterference: true,  gameParams: { variant: 'speed',      trials: 22, goInterval: 800  }, targetAccuracy: 0.80, eliteLatencyMs: 270 },
-      { level: 9,  label: 'Crisis Mode',    speedMultiplier: 1.9, distractorDensity: 0.80, ruleShifting: true,  uiInterference: true,  gameParams: { variant: 'speed',      trials: 24, goInterval: 700  }, targetAccuracy: 0.80, eliteLatencyMs: 260 },
-      { level: 10, label: 'Extreme Triage', speedMultiplier: 2.0, distractorDensity: 0.90, ruleShifting: true,  uiInterference: true,  gameParams: { variant: 'speed',      trials: 26, goInterval: 600  }, targetAccuracy: 0.80, eliteLatencyMs: 250 },
+      // L1–2 · Baseline: 2 bins, slow fall, no distractors
+      {
+        level: 1, label: 'Cold Start',
+        speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false,
+        gameParams: { numBins: 2, fallDurationMs: 4000, distractors: false, highPriorityBoost: 0, oscillate: false, meltdown: false, totalRods: 10, highRatio: 0.40, distractorRatio: 0 },
+        targetAccuracy: 0.75, eliteLatencyMs: 350,
+      },
+      {
+        level: 2, label: 'Warm-Up',
+        speedMultiplier: 1.1, distractorDensity: 0.00, ruleShifting: false, uiInterference: false,
+        gameParams: { numBins: 2, fallDurationMs: 3600, distractors: false, highPriorityBoost: 0, oscillate: false, meltdown: false, totalRods: 12, highRatio: 0.40, distractorRatio: 0 },
+        targetAccuracy: 0.77, eliteLatencyMs: 340,
+      },
+      // L3–4 · Introduction of Noise: 3 bins, steam distractors begin
+      {
+        level: 3, label: 'Static Introduced',
+        speedMultiplier: 1.2, distractorDensity: 0.15, ruleShifting: false, uiInterference: false,
+        gameParams: { numBins: 3, fallDurationMs: 3200, distractors: true, highPriorityBoost: 0, oscillate: false, meltdown: false, totalRods: 14, highRatio: 0.38, distractorRatio: 0.15 },
+        targetAccuracy: 0.78, eliteLatencyMs: 330,
+      },
+      {
+        level: 4, label: 'Noise Rising',
+        speedMultiplier: 1.3, distractorDensity: 0.20, ruleShifting: false, uiInterference: false,
+        gameParams: { numBins: 3, fallDurationMs: 3000, distractors: true, highPriorityBoost: 0.05, oscillate: false, meltdown: false, totalRods: 15, highRatio: 0.38, distractorRatio: 0.20 },
+        targetAccuracy: 0.78, eliteLatencyMs: 320,
+      },
+      // L5–6 · Priority Shift: 4 bins, high-priority rods fall 20% faster
+      {
+        level: 5, label: 'Priority Surge',
+        speedMultiplier: 1.4, distractorDensity: 0.25, ruleShifting: false, uiInterference: false,
+        gameParams: { numBins: 4, fallDurationMs: 2800, distractors: true, highPriorityBoost: 0.20, oscillate: false, meltdown: false, totalRods: 16, highRatio: 0.38, distractorRatio: 0.20 },
+        targetAccuracy: 0.79, eliteLatencyMs: 310,
+      },
+      {
+        level: 6, label: 'Speed Split',
+        speedMultiplier: 1.5, distractorDensity: 0.30, ruleShifting: false, uiInterference: false,
+        gameParams: { numBins: 4, fallDurationMs: 2600, distractors: true, highPriorityBoost: 0.20, oscillate: false, meltdown: false, totalRods: 18, highRatio: 0.37, distractorRatio: 0.22 },
+        targetAccuracy: 0.80, eliteLatencyMs: 305,
+      },
+      // L7–8 · Environmental Stress: 5 bins, bins oscillate
+      {
+        level: 7, label: 'Unstable Core',
+        speedMultiplier: 1.6, distractorDensity: 0.40, ruleShifting: false, uiInterference: false,
+        gameParams: { numBins: 5, fallDurationMs: 2300, distractors: true, highPriorityBoost: 0.20, oscillate: true, meltdown: false, totalRods: 20, highRatio: 0.37, distractorRatio: 0.22 },
+        targetAccuracy: 0.80, eliteLatencyMs: 300,
+      },
+      {
+        level: 8, label: 'Critical Instability',
+        speedMultiplier: 1.7, distractorDensity: 0.50, ruleShifting: false, uiInterference: false,
+        gameParams: { numBins: 5, fallDurationMs: 2100, distractors: true, highPriorityBoost: 0.22, oscillate: true, meltdown: false, totalRods: 22, highRatio: 0.36, distractorRatio: 0.24 },
+        targetAccuracy: 0.80, eliteLatencyMs: 295,
+      },
+      // L9–10 · Elite / Pilot Grade: 6 bins, full meltdown mode
+      {
+        level: 9, label: 'Meltdown',
+        speedMultiplier: 1.9, distractorDensity: 0.70, ruleShifting: true, uiInterference: true,
+        gameParams: { numBins: 6, fallDurationMs: 1900, distractors: true, highPriorityBoost: 0.25, oscillate: true, meltdown: true, totalRods: 24, highRatio: 0.35, distractorRatio: 0.25 },
+        targetAccuracy: 0.80, eliteLatencyMs: 290,
+      },
+      {
+        level: 10, label: 'Core Breach',
+        speedMultiplier: 2.0, distractorDensity: 0.90, ruleShifting: true, uiInterference: true,
+        gameParams: { numBins: 6, fallDurationMs: 1700, distractors: true, highPriorityBoost: 0.25, oscillate: true, meltdown: true, totalRods: 26, highRatio: 0.35, distractorRatio: 0.25 },
+        targetAccuracy: 0.80, eliteLatencyMs: 280,
+      },
     ]),
   },
 
