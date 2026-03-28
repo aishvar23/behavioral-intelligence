@@ -6,7 +6,7 @@
  * near-unlimited variety. Add more GameConfig entries to scale toward 50,000+ configs.
  */
 
-export type GameType = 'memory' | 'logic' | 'reaction' | 'stroop' | 'matrix' | 'spatial' | 'estimation' | 'search' | 'rule_discovery' | 'planning' | 'reactor' | 'reactor_chaos';
+export type GameType = 'memory' | 'logic' | 'reaction' | 'stroop' | 'matrix' | 'spatial' | 'estimation' | 'search' | 'rule_discovery' | 'planning' | 'reactor' | 'reactor_chaos' | 'speed_reactor';
 
 export interface GameConfig {
   id: string;
@@ -193,6 +193,20 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     title: 'Speed Challenge', emoji: '🏎️', difficulty: 'hard',
     description: 'Four targets, one highlighted — tap fast and accurately.',
     config: { variant: 'speed' },
+  },
+
+  // ── Speed Reactor variants (T21 Processing Speed) ───────────────────────
+  t21_speed_standard: {
+    id: 't21_speed_standard', type: 'speed_reactor',
+    title: 'Speed Reactor', emoji: '⚡', difficulty: 'medium',
+    description: 'Tap each fuel rod the instant it appears — pure reaction time, no sorting required.',
+    config: { numBins: 2, fallDurationMs: 3000, totalRods: 12, highContrast: true, randomInterval: false, peripheralBias: false, maxSimultaneous: 1, instantRefresh: false, spawnIntervalMs: 1800, level: 1 },
+  },
+  t21_speed_hard: {
+    id: 't21_speed_hard', type: 'speed_reactor',
+    title: 'Speed Reactor: Elite', emoji: '🏎️', difficulty: 'hard',
+    description: 'Instant Refresh mode — rods spawn the moment you tap. Continuous Flow. Zero hesitation.',
+    config: { numBins: 4, fallDurationMs: 1400, totalRods: 24, highContrast: false, randomInterval: true, peripheralBias: true, maxSimultaneous: 2, instantRefresh: true, spawnIntervalMs: 900, level: 9 },
   },
 
   // ── Reactor Chaos variants (T04 Panic Management) ────────────────────────

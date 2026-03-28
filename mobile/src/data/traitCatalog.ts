@@ -394,25 +394,57 @@ export const TRAIT_CATALOG: Record<string, TraitDefinition> = {
     ]),
   },
 
-  // ── T21 · Processing Speed ───────────────────────────────────────────────
+  // ── T21 · Processing Speed — Speed Reactor ──────────────────────────────
+  // Nuclear Core — Reaction Phase: rods appear, measure spawn→tap delta.
+  // No sorting required; score is entirely RT-based.
+  //
+  // Level axes:
+  //   highContrast     L1-2: large bright rods, establish baseline
+  //   randomInterval   L3-4: jitter spawn timing — breaks rhythm anticipation
+  //   peripheralBias   L5-6: 70% of rods at edge columns — tests eye scanning
+  //   maxSimultaneous  L7-8: 2-3 rods per batch — must choose fastest first
+  //   instantRefresh   L9-10: next rod spawns on tap — Continuous Flow mode
+  //
+  // Score formula (0-100):
+  //   MRT score        = clamp(100 - (MRT - eliteMs) / 4, 0, 100) × 60%
+  //   Consistency      = clamp(20 × (1 - sdRT / 120), 0, 20) × 25%
+  //   Completion rate  = tapped / totalRods × 100 × 15%
+  //
+  // Professional benchmarks:
+  //   Commercial Pilot         : <280ms MRT + tight consistency (σ < 40ms)
+  //   Pro Esports Athlete      : <200ms MRT at L10
+  //   Data Entry Specialist    : Level 6+ with σ < 30ms
+  //
+  // Validated by: T01 Triage (Trait Talk — Overclocked rule: speed elite + triage low)
   T21: {
     id: 'T21', name: 'Processing Speed', icon: '⚡',
-    description: 'Responding accurately to stimuli in minimal time — the raw tempo of cognitive throughput.',
-    gameEngine: 'reaction',
-    primaryGameId: 'reaction_basic',
+    description: 'Tap each fuel rod the instant it appears — raw velocity from stimulus to touch, measured across progressive visual complexity.',
+    gameEngine: 'speed_reactor',
+    primaryGameId: 't21_speed_standard',
     ceilingDropPct: 0.40, ceilingLevels: 3,
     skipScore: 95, skipToLevel: 4,
+    validatedBy: 'T01',
+    benchmarks: [
+      { profession: 'Commercial Pilot',    minLevel: 8, minAccuracy: 0.85, maxLatencyMs: 280, notes: 'MRT <280ms with σ <40ms — consistent under pressure' },
+      { profession: 'Pro Esports Athlete', minLevel: 10, minAccuracy: 0.80, maxLatencyMs: 200, notes: 'MRT <200ms at L10 — elite attentional capture' },
+      { profession: 'Data Entry Specialist', minLevel: 6, minAccuracy: 0.90, notes: 'L6+ with near-zero motor variance (σ <30ms)' },
+    ],
     levels: levels([
-      { level: 1,  label: 'Ready',          speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { variant: 'basic', rounds: 8,  delayMs: 1000 }, targetAccuracy: 0.85, eliteLatencyMs: 280 },
-      { level: 2,  label: 'Alert',          speedMultiplier: 1.1, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { variant: 'basic', rounds: 9,  delayMs: 900  }, targetAccuracy: 0.85, eliteLatencyMs: 270 },
-      { level: 3,  label: 'Quick',          speedMultiplier: 1.2, distractorDensity: 0.10, ruleShifting: false, uiInterference: false, gameParams: { variant: 'basic', rounds: 10, delayMs: 800  }, targetAccuracy: 0.85, eliteLatencyMs: 260 },
-      { level: 4,  label: 'Fast',           speedMultiplier: 1.3, distractorDensity: 0.10, ruleShifting: false, uiInterference: false, gameParams: { variant: 'basic', rounds: 10, delayMs: 700  }, targetAccuracy: 0.84, eliteLatencyMs: 255 },
-      { level: 5,  label: 'Rapid',          speedMultiplier: 1.4, distractorDensity: 0.20, ruleShifting: false, uiInterference: false, gameParams: { variant: 'basic', rounds: 11, delayMs: 650  }, targetAccuracy: 0.83, eliteLatencyMs: 250 },
-      { level: 6,  label: 'Sprint',         speedMultiplier: 1.5, distractorDensity: 0.20, ruleShifting: false, uiInterference: false, gameParams: { variant: 'basic', rounds: 12, delayMs: 600  }, targetAccuracy: 0.82, eliteLatencyMs: 245 },
-      { level: 7,  label: 'Flash',          speedMultiplier: 1.6, distractorDensity: 0.30, ruleShifting: false, uiInterference: false, gameParams: { variant: 'speed', rounds: 12, delayMs: 550  }, targetAccuracy: 0.82, eliteLatencyMs: 240 },
-      { level: 8,  label: 'Instant',        speedMultiplier: 1.7, distractorDensity: 0.40, ruleShifting: true,  uiInterference: false, gameParams: { variant: 'speed', rounds: 13, delayMs: 500  }, targetAccuracy: 0.81, eliteLatencyMs: 235 },
-      { level: 9,  label: 'Reflex',         speedMultiplier: 1.8, distractorDensity: 0.50, ruleShifting: true,  uiInterference: false, gameParams: { variant: 'speed', rounds: 14, delayMs: 400  }, targetAccuracy: 0.80, eliteLatencyMs: 230 },
-      { level: 10, label: 'Apex',           speedMultiplier: 2.0, distractorDensity: 0.60, ruleShifting: true,  uiInterference: true,  gameParams: { variant: 'speed', rounds: 15, delayMs: 300  }, targetAccuracy: 0.78, eliteLatencyMs: 220 },
+      // L1-2: One rod at a time, high contrast — pure baseline
+      { level: 1,  label: 'Baseline',       speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { numBins: 2, fallDurationMs: 3500, totalRods: 10, highContrast: true,  randomInterval: false, peripheralBias: false, maxSimultaneous: 1, instantRefresh: false, spawnIntervalMs: 2000, level: 1 }, targetAccuracy: 0.85, eliteLatencyMs: 450 },
+      { level: 2,  label: 'Steady',         speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { numBins: 2, fallDurationMs: 3200, totalRods: 10, highContrast: true,  randomInterval: false, peripheralBias: false, maxSimultaneous: 1, instantRefresh: false, spawnIntervalMs: 1800, level: 2 }, targetAccuracy: 0.85, eliteLatencyMs: 420 },
+      // L3-4: Random intervals — no rhythm to anticipate
+      { level: 3,  label: 'Irregular',      speedMultiplier: 1.1, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { numBins: 2, fallDurationMs: 3000, totalRods: 12, highContrast: true,  randomInterval: true,  peripheralBias: false, maxSimultaneous: 1, instantRefresh: false, spawnIntervalMs: 1600, level: 3 }, targetAccuracy: 0.85, eliteLatencyMs: 390 },
+      { level: 4,  label: 'Unpredictable',  speedMultiplier: 1.2, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { numBins: 3, fallDurationMs: 2800, totalRods: 12, highContrast: false, randomInterval: true,  peripheralBias: false, maxSimultaneous: 1, instantRefresh: false, spawnIntervalMs: 1500, level: 4 }, targetAccuracy: 0.84, eliteLatencyMs: 360 },
+      // L5-6: Peripheral bias — scan wide, react fast
+      { level: 5,  label: 'Wide Scan',      speedMultiplier: 1.2, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { numBins: 3, fallDurationMs: 2600, totalRods: 14, highContrast: false, randomInterval: true,  peripheralBias: true,  maxSimultaneous: 1, instantRefresh: false, spawnIntervalMs: 1400, level: 5 }, targetAccuracy: 0.83, eliteLatencyMs: 330 },
+      { level: 6,  label: 'Edge Awareness', speedMultiplier: 1.3, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { numBins: 4, fallDurationMs: 2400, totalRods: 14, highContrast: false, randomInterval: true,  peripheralBias: true,  maxSimultaneous: 1, instantRefresh: false, spawnIntervalMs: 1300, level: 6 }, targetAccuracy: 0.83, eliteLatencyMs: 300 },
+      // L7-8: Crowded field — multiple rods, High-Speed Window
+      { level: 7,  label: 'Crowded',        speedMultiplier: 1.4, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { numBins: 4, fallDurationMs: 2200, totalRods: 16, highContrast: false, randomInterval: true,  peripheralBias: true,  maxSimultaneous: 2, instantRefresh: false, spawnIntervalMs: 1800, level: 7 }, targetAccuracy: 0.82, eliteLatencyMs: 280 },
+      { level: 8,  label: 'Burst',          speedMultiplier: 1.5, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { numBins: 4, fallDurationMs: 2000, totalRods: 18, highContrast: false, randomInterval: true,  peripheralBias: true,  maxSimultaneous: 3, instantRefresh: false, spawnIntervalMs: 1600, level: 8 }, targetAccuracy: 0.80, eliteLatencyMs: 255 },
+      // L9-10: Instant Refresh — Continuous Flow, zero hesitation
+      { level: 9,  label: 'Flow State',     speedMultiplier: 1.7, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { numBins: 4, fallDurationMs: 1800, totalRods: 20, highContrast: false, randomInterval: true,  peripheralBias: true,  maxSimultaneous: 2, instantRefresh: true,  spawnIntervalMs: 900,  level: 9  }, targetAccuracy: 0.80, eliteLatencyMs: 225 },
+      { level: 10, label: 'Pilot Grade',    speedMultiplier: 2.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { numBins: 4, fallDurationMs: 1400, totalRods: 24, highContrast: false, randomInterval: true,  peripheralBias: true,  maxSimultaneous: 2, instantRefresh: true,  spawnIntervalMs: 900,  level: 10 }, targetAccuracy: 0.78, eliteLatencyMs: 200 },
     ]),
   },
 
