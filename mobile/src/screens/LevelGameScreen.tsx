@@ -51,6 +51,7 @@ import ReactionTestGame     from '../components/games/ReactionTestGame';
 import StroopGame           from '../components/games/StroopGame';
 import VisualSearchGame     from '../components/games/VisualSearchGame';
 import TheReactorGame       from '../components/games/TheReactorGame';
+import ReactorChaosGame     from '../components/games/ReactorChaosGame';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LevelGame'>;
 
@@ -450,6 +451,14 @@ function renderGameComponent(
       return (
         <TheReactorGame
           config={params as Parameters<typeof TheReactorGame>[0]['config']}
+          onComplete={onComplete}
+          sessionId={sid}
+        />
+      );
+    case 'reactor_chaos':
+      return (
+        <ReactorChaosGame
+          config={params as Parameters<typeof ReactorChaosGame>[0]['config']}
           onComplete={onComplete}
           sessionId={sid}
         />

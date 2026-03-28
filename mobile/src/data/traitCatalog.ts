@@ -170,25 +170,51 @@ export const TRAIT_CATALOG: Record<string, TraitDefinition> = {
     ]),
   },
 
-  // ── T04 · Panic Management ───────────────────────────────────────────────
+  // ── T04 · Panic Management — Reactor Chaos ──────────────────────────────
+  // Same nuclear core as T01 but periodic "System Failure" events inject chaos:
+  // screen shake, dim overlay, flicker, steam, color inversion, input lag.
+  //
+  // Key T04 metrics (returned inside game score payload):
+  //   precisionDelta  = calmAccuracy − chaosAccuracy (lower = better)
+  //   recoveryMs      = latency from chaos end → first correct tap (lower = better)
+  //   panicClicks     = rapid-fire taps ≤250ms apart during chaos (0 = elite)
+  //   chaosRtSd       = std-dev of reaction times during chaos (lower = consistent)
+  //
+  // Professional benchmarks:
+  //   Commercial Pilot : Level 10 · precisionDelta < 3%, recoveryMs < 150ms
+  //   Air Traffic Ctrl : Level 9+ · zero panic clicks, delta < 5%
+  //   Stock Trader     : Level 8+ · recoveryMs < 200ms, delta < 8%
+  //
+  // Validated by: T01 Triage (Trait Talk — Fair-Weather Triage / Stress-Fragile)
   T04: {
     id: 'T04', name: 'Panic Management', icon: '🧘',
-    description: 'Maintaining accuracy and speed on cognitive tasks despite escalating pressure and interference.',
-    gameEngine: 'stroop',
-    primaryGameId: 'stroop_classic',
+    description: 'Maintaining accuracy and speed under sudden system failures — chaos events that shake, dim, flicker and invert the interface.',
+    gameEngine: 'reactor_chaos',
+    primaryGameId: 'reactor_chaos_standard',
     ceilingDropPct: 0.40, ceilingLevels: 3,
     skipScore: 95, skipToLevel: 4,
+    validatedBy: 'T01',
+    benchmarks: [
+      { profession: 'Commercial Pilot',     minLevel: 10, minAccuracy: 0.97, maxLatencyMs: 150, notes: 'precisionDelta <3%, recoveryMs <150ms in full-meltdown mode' },
+      { profession: 'Air Traffic Controller', minLevel: 9, minAccuracy: 0.95, notes: 'zero panic clicks, precisionDelta <5%' },
+      { profession: 'Stock Trader',          minLevel: 8, minAccuracy: 0.92, maxLatencyMs: 200, notes: 'recoveryMs <200ms, precisionDelta <8%' },
+    ],
     levels: levels([
-      { level: 1,  label: 'Calm',           speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { trials: 8,  timerMs: 4000 }, targetAccuracy: 0.70, eliteLatencyMs: 700  },
-      { level: 2,  label: 'Aware',          speedMultiplier: 1.1, distractorDensity: 0.10, ruleShifting: false, uiInterference: false, gameParams: { trials: 10, timerMs: 3500 }, targetAccuracy: 0.72, eliteLatencyMs: 680  },
-      { level: 3,  label: 'Alert',          speedMultiplier: 1.2, distractorDensity: 0.15, ruleShifting: false, uiInterference: false, gameParams: { trials: 12, timerMs: 3200 }, targetAccuracy: 0.74, eliteLatencyMs: 650  },
-      { level: 4,  label: 'Stressed',       speedMultiplier: 1.3, distractorDensity: 0.20, ruleShifting: false, uiInterference: false, gameParams: { trials: 14, timerMs: 3000 }, targetAccuracy: 0.75, eliteLatencyMs: 620  },
-      { level: 5,  label: 'Under Fire',     speedMultiplier: 1.4, distractorDensity: 0.30, ruleShifting: false, uiInterference: false, gameParams: { trials: 16, timerMs: 2800 }, targetAccuracy: 0.76, eliteLatencyMs: 600  },
-      { level: 6,  label: 'Distracted',     speedMultiplier: 1.5, distractorDensity: 0.40, ruleShifting: true,  uiInterference: false, gameParams: { trials: 18, timerMs: 2600 }, targetAccuracy: 0.76, eliteLatencyMs: 580  },
-      { level: 7,  label: 'Overwhelmed',    speedMultiplier: 1.6, distractorDensity: 0.50, ruleShifting: true,  uiInterference: false, gameParams: { trials: 20, timerMs: 2400 }, targetAccuracy: 0.76, eliteLatencyMs: 560  },
-      { level: 8,  label: 'Chaos',          speedMultiplier: 1.7, distractorDensity: 0.60, ruleShifting: true,  uiInterference: true,  gameParams: { trials: 22, timerMs: 2200 }, targetAccuracy: 0.75, eliteLatencyMs: 540  },
-      { level: 9,  label: 'Crisis',         speedMultiplier: 1.9, distractorDensity: 0.75, ruleShifting: true,  uiInterference: true,  gameParams: { trials: 24, timerMs: 2000 }, targetAccuracy: 0.74, eliteLatencyMs: 520  },
-      { level: 10, label: 'Meltdown',       speedMultiplier: 2.0, distractorDensity: 0.90, ruleShifting: true,  uiInterference: true,  gameParams: { trials: 26, timerMs: 1800 }, targetAccuracy: 0.72, eliteLatencyMs: 500  },
+      // L1–2: No chaos — establish calm baseline with 2 bins, slow rods
+      { level: 1,  label: 'Calm',             speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { numBins: 2, fallDurationMs: 3500, totalRods: 12, highRatio: 0.40, distractorRatio: 0.00, chaosIntervalMs: 99999, chaosDurationMs: 0, effects: [], inputLagMs: 0, steamOpacity: 0, dimOpacity: 0, shakeIntensityX: 0, shakeIntensityY: 0, invertColors: false }, targetAccuracy: 0.75, eliteLatencyMs: 600  },
+      { level: 2,  label: 'Aware',            speedMultiplier: 1.0, distractorDensity: 0.05, ruleShifting: false, uiInterference: false, gameParams: { numBins: 2, fallDurationMs: 3200, totalRods: 14, highRatio: 0.40, distractorRatio: 0.05, chaosIntervalMs: 99999, chaosDurationMs: 0, effects: [], inputLagMs: 0, steamOpacity: 0, dimOpacity: 0, shakeIntensityX: 0, shakeIntensityY: 0, invertColors: false }, targetAccuracy: 0.76, eliteLatencyMs: 580  },
+      // L3–4: Flicker only — first chaos signal, mild visual disruption
+      { level: 3,  label: 'Flicker',          speedMultiplier: 1.1, distractorDensity: 0.10, ruleShifting: false, uiInterference: false, gameParams: { numBins: 2, fallDurationMs: 3000, totalRods: 14, highRatio: 0.40, distractorRatio: 0.08, chaosIntervalMs: 9000, chaosDurationMs: 2500, effects: ['flicker'], inputLagMs: 0, steamOpacity: 0, dimOpacity: 0, shakeIntensityX: 0, shakeIntensityY: 0, invertColors: false }, targetAccuracy: 0.74, eliteLatencyMs: 560  },
+      { level: 4,  label: 'Disrupted',        speedMultiplier: 1.2, distractorDensity: 0.10, ruleShifting: false, uiInterference: false, gameParams: { numBins: 3, fallDurationMs: 2800, totalRods: 16, highRatio: 0.40, distractorRatio: 0.10, chaosIntervalMs: 8000, chaosDurationMs: 3000, effects: ['flicker'], inputLagMs: 0, steamOpacity: 0, dimOpacity: 0, shakeIntensityX: 0, shakeIntensityY: 0, invertColors: false }, targetAccuracy: 0.73, eliteLatencyMs: 540  },
+      // L5–6: Steam + dim overlay — visual degradation
+      { level: 5,  label: 'Obscured',         speedMultiplier: 1.2, distractorDensity: 0.15, ruleShifting: false, uiInterference: true,  gameParams: { numBins: 3, fallDurationMs: 2600, totalRods: 16, highRatio: 0.38, distractorRatio: 0.12, chaosIntervalMs: 7500, chaosDurationMs: 3000, effects: ['steam', 'dim'], inputLagMs: 0, steamOpacity: 0.25, dimOpacity: 0.20, shakeIntensityX: 0, shakeIntensityY: 0, invertColors: false }, targetAccuracy: 0.72, eliteLatencyMs: 520  },
+      { level: 6,  label: 'Degraded',         speedMultiplier: 1.3, distractorDensity: 0.20, ruleShifting: false, uiInterference: true,  gameParams: { numBins: 4, fallDurationMs: 2400, totalRods: 18, highRatio: 0.38, distractorRatio: 0.15, chaosIntervalMs: 7000, chaosDurationMs: 3500, effects: ['steam', 'dim', 'flicker'], inputLagMs: 0, steamOpacity: 0.30, dimOpacity: 0.25, shakeIntensityX: 0, shakeIntensityY: 0, invertColors: false }, targetAccuracy: 0.71, eliteLatencyMs: 500  },
+      // L7–8: Shake added — physical disorientation
+      { level: 7,  label: 'Shaking',          speedMultiplier: 1.4, distractorDensity: 0.20, ruleShifting: true,  uiInterference: true,  gameParams: { numBins: 4, fallDurationMs: 2200, totalRods: 20, highRatio: 0.37, distractorRatio: 0.18, chaosIntervalMs: 6500, chaosDurationMs: 4000, effects: ['shake', 'steam', 'dim'], inputLagMs: 0, steamOpacity: 0.30, dimOpacity: 0.25, shakeIntensityX: 5, shakeIntensityY: 4, invertColors: false }, targetAccuracy: 0.70, eliteLatencyMs: 480  },
+      { level: 8,  label: 'Crisis',           speedMultiplier: 1.5, distractorDensity: 0.25, ruleShifting: true,  uiInterference: true,  gameParams: { numBins: 5, fallDurationMs: 2000, totalRods: 22, highRatio: 0.36, distractorRatio: 0.20, chaosIntervalMs: 6000, chaosDurationMs: 4500, effects: ['shake', 'steam', 'dim', 'flicker', 'input_lag'], inputLagMs: 120, steamOpacity: 0.35, dimOpacity: 0.30, shakeIntensityX: 6, shakeIntensityY: 5, invertColors: false }, targetAccuracy: 0.68, eliteLatencyMs: 460  },
+      // L9–10: Full meltdown — all effects including input lag + color inversion
+      { level: 9,  label: 'Meltdown',         speedMultiplier: 1.7, distractorDensity: 0.30, ruleShifting: true,  uiInterference: true,  gameParams: { numBins: 5, fallDurationMs: 1800, totalRods: 22, highRatio: 0.35, distractorRatio: 0.22, chaosIntervalMs: 5000, chaosDurationMs: 5000, effects: ['shake', 'steam', 'dim', 'flicker', 'input_lag', 'inversion'], inputLagMs: 150, steamOpacity: 0.38, dimOpacity: 0.32, shakeIntensityX: 7, shakeIntensityY: 5, invertColors: true }, targetAccuracy: 0.65, eliteLatencyMs: 440  },
+      { level: 10, label: 'Total Failure',    speedMultiplier: 2.0, distractorDensity: 0.35, ruleShifting: true,  uiInterference: true,  gameParams: { numBins: 6, fallDurationMs: 1600, totalRods: 24, highRatio: 0.35, distractorRatio: 0.25, chaosIntervalMs: 4000, chaosDurationMs: 5000, effects: ['shake', 'steam', 'dim', 'flicker', 'input_lag', 'inversion'], inputLagMs: 200, steamOpacity: 0.40, dimOpacity: 0.35, shakeIntensityX: 8, shakeIntensityY: 6, invertColors: true }, targetAccuracy: 0.62, eliteLatencyMs: 420  },
     ]),
   },
 

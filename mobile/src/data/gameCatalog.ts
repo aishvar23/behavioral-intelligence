@@ -6,7 +6,7 @@
  * near-unlimited variety. Add more GameConfig entries to scale toward 50,000+ configs.
  */
 
-export type GameType = 'memory' | 'logic' | 'reaction' | 'stroop' | 'matrix' | 'spatial' | 'estimation' | 'search' | 'rule_discovery' | 'planning' | 'reactor';
+export type GameType = 'memory' | 'logic' | 'reaction' | 'stroop' | 'matrix' | 'spatial' | 'estimation' | 'search' | 'rule_discovery' | 'planning' | 'reactor' | 'reactor_chaos';
 
 export interface GameConfig {
   id: string;
@@ -193,6 +193,20 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     title: 'Speed Challenge', emoji: '🏎️', difficulty: 'hard',
     description: 'Four targets, one highlighted — tap fast and accurately.',
     config: { variant: 'speed' },
+  },
+
+  // ── Reactor Chaos variants (T04 Panic Management) ────────────────────────
+  reactor_chaos_standard: {
+    id: 'reactor_chaos_standard', type: 'reactor_chaos',
+    title: 'System Failure', emoji: '🧘', difficulty: 'medium',
+    description: 'Fuel rods fall normally — until System Failure events strike. Maintain accuracy when the screen shakes, flickers and fades.',
+    config: { numBins: 2, fallDurationMs: 3200, totalRods: 12, highRatio: 0.4, distractorRatio: 0.1, chaosIntervalMs: 8000, chaosDurationMs: 3000, effects: ['flicker'], inputLagMs: 0, steamOpacity: 0, dimOpacity: 0, shakeIntensityX: 0, shakeIntensityY: 0, invertColors: false },
+  },
+  reactor_chaos_hard: {
+    id: 'reactor_chaos_hard', type: 'reactor_chaos',
+    title: 'System Failure: Meltdown', emoji: '🌪️', difficulty: 'hard',
+    description: 'Full meltdown — 6 bins, rapid rod spawns, all chaos effects active including color inversion and input lag.',
+    config: { numBins: 6, fallDurationMs: 1600, totalRods: 24, highRatio: 0.35, distractorRatio: 0.25, chaosIntervalMs: 4000, chaosDurationMs: 5000, effects: ['shake', 'steam', 'dim', 'flicker', 'input_lag', 'inversion'], inputLagMs: 200, steamOpacity: 0.4, dimOpacity: 0.35, shakeIntensityX: 8, shakeIntensityY: 6, invertColors: true },
   },
 
   // ── The Reactor variants (T01 Triage) ────────────────────────────────────
