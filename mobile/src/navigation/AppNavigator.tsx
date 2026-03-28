@@ -12,7 +12,12 @@ import AuthScreen from '../screens/AuthScreen';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import GuestSetupScreen from '../screens/GuestSetupScreen';
+import TraitDiscoveryScreen from '../screens/TraitDiscoveryScreen';
+import BaselineScreen from '../screens/BaselineScreen';
+import LevelGameScreen from '../screens/LevelGameScreen';
+import ArchetypeCardScreen from '../screens/ArchetypeCardScreen';
 import { GameType } from '../data/gameCatalog';
+import { DiscoveredTrait, TraitResult, TraitTalkResult, ArchetypeCard } from '../services/assessmentApi';
 import { initSession } from '../services/session';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 
@@ -72,6 +77,25 @@ export type RootStackParamList = {
     userProfile: UserProfile;
     gameResults: GameResult[];
     userId?: number;
+  };
+  // ── Cognitive Mirror flow ──────────────────────────────────────────────
+  TraitDiscovery: { profession?: string } | undefined;
+  Baseline: {
+    sessionId: string;
+    profession: string;
+    traits: DiscoveredTrait[];
+  };
+  LevelGame: {
+    sessionId: string;
+    profession: string;
+    traits: DiscoveredTrait[];
+    baselineRtMs: number;
+  };
+  ArchetypeCard: {
+    archetype: ArchetypeCard;
+    profession: string;
+    traitResults: TraitResult[];
+    traitTalk: TraitTalkResult;
   };
 };
 
@@ -149,6 +173,27 @@ function AppNavigatorInner() {
         name="Report"
         component={ReportScreen}
         options={{ title: 'Your Report', headerBackVisible: false }}
+      />
+      {/* ── Cognitive Mirror ── */}
+      <AppStack.Screen
+        name="TraitDiscovery"
+        component={TraitDiscoveryScreen}
+        options={{ title: 'Cognitive Mirror', headerShown: false }}
+      />
+      <AppStack.Screen
+        name="Baseline"
+        component={BaselineScreen}
+        options={{ title: 'Calibration', headerBackVisible: false }}
+      />
+      <AppStack.Screen
+        name="LevelGame"
+        component={LevelGameScreen}
+        options={{ title: 'Assessment', headerShown: false, headerBackVisible: false }}
+      />
+      <AppStack.Screen
+        name="ArchetypeCard"
+        component={ArchetypeCardScreen}
+        options={{ title: 'Your Archetype', headerBackVisible: false }}
       />
     </AppStack.Navigator>
   );

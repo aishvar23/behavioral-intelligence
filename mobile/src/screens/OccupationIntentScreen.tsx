@@ -124,9 +124,26 @@ export default function OccupationIntentScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
       <Text style={styles.emoji}>🎯</Text>
-      <Text style={styles.title}>Before we begin…</Text>
-      <Text style={styles.subtitle}>Do you have a target occupation in mind?</Text>
+      <Text style={styles.title}>Choose Your Path</Text>
+      <Text style={styles.subtitle}>How would you like to be assessed?</Text>
 
+      {/* ── NEW: Cognitive Mirror ── */}
+      <TouchableOpacity
+        style={styles.cardMirror}
+        onPress={() => navigation.navigate('TraitDiscovery', undefined)}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.cardEmoji}>🪞</Text>
+        <View style={styles.cardText}>
+          <Text style={styles.cardTitle}>The Cognitive Mirror</Text>
+          <Text style={styles.cardNewBadge}>NEW</Text>
+          <Text style={styles.cardDesc}>
+            Enter your target profession. AI maps your top 5 traits and runs a 10-level adaptive assessment. Ends with a personalised Archetype Card.
+          </Text>
+        </View>
+      </TouchableOpacity>
+
+      {/* ── Existing: Classic Assessment ── */}
       <TouchableOpacity
         style={[styles.cardYes, loading && styles.cardDisabled]}
         onPress={handleYesOccupation}
@@ -139,11 +156,11 @@ export default function OccupationIntentScreen({ navigation }: Props) {
           <Text style={styles.cardEmoji}>✅</Text>
         )}
         <View style={styles.cardText}>
-          <Text style={styles.cardTitle}>Yes, I have one in mind</Text>
+          <Text style={styles.cardTitle}>Quick Assessment</Text>
           <Text style={styles.cardDesc}>
             {isAuthenticated
-              ? 'Uses your saved profile to select personalised games'
-              : 'Games and report will be tailored to your chosen occupation'}
+              ? '5 games, 15 minutes — uses your saved profile'
+              : 'Games and report tailored to your chosen occupation'}
           </Text>
         </View>
       </TouchableOpacity>
@@ -151,8 +168,8 @@ export default function OccupationIntentScreen({ navigation }: Props) {
       <TouchableOpacity style={styles.cardNo} onPress={handleNoOccupation} activeOpacity={0.85}>
         <Text style={styles.cardEmoji}>🎲</Text>
         <View style={styles.cardText}>
-          <Text style={styles.cardTitle}>No, just explore</Text>
-          <Text style={styles.cardDesc}>We'll pick 5 games at random and give you general insights</Text>
+          <Text style={styles.cardTitle}>Explore Freely</Text>
+          <Text style={styles.cardDesc}>5 random games, general insights — no occupation needed</Text>
         </View>
       </TouchableOpacity>
 
@@ -165,8 +182,19 @@ const styles = StyleSheet.create({
   container:    { flex: 1, backgroundColor: '#1a1a2e', alignItems: 'center', justifyContent: 'center', padding: 28 },
   emoji:        { fontSize: 52, marginBottom: 16 },
   title:        { fontSize: 24, fontWeight: '700', color: '#e0e0ff', marginBottom: 10, textAlign: 'center' },
-  subtitle:     { fontSize: 16, color: '#7777aa', textAlign: 'center', lineHeight: 24, marginBottom: 36 },
-  cardYes:      { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: '#1a2a4a', borderRadius: 16, padding: 20, marginBottom: 16, borderWidth: 1.5, borderColor: '#5c6bc0' },
+  subtitle:     { fontSize: 16, color: '#7777aa', textAlign: 'center', lineHeight: 24, marginBottom: 28 },
+
+  cardMirror: {
+    width: '100%', flexDirection: 'row', alignItems: 'flex-start', gap: 14,
+    backgroundColor: '#1a1330', borderRadius: 16, padding: 20, marginBottom: 14,
+    borderWidth: 1.5, borderColor: '#7c3aed',
+  },
+  cardNewBadge: {
+    fontSize: 9, color: '#a78bfa', fontWeight: '800', letterSpacing: 1.5,
+    backgroundColor: '#7c3aed22', borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1,
+    alignSelf: 'flex-start', marginBottom: 4,
+  },
+  cardYes:      { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: '#1a2a4a', borderRadius: 16, padding: 20, marginBottom: 14, borderWidth: 1.5, borderColor: '#5c6bc0' },
   cardNo:       { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: '#16213e', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: '#2a2a5e' },
   cardDisabled: { opacity: 0.6 },
   cardEmoji:    { fontSize: 28 },

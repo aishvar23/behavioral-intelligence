@@ -585,3 +585,234 @@ Respond with valid JSON only (no markdown, no code fences):
     };
   }
 }
+
+// ── Cognitive Mirror: Trait Discovery ────────────────────────────────────────
+
+export interface DiscoveredTrait {
+  id: string;       // e.g. T01
+  name: string;     // e.g. "Triage"
+  isPrimary: boolean;
+  relevance: string; // 1-sentence reason why this trait matters for the profession
+}
+
+// All 12 supported trait IDs and names for the LLM to choose from
+const SUPPORTED_TRAITS = `
+T01  Triage              — Prioritising high-importance signals under time pressure
+T04  Panic Management    — Maintaining accuracy despite escalating stress and interference
+T06  Working Memory      — Holding and manipulating information across long sequences
+T11  Deductive Logic     — Multi-step reasoning: syllogisms, boolean chains, inference
+T12  Systems Thinking    — Mapping dependencies and sequencing complex task networks
+T13  Risk Management     — Gathering evidence before committing; exploration vs. efficiency
+T15  Social Inference    — Reading subtext, intent, and optimal responses in social scenarios
+T16  Affective Empathy   — Encoding and recalling emotional context; empathic foundation
+T19  Anomaly Detection   — Identifying rare signals within dense, noisy fields
+T20  Sustained Attention — Consistent accuracy on long tasks without performance decay
+T21  Processing Speed    — Rapid, accurate response to stimuli; raw cognitive throughput
+T23  Ideational Fluency  — Generating high-volume quality hypotheses; creative exploration
+`;
+
+export async function discoverTraitsForProfession(
+  profession: string,
+  sessionId: string,
+): Promise<DiscoveredTrait[]> {
+  const start = Date.now();
+
+  const prompt = `You are a cognitive scientist matching professions to cognitive traits measured by assessment games.
+
+The user's target profession: "${profession}"
+
+Available cognitive traits (choose exactly 5):
+${SUPPORTED_TRAITS}
+
+Rules:
+- Select exactly 3 PRIMARY traits (most critical for this profession)
+- Select exactly 2 SECONDARY traits (supporting but important)
+- Base your choice ONLY on cognitive demands — not job knowledge or domain expertise
+- For each trait, write one concise sentence explaining why it matters for this profession
+
+Respond ONLY with valid JSON in this exact format:
+{
+  "traits": [
+    { "id": "T01", "name": "Triage", "isPrimary": true, "relevance": "..." },
+    { "id": "T11", "name": "Deductive Logic", "isPrimary": true, "relevance": "..." },
+    { "id": "T12", "name": "Systems Thinking", "isPrimary": true, "relevance": "..." },
+    { "id": "T21", "name": "Processing Speed", "isPrimary": false, "relevance": "..." },
+    { "id": "T06", "name": "Working Memory", "isPrimary": false, "relevance": "..." }
+  ]
+}`;
+
+  const message = await withRetry(() =>
+    Promise.race([
+      client.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 600,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('LLM timeout')), LLM_TIMEOUT_MS)
+      ),
+    ])
+  );
+
+  const latencyMs = Date.now() - start;
+  const content   = message.content[0];
+  const text      = content.type === 'text' ? content.text : '';
+
+  await logLlmCall({
+    sessionId,
+    latencyMs,
+    inputTokens:  message.usage.input_tokens,
+    outputTokens: message.usage.output_tokens,
+    costUsd: calcCost(message.usage.input_tokens, message.usage.output_tokens),
+  });
+
+  try {
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('No JSON found');
+    const parsed = JSON.parse(jsonMatch[0]);
+    const traits: DiscoveredTrait[] = (parsed.traits ?? []).slice(0, 5);
+    return traits;
+  } catch {
+    // Fallback: generic analytical set
+    return [
+      { id: 'T11', name: 'Deductive Logic',     isPrimary: true,  relevance: 'Core reasoning required across most professional roles.' },
+      { id: 'T06', name: 'Working Memory',       isPrimary: true,  relevance: 'Retaining and manipulating information under task load.' },
+      { id: 'T12', name: 'Systems Thinking',     isPrimary: true,  relevance: 'Managing complex dependencies and workflow sequences.' },
+      { id: 'T21', name: 'Processing Speed',     isPrimary: false, relevance: 'Rapid decision-making under time pressure.' },
+      { id: 'T01', name: 'Triage',               isPrimary: false, relevance: 'Prioritising high-impact tasks in demanding environments.' },
+    ];
+  }
+}
+
+// ── Cognitive Mirror: Archetype Report ───────────────────────────────────────
+
+export interface TraitResult {
+  traitId: string;
+  traitName: string;
+  isPrimary: boolean;
+  peakLevel: number;       // highest level reached
+  peakScore: number;       // score at peak level (0-100)
+  avgScore: number;        // average across all levels played
+  outcome: string;         // 'complete' | 'ceiling' | 'skip_completed'
+  scores: number[];        // level-by-level scores
+}
+
+export interface TraitTalkSummary {
+  flags: Array<{ flag: string; description: string; severity: string }>;
+  archetypeModifiers: string[];
+  validationPassed: boolean;
+}
+
+export interface ArchetypeCard {
+  archetypeName: string;         // e.g. "The Precision Analyst"
+  archetypeTagline: string;      // 1 line, punchy
+  professionalAlignment: string; // "Your X and Y match the Nth percentile of [profession]"
+  strengthSummary: string;       // 2–3 sentences on cognitive strengths
+  developmentArea: string;       // 1–2 sentences on the gap
+  traitNarratives: Array<{
+    traitId: string;
+    traitName: string;
+    level: string;              // "Elite" | "Strong" | "Developing" | "Foundational"
+    narrative: string;          // 1–2 sentence insight
+  }>;
+  traitTalkInsights: string[];   // 1 insight per conflict flag found
+  recommendations: Array<{ action: string; rationale: string }>;
+}
+
+export async function generateArchetypeReport(
+  profession: string,
+  traitResults: TraitResult[],
+  traitTalk: TraitTalkSummary,
+  sessionId: string,
+  baselineRtMs: number | null,
+): Promise<ArchetypeCard> {
+  const start = Date.now();
+
+  const traitSummary = traitResults.map(t => {
+    const levelLabel = t.peakScore >= 85 ? 'Elite' : t.peakScore >= 70 ? 'Strong' : t.peakScore >= 50 ? 'Developing' : 'Foundational';
+    return `${t.traitId} ${t.traitName} (${t.isPrimary ? 'PRIMARY' : 'secondary'}): peak level ${t.peakLevel}/10, peak score ${Math.round(t.peakScore)}/100 [${levelLabel}], outcome: ${t.outcome}`;
+  }).join('\n');
+
+  const traitTalkSection = traitTalk.flags.length > 0
+    ? `Trait Talk Flags:\n${traitTalk.flags.map(f => `• ${f.flag} (${f.severity}): ${f.description}`).join('\n')}`
+    : 'Trait Talk: No conflicts detected — scores are internally consistent.';
+
+  const baselineContext = baselineRtMs
+    ? `Baseline reaction time: ${Math.round(baselineRtMs)}ms (calibrated)`
+    : 'Baseline: not calibrated';
+
+  const prompt = `You are a cognitive profiling expert generating a personalised Archetype Card for a user who completed the Cognitive Mirror Assessment.
+
+Target Profession: "${profession}"
+${baselineContext}
+
+Trait Performance:
+${traitSummary}
+
+${traitTalkSection}
+
+Generate a rich, insightful Archetype Card. Be specific to the data — do NOT use generic phrases like "well-rounded" or "room for improvement". Draw direct connections between the scores and what that means professionally.
+
+Respond ONLY with valid JSON in this format:
+{
+  "archetypeName": "The [Archetype Name]",
+  "archetypeTagline": "One punchy line that captures this cognitive profile",
+  "professionalAlignment": "Specific statement about how their primary traits align with ${profession} demands",
+  "strengthSummary": "2-3 sentences describing their cognitive strengths based on the data",
+  "developmentArea": "1-2 sentences on the specific gap or risk area revealed by the data",
+  "traitNarratives": [
+    { "traitId": "T01", "traitName": "Triage", "level": "Elite|Strong|Developing|Foundational", "narrative": "1-2 sentence insight tied directly to their performance data" }
+  ],
+  "traitTalkInsights": ["One insight per flag, explaining what the conflict means for their professional profile"],
+  "recommendations": [
+    { "action": "Specific development action", "rationale": "Why this addresses the data-revealed gap" }
+  ]
+}`;
+
+  const message = await withRetry(() =>
+    Promise.race([
+      client.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1500,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('LLM timeout')), 25_000)
+      ),
+    ])
+  );
+
+  const latencyMs = Date.now() - start;
+  const content   = message.content[0];
+  const text      = content.type === 'text' ? content.text : '';
+
+  await logLlmCall({
+    sessionId,
+    latencyMs,
+    inputTokens:  message.usage.input_tokens,
+    outputTokens: message.usage.output_tokens,
+    costUsd: calcCost(message.usage.input_tokens, message.usage.output_tokens),
+  });
+
+  try {
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('No JSON found');
+    const parsed: ArchetypeCard = JSON.parse(jsonMatch[0]);
+    return parsed;
+  } catch {
+    return {
+      archetypeName: 'The Cognitive Explorer',
+      archetypeTagline: 'Measured, methodical, and always learning.',
+      professionalAlignment: `Your assessment reveals a distinctive cognitive profile relevant to ${profession}.`,
+      strengthSummary: 'The assessment captured a range of cognitive signals across your chosen trait domains.',
+      developmentArea: 'Further assessment sessions will provide a more detailed developmental picture.',
+      traitNarratives: traitResults.map(t => ({
+        traitId: t.traitId, traitName: t.traitName,
+        level: t.peakScore >= 85 ? 'Elite' : t.peakScore >= 70 ? 'Strong' : t.peakScore >= 50 ? 'Developing' : 'Foundational',
+        narrative: `Reached level ${t.peakLevel} with a peak score of ${Math.round(t.peakScore)}.`,
+      })),
+      traitTalkInsights: traitTalk.flags.map(f => f.description),
+      recommendations: [{ action: 'Retake the assessment with full focus', rationale: 'More data points improve archetype accuracy.' }],
+    };
+  }
+}

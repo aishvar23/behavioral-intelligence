@@ -137,6 +137,37 @@ export function initSchema(db: Database.Database) {
       created_at         INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_game_plays_session ON game_plays(session_id);
+
+    -- Cognitive Mirror: profession-based adaptive assessments
+    CREATE TABLE IF NOT EXISTS assessment_sessions (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id      TEXT    NOT NULL UNIQUE,
+      user_id         INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      profession      TEXT    NOT NULL,
+      traits_json     TEXT    NOT NULL,   -- JSON array of { id, name, isPrimary }
+      baseline_rt_ms  REAL,              -- median reaction time from calibration
+      baseline_device_ms REAL,           -- device latency from calibration
+      archetype_json  TEXT,              -- final Archetype Card (set after completion)
+      status          TEXT    NOT NULL DEFAULT 'active',  -- active | complete | abandoned
+      created_at      INTEGER NOT NULL,
+      completed_at    INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_assessment_sessions_user ON assessment_sessions(user_id);
+
+    CREATE TABLE IF NOT EXISTS assessment_level_results (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id      TEXT    NOT NULL,
+      trait_id        TEXT    NOT NULL,   -- T01, T04, …
+      level           INTEGER NOT NULL,
+      score           REAL    NOT NULL,   -- 0–100
+      accuracy        REAL    NOT NULL,   -- 0.0–1.0
+      avg_latency_ms  REAL    NOT NULL,
+      outcome         TEXT    NOT NULL,   -- continue | skip | ceiling | complete
+      level_config_json TEXT  NOT NULL,  -- snapshot of LevelConfig used
+      created_at      INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_level_results_session ON assessment_level_results(session_id);
+    CREATE INDEX IF NOT EXISTS idx_level_results_trait   ON assessment_level_results(session_id, trait_id);
   `);
 
   // Migrations for existing databases — add columns that may be missing
@@ -279,6 +310,123 @@ export function getAllLatestTraitsExcluding(excludeUserId: number): string[] {
     )
   `).all(excludeUserId) as Array<{ traits_json: string }>;
   return rows.map(r => r.traits_json);
+}
+
+// ── Cognitive Mirror helpers ──────────────────────────────────────────────────
+
+export interface AssessmentSessionRow {
+  id: number;
+  sessionId: string;
+  userId: number | null;
+  profession: string;
+  traitsJson: string;
+  baselineRtMs: number | null;
+  baselineDeviceMs: number | null;
+  archetypeJson: string | null;
+  status: string;
+  createdAt: number;
+  completedAt: number | null;
+}
+
+export function createAssessmentSession(
+  sessionId: string,
+  userId: number | null,
+  profession: string,
+  traitsJson: string,
+): AssessmentSessionRow {
+  const db = getDb();
+  const now = Date.now();
+  db.prepare(`
+    INSERT INTO assessment_sessions (session_id, user_id, profession, traits_json, status, created_at)
+    VALUES (?, ?, ?, ?, 'active', ?)
+  `).run(sessionId, userId ?? null, profession, traitsJson, now);
+  return getAssessmentSession(sessionId)!;
+}
+
+export function getAssessmentSession(sessionId: string): AssessmentSessionRow | null {
+  const db = getDb();
+  const row = db.prepare('SELECT * FROM assessment_sessions WHERE session_id = ?').get(sessionId) as {
+    id: number; session_id: string; user_id: number | null; profession: string; traits_json: string;
+    baseline_rt_ms: number | null; baseline_device_ms: number | null; archetype_json: string | null;
+    status: string; created_at: number; completed_at: number | null;
+  } | undefined;
+  if (!row) return null;
+  return {
+    id: row.id, sessionId: row.session_id, userId: row.user_id,
+    profession: row.profession, traitsJson: row.traits_json,
+    baselineRtMs: row.baseline_rt_ms, baselineDeviceMs: row.baseline_device_ms,
+    archetypeJson: row.archetype_json, status: row.status,
+    createdAt: row.created_at, completedAt: row.completed_at,
+  };
+}
+
+export function updateAssessmentBaseline(sessionId: string, rtMs: number, deviceMs: number): void {
+  getDb().prepare('UPDATE assessment_sessions SET baseline_rt_ms = ?, baseline_device_ms = ? WHERE session_id = ?')
+    .run(rtMs, deviceMs, sessionId);
+}
+
+export function completeAssessmentSession(sessionId: string, archetypeJson: string): void {
+  getDb().prepare(`
+    UPDATE assessment_sessions SET status = 'complete', archetype_json = ?, completed_at = ? WHERE session_id = ?
+  `).run(archetypeJson, Date.now(), sessionId);
+}
+
+export interface LevelResultRow {
+  sessionId: string;
+  traitId: string;
+  level: number;
+  score: number;
+  accuracy: number;
+  avgLatencyMs: number;
+  outcome: string;
+  levelConfigJson: string;
+  createdAt: number;
+}
+
+export function saveLevelResult(result: Omit<LevelResultRow, 'createdAt'>): void {
+  getDb().prepare(`
+    INSERT INTO assessment_level_results
+      (session_id, trait_id, level, score, accuracy, avg_latency_ms, outcome, level_config_json, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    result.sessionId, result.traitId, result.level,
+    result.score, result.accuracy, result.avgLatencyMs,
+    result.outcome, result.levelConfigJson, Date.now()
+  );
+}
+
+export function getLevelResults(sessionId: string, traitId?: string): LevelResultRow[] {
+  const db = getDb();
+  const rows = traitId
+    ? db.prepare('SELECT * FROM assessment_level_results WHERE session_id = ? AND trait_id = ? ORDER BY level ASC').all(sessionId, traitId)
+    : db.prepare('SELECT * FROM assessment_level_results WHERE session_id = ? ORDER BY trait_id, level ASC').all(sessionId);
+  return (rows as Array<{
+    session_id: string; trait_id: string; level: number; score: number; accuracy: number;
+    avg_latency_ms: number; outcome: string; level_config_json: string; created_at: number;
+  }>).map(r => ({
+    sessionId: r.session_id, traitId: r.trait_id, level: r.level,
+    score: r.score, accuracy: r.accuracy, avgLatencyMs: r.avg_latency_ms,
+    outcome: r.outcome, levelConfigJson: r.level_config_json, createdAt: r.created_at,
+  }));
+}
+
+export function getAssessmentHistory(userId: number, limit = 5): AssessmentSessionRow[] {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT * FROM assessment_sessions WHERE user_id = ? AND status = 'complete'
+    ORDER BY created_at DESC LIMIT ?
+  `).all(userId, limit) as Array<{
+    id: number; session_id: string; user_id: number | null; profession: string; traits_json: string;
+    baseline_rt_ms: number | null; baseline_device_ms: number | null; archetype_json: string | null;
+    status: string; created_at: number; completed_at: number | null;
+  }>;
+  return rows.map(r => ({
+    id: r.id, sessionId: r.session_id, userId: r.user_id,
+    profession: r.profession, traitsJson: r.traits_json,
+    baselineRtMs: r.baseline_rt_ms, baselineDeviceMs: r.baseline_device_ms,
+    archetypeJson: r.archetype_json, status: r.status,
+    createdAt: r.created_at, completedAt: r.completed_at,
+  }));
 }
 
 export async function logLlmCall(log: LlmCallLog): Promise<void> {

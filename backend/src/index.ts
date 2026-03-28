@@ -27,6 +27,7 @@ import { v4 as uuid } from 'uuid';
 import eventsRouter from './routes/events';
 import usersRouter from './routes/users';
 import authRouter from './routes/auth';
+import assessmentRouter from './routes/assessment';
 import fs from 'fs';
 import path from 'path';
 
@@ -68,6 +69,7 @@ const authLimiter = rateLimit({
 app.use('/auth', authLimiter, authRouter);
 app.use('/', eventsRouter);
 app.use('/', usersRouter);
+app.use('/', assessmentRouter);
 
 app.get('/health', (_req, res) => res.json({
   status: 'ok',
