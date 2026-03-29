@@ -3,11 +3,13 @@ import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import HomeScreen from '../screens/HomeScreen';
-import OccupationIntentScreen from '../screens/OccupationIntentScreen';
+import OnboardingAgeScreen from '../screens/OnboardingAgeScreen';
+import OnboardingGenderScreen from '../screens/OnboardingGenderScreen';
+import OnboardingEmploymentScreen from '../screens/OnboardingEmploymentScreen';
+import ProfessionSelectionScreen from '../screens/ProfessionSelectionScreen';
 import UserProfileScreen from '../screens/UserProfileScreen';
 import GameScreen from '../screens/GameScreen';
 import ReportScreen from '../screens/ReportScreen';
-import HistoryScreen from '../screens/HistoryScreen';
 import AuthScreen from '../screens/AuthScreen';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
@@ -15,6 +17,8 @@ import GuestSetupScreen from '../screens/GuestSetupScreen';
 import { GameType } from '../data/gameCatalog';
 import { initSession } from '../services/session';
 import { AuthProvider, useAuth } from '../context/AuthContext';
+import { OnboardingProvider } from '../context/OnboardingContext';
+import { OnboardingData } from '../types/onboarding';
 
 // ---------------------------------------------------------------------------
 // Shared type exports (consumed by screens)
@@ -22,13 +26,18 @@ import { AuthProvider, useAuth } from '../context/AuthContext';
 
 export interface UserProfile {
   userName: string;
-  age: string;
+  age: string;              // holds ageRange string (e.g. '18-24') or legacy numeric string
   country: string;
   lifeStage: string;
   occupations: string[];      // occupation IDs
   occupationTitles: string[]; // human-readable titles
   occupationEmojis: string[]; // per-occupation emojis
   interests: string;
+  // Onboarding fields (present for new flows)
+  ageRange?: string;
+  gender?: string;
+  employmentStatus?: string;
+  flowType?: 'employed' | 'career_guidance';
 }
 
 export interface GameQueueItem {
@@ -56,9 +65,11 @@ export type AuthStackParamList = {
 
 export type RootStackParamList = {
   Home: undefined;
-  History: undefined;
-  OccupationIntent: undefined;
-  UserProfile: { mode?: 'edit' } | undefined;
+  OnboardingAge: undefined;
+  OnboardingGender: undefined;
+  OnboardingEmployment: undefined;
+  ProfessionSelection: { onboardingData: OnboardingData };
+  UserProfile: { onboardingData: OnboardingData };
   Game: {
     sessionId: string;
     userProfile: UserProfile;
@@ -116,41 +127,53 @@ function AuthNavigator() {
 
 function AppNavigatorInner() {
   return (
-    <AppStack.Navigator
-      initialRouteName="Home"
-      screenOptions={HEADER_OPTS}
-    >
-      <AppStack.Screen
-        name="Home"
-        component={HomeScreen}
-        options={{ title: 'Behavioral Intelligence', headerShown: false }}
-      />
-      <AppStack.Screen
-        name="History"
-        component={HistoryScreen}
-        options={{ title: 'My Progress', ...HEADER_OPTS }}
-      />
-      <AppStack.Screen
-        name="OccupationIntent"
-        component={OccupationIntentScreen}
-        options={{ title: 'Assessment Setup', headerShown: false }}
-      />
-      <AppStack.Screen
-        name="UserProfile"
-        component={UserProfileScreen}
-        options={{ title: 'Your Profile' }}
-      />
-      <AppStack.Screen
-        name="Game"
-        component={GameScreen}
-        options={{ title: 'Assessment', headerBackVisible: false }}
-      />
-      <AppStack.Screen
-        name="Report"
-        component={ReportScreen}
-        options={{ title: 'Your Report', headerBackVisible: false }}
-      />
-    </AppStack.Navigator>
+    <OnboardingProvider>
+      <AppStack.Navigator
+        initialRouteName="Home"
+        screenOptions={HEADER_OPTS}
+      >
+        <AppStack.Screen
+          name="Home"
+          component={HomeScreen}
+          options={{ title: 'Behavioral Intelligence', headerShown: false }}
+        />
+        <AppStack.Screen
+          name="OnboardingAge"
+          component={OnboardingAgeScreen}
+          options={{ title: 'About You', headerShown: false }}
+        />
+        <AppStack.Screen
+          name="OnboardingGender"
+          component={OnboardingGenderScreen}
+          options={{ title: 'About You', headerShown: false }}
+        />
+        <AppStack.Screen
+          name="OnboardingEmployment"
+          component={OnboardingEmploymentScreen}
+          options={{ title: 'About You', headerShown: false }}
+        />
+        <AppStack.Screen
+          name="ProfessionSelection"
+          component={ProfessionSelectionScreen}
+          options={{ title: 'Your Profession' }}
+        />
+        <AppStack.Screen
+          name="UserProfile"
+          component={UserProfileScreen}
+          options={{ title: 'Your Profile' }}
+        />
+        <AppStack.Screen
+          name="Game"
+          component={GameScreen}
+          options={{ title: 'Assessment', headerBackVisible: false }}
+        />
+        <AppStack.Screen
+          name="Report"
+          component={ReportScreen}
+          options={{ title: 'Your Report', headerBackVisible: false }}
+        />
+      </AppStack.Navigator>
+    </OnboardingProvider>
   );
 }
 

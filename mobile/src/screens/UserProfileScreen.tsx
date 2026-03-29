@@ -31,8 +31,11 @@ import { guestStore } from '../services/guestStore';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'UserProfile'>;
 
-// mode === 'edit': just save profile and go back (no game start)
-// mode === undefined: full flow — save profile and start assessment
+function lifeStageFromEmploymentStatus(status: string): string {
+  if (status === 'student') return 'Student';
+  if (status === 'seeking_guidance') return 'Exploring';
+  return '';
+}
 
 type SavedProfile = {
   age: string;
@@ -71,9 +74,9 @@ function mergeGamePools(occupationIds: string[]): string[] {
 }
 
 export default function UserProfileScreen({ navigation, route }: Props) {
+  const { onboardingData } = route.params;
   const { auth } = useAuth();
   const isAuthenticated = auth.userId != null && !auth.isGuest;
-  const editMode = route.params?.mode === 'edit';
 
   // Pre-fill name/age/country from guestStore for guests coming through GuestSetup
   const guestBasic = guestStore.get();
@@ -183,16 +186,6 @@ export default function UserProfileScreen({ navigation, route }: Props) {
     }
   }
 
-  async function handleSave() {
-    if (selectedOccupations.length === 0) {
-      setError('Please select at least one occupation.');
-      return;
-    }
-    setError('');
-    await saveProfile();
-    navigation.goBack();
-  }
-
   async function handleStart() {
     if (selectedOccupations.length === 0 || selecting) return;
 
@@ -207,13 +200,17 @@ export default function UserProfileScreen({ navigation, route }: Props) {
 
     const profile: UserProfile = {
       userName: effectiveName,
-      age: age.trim() || 'Not specified',
+      age: onboardingData.ageRange,
       country,
-      lifeStage: lifeStage || 'Not specified',
+      lifeStage: lifeStage || lifeStageFromEmploymentStatus(onboardingData.employmentStatus) || 'Not specified',
       occupations: selectedOccupations,
       occupationTitles: selectedOccupations.map(id => selectedTitles[id] ?? id),
       occupationEmojis: selectedOccupations.map(id => selectedEmojis[id] ?? '💼'),
       interests: interests.trim() || 'Not specified',
+      ageRange: onboardingData.ageRange,
+      gender: onboardingData.gender,
+      employmentStatus: onboardingData.employmentStatus,
+      flowType: 'career_guidance',
     };
 
     try {
@@ -232,7 +229,7 @@ export default function UserProfileScreen({ navigation, route }: Props) {
       await saveProfile();
 
       const pool = mergeGamePools(selectedOccupations);
-      const { selectedIds } = await selectGames(profile, pool, userId);
+      const { selectedIds } = await selectGames(profile, pool, userId, 'career_guidance');
 
       const sessionId = startSession();
       const gameQueue = selectedIds.map(id => {
@@ -272,12 +269,10 @@ export default function UserProfileScreen({ navigation, route }: Props) {
     );
   }
 
-  const pageTitle = editMode ? 'Your Profile' : hasSavedProfile ? 'Update your profile' : 'Tell us about yourself';
-  const pageSubtitle = editMode
-    ? 'Update your details. Changes are saved and used in your next assessment.'
-    : hasSavedProfile
-      ? 'Your previous selections are loaded. Adjust anything before starting.'
-      : "We'll select the right games for your occupation and generate a personalised behavioral report.";
+  const pageTitle = hasSavedProfile ? 'Update your profile' : 'Tell us about yourself';
+  const pageSubtitle = hasSavedProfile
+    ? 'Your previous selections are loaded. Adjust anything before starting.'
+    : "We'll select the right games for your occupation and generate a personalised behavioral report.";
 
   const occupationSummary = selectedOccupations.length === 0
     ? null
@@ -395,40 +390,28 @@ export default function UserProfileScreen({ navigation, route }: Props) {
 
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-              {editMode ? (
-                <TouchableOpacity
-                  style={[styles.startBtn, selectedOccupations.length === 0 && styles.startBtnDisabled]}
-                  onPress={handleSave}
-                  disabled={selectedOccupations.length === 0}
-                >
-                  <Text style={styles.startBtnText}>Save Profile ✓</Text>
-                </TouchableOpacity>
-              ) : (
-                <>
-                  <TouchableOpacity
-                    style={[styles.startBtn, (selectedOccupations.length === 0 || selecting) && styles.startBtnDisabled]}
-                    onPress={handleStart}
-                    disabled={selectedOccupations.length === 0 || selecting}
-                  >
-                    {selecting ? (
-                      <View style={styles.loadingRow}>
-                        <ActivityIndicator color="#fff" size="small" />
-                        <Text style={styles.startBtnText}>Selecting your games…</Text>
-                      </View>
-                    ) : (
-                      <Text style={styles.startBtnText}>Start Assessment →</Text>
-                    )}
-                  </TouchableOpacity>
-                  <Text style={styles.note}>
-                    5 games selected for{' '}
-                    <Text style={styles.noteBold}>
-                      {selectedOccupations.length > 0
-                        ? selectedOccupations.map(id => selectedTitles[id]).join(', ')
-                        : 'your occupation'}
-                    </Text>
-                  </Text>
-                </>
-              )}
+              <TouchableOpacity
+                style={[styles.startBtn, (selectedOccupations.length === 0 || selecting) && styles.startBtnDisabled]}
+                onPress={handleStart}
+                disabled={selectedOccupations.length === 0 || selecting}
+              >
+                {selecting ? (
+                  <View style={styles.loadingRow}>
+                    <ActivityIndicator color="#fff" size="small" />
+                    <Text style={styles.startBtnText}>Selecting your games…</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.startBtnText}>Start Assessment →</Text>
+                )}
+              </TouchableOpacity>
+              <Text style={styles.note}>
+                5 games selected for{' '}
+                <Text style={styles.noteBold}>
+                  {selectedOccupations.length > 0
+                    ? selectedOccupations.map(id => selectedTitles[id]).join(', ')
+                    : 'your occupation'}
+                </Text>
+              </Text>
             </View>
           }
         />

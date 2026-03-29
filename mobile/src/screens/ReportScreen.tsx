@@ -36,10 +36,18 @@ const FIT_COLORS: Record<string, string> = {
   low: '#ef5350',
 };
 
-const LOADING_MESSAGES = [
+const LOADING_MESSAGES_CAREER = [
   'Analyzing your gameplay patterns…',
   'Calculating behavioral traits…',
   'Matching your profile to careers…',
+  'Generating your behavioral report…',
+  'Almost there…',
+];
+
+const LOADING_MESSAGES_EMPLOYED = [
+  'Analyzing your gameplay patterns…',
+  'Calculating behavioral traits…',
+  'Assessing occupational fit…',
   'Generating your behavioral report…',
   'Almost there…',
 ];
@@ -49,6 +57,8 @@ const REPORT_PIN = '0987654321';
 export default function ReportScreen({ navigation, route }: Props) {
   const { sessionId, userProfile, gameResults, userId } = route.params;
   const { auth, logout } = useAuth();
+  const flowType = userProfile.flowType ?? 'career_guidance';
+  const LOADING_MESSAGES = flowType === 'employed' ? LOADING_MESSAGES_EMPLOYED : LOADING_MESSAGES_CAREER;
   const [report, setReport] = useState<FullReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMsg, setLoadingMsg] = useState(LOADING_MESSAGES[0]);
@@ -176,11 +186,6 @@ export default function ReportScreen({ navigation, route }: Props) {
         {Object.entries(typeof report.traits === 'string' ? JSON.parse(report.traits) : report.traits).map(([key, value]) => {
           const meta = TRAIT_META[key] ?? { label: key, color: '#9999cc', emoji: '📊' };
           const pct = Math.round((value as number) * 100);
-          const percentile = report.traitPercentiles?.[key as keyof typeof report.traitPercentiles] ?? null;
-          const topPct = percentile !== null ? 100 - percentile : null;
-          const pillColor = topPct !== null
-            ? topPct <= 20 ? '#66bb6a' : topPct <= 40 ? '#42a5f5' : topPct <= 60 ? '#ffd54f' : '#ef9a9a'
-            : '#3a3a6e';
           return (
             <View key={key} style={styles.traitRow}>
               <Text style={styles.traitEmoji}>{meta.emoji}</Text>
@@ -189,13 +194,6 @@ export default function ReportScreen({ navigation, route }: Props) {
                   <Text style={styles.traitLabel}>{meta.label}</Text>
                   <View style={styles.traitScoreRow}>
                     <Text style={[styles.traitScore, { color: meta.color }]}>{pct}%</Text>
-                    {topPct !== null && (
-                      <View style={[styles.percentilePill, { backgroundColor: pillColor + '22', borderColor: pillColor }]}>
-                        <Text style={[styles.percentilePillText, { color: pillColor }]}>
-                          {topPct <= 1 ? 'Top 1%' : `Top ${topPct}%`}
-                        </Text>
-                      </View>
-                    )}
                   </View>
                 </View>
                 <View style={styles.barTrack}>
@@ -234,7 +232,9 @@ export default function ReportScreen({ navigation, route }: Props) {
       {/* Occupation Fit */}
       {report.occupationFit && (
         <>
-          <Text style={styles.sectionHeading}>Career Fit Assessment</Text>
+          <Text style={styles.sectionHeading}>
+            {flowType === 'employed' ? 'Professional Fit' : 'Career Fit Assessment'}
+          </Text>
           <View style={[styles.fitCard, { borderColor: FIT_COLORS[report.occupationFit.rating] ?? '#5c6bc0' }]}>
             <View style={styles.fitHeader}>
               <Text style={styles.fitOccupation}>{userProfile.occupationEmojis[0]}  {userProfile.occupationTitles.join(', ')}</Text>
@@ -285,8 +285,8 @@ export default function ReportScreen({ navigation, route }: Props) {
         </>
       )}
 
-      {/* Recommended Careers */}
-      {report.aiRecommendedCareers && report.aiRecommendedCareers.length > 0 && (
+      {/* Recommended Careers — career-guidance flow only */}
+      {flowType === 'career_guidance' && report.aiRecommendedCareers && report.aiRecommendedCareers.length > 0 && (
         <>
           <Text style={[styles.sectionHeading, { marginTop: 20 }]}>✨ Also Recommended</Text>
           <Text style={styles.sectionSubtitle}>Careers that strongly match your behavioral profile</Text>

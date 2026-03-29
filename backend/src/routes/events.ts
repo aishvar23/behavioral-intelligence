@@ -69,12 +69,17 @@ const GamePlaySchema = z.object({
 const CareerReportSchema = z.object({
   sessionId: z.string().uuid(),
   userId:    z.number().int().positive().optional(),
+  flowType:  z.enum(['employed', 'career_guidance']).optional(),
   userProfile: z.object({
     age:              z.string(),
     occupations:      z.array(z.string()),
     occupationTitles: z.array(z.string()),
     occupationEmojis: z.array(z.string()),
     interests:        z.string(),
+    ageRange:         z.string().optional(),
+    gender:           z.string().optional(),
+    employmentStatus: z.string().optional(),
+    flowType:         z.enum(['employed', 'career_guidance']).optional(),
   }),
   gameResults: z.array(
     z.object({
@@ -477,9 +482,12 @@ router.post('/career-report', careerReportLimiter, authenticateJWT, async (req: 
     return res.status(400).json({ error: 'Invalid request', details: parseResult.error.issues });
   }
 
-  const { sessionId, userId: bodyUserId, userProfile, gameResults } = parseResult.data;
+  const { sessionId, userId: bodyUserId, userProfile, gameResults, flowType: bodyFlowType } = parseResult.data;
   // Prefer token-authenticated userId, fall back to body userId for backward compat
   const userId = req.userId ?? bodyUserId;
+  // Resolve flowType: body top-level > userProfile field > default
+  const flowType: 'employed' | 'career_guidance' =
+    bodyFlowType ?? userProfile.flowType ?? 'career_guidance';
 
   // ── Cache check ────────────────────────────────────────────────────────────
   if (isPostgres()) {
@@ -542,7 +550,7 @@ router.post('/career-report', careerReportLimiter, authenticateJWT, async (req: 
   }
 
   try {
-    const llmResult = await generateCareerReport(traits, userProfile, gameResults, gameBehaviorData, sessionId, traitHistory);
+    const llmResult = await generateCareerReport(traits, userProfile, gameResults, gameBehaviorData, sessionId, traitHistory, flowType);
     const response = {
       traits,
       gameResults,
@@ -582,7 +590,8 @@ router.post('/career-report', careerReportLimiter, authenticateJWT, async (req: 
           sessionId,
           JSON.stringify(traits),
           JSON.stringify(gameResults),
-          userProfile.occupationTitles.join(', ')
+          userProfile.occupationTitles.join(', '),
+          flowType
         );
       } catch (err) {
         console.error('Failed to save trait history:', err);

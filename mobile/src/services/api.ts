@@ -140,11 +140,13 @@ export async function selectGames(
   userProfile: UserProfile,
   pool: string[],
   userId?: number,
+  flowType?: 'employed' | 'career_guidance',
 ): Promise<GameSelectionResult> {
   const response = await api.post<GameSelectionResult>('/select-games', {
     userProfile,
     pool,
     userId,
+    flowType,
   });
   return response.data;
 }
@@ -180,6 +182,7 @@ export async function getCareerReport(
     userId,
     userProfile,
     gameResults,
+    flowType: userProfile.flowType ?? 'career_guidance',
   });
   return response.data;
 }

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+// @ts-nocheck — retired screen; replaced by OnboardingEmployment flow
+import React from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, UserProfile } from '../navigation/AppNavigator';
 import { GAME_CONFIGS, GameType } from '../data/gameCatalog';

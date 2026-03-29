@@ -84,6 +84,26 @@ async function migrate() {
     await client.query(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS career_report JSONB`);
 
     await client.query(`
+      CREATE TABLE IF NOT EXISTS user_trait_history (
+        id                SERIAL  PRIMARY KEY,
+        user_id           INTEGER NOT NULL REFERENCES users(id),
+        session_id        TEXT    NOT NULL,
+        traits_json       JSONB   NOT NULL,
+        game_results_json JSONB   NOT NULL,
+        occupation        TEXT    NOT NULL,
+        flow_type         TEXT,
+        created_at        BIGINT  NOT NULL
+      )
+    `);
+
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_trait_history_user ON user_trait_history(user_id)`);
+
+    // Add flow_type to existing user_trait_history tables
+    await client.query(`
+      ALTER TABLE user_trait_history ADD COLUMN IF NOT EXISTS flow_type TEXT
+    `);
+
+    await client.query(`
       CREATE TABLE IF NOT EXISTS llm_calls (
         id            SERIAL PRIMARY KEY,
         session_id    TEXT    NOT NULL,

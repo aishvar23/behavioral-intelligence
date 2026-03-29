@@ -70,6 +70,7 @@ export function initSchema(db: Database.Database) {
       traits_json       TEXT    NOT NULL,
       game_results_json TEXT    NOT NULL,
       occupation        TEXT    NOT NULL,
+      flow_type         TEXT,
       created_at        INTEGER NOT NULL
     );
 
@@ -143,6 +144,12 @@ export function initSchema(db: Database.Database) {
   const existingCols = (db.pragma('table_info(reports)') as Array<{ name: string }>).map(c => c.name);
   if (!existingCols.includes('career_report')) {
     db.exec('ALTER TABLE reports ADD COLUMN career_report TEXT');
+  }
+
+  // Trait history migrations
+  const traitHistoryCols = (db.pragma('table_info(user_trait_history)') as Array<{ name: string }>).map(c => c.name);
+  if (!traitHistoryCols.includes('flow_type')) {
+    db.exec('ALTER TABLE user_trait_history ADD COLUMN flow_type TEXT');
   }
 
   // Auth migrations
@@ -255,13 +262,14 @@ export function saveUserTraitHistory(
   sessionId: string,
   traitsJson: string,
   gameResultsJson: string,
-  occupation: string
+  occupation: string,
+  flowType?: string
 ): void {
   const db = getDb();
   db.prepare(`
-    INSERT INTO user_trait_history (user_id, session_id, traits_json, game_results_json, occupation, created_at)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(userId, sessionId, traitsJson, gameResultsJson, occupation, Date.now());
+    INSERT INTO user_trait_history (user_id, session_id, traits_json, game_results_json, occupation, flow_type, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(userId, sessionId, traitsJson, gameResultsJson, occupation, flowType ?? null, Date.now());
 }
 
 /**

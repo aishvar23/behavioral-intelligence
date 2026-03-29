@@ -1,22 +1,51 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useAuth } from '../context/AuthContext';
-import { guestStore } from '../services/guestStore';
+import { useOnboarding } from '../context/OnboardingContext';
+import { OnboardingData } from '../types/onboarding';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
+function onboardingKey(userId: number) {
+  return `bi_onboarding_${userId}`;
+}
+
 export default function HomeScreen({ navigation }: Props) {
   const { auth, logout } = useAuth();
-  const name = auth.displayName ?? guestStore.get()?.name;
+  const { setAgeRange, setGender, setEmploymentStatus } = useOnboarding();
+  const name = auth.displayName;
 
-  // If the user just completed GuestSetup, skip Home and go straight to assessment
-  useEffect(() => {
-    if (auth.isGuest && guestStore.get()) {
-      navigation.replace('OccupationIntent');
+  async function handleBeginAssessment() {
+    // Returning authenticated users skip onboarding if they've already completed it
+    if (auth.userId != null) {
+      try {
+        const raw = await AsyncStorage.getItem(onboardingKey(auth.userId));
+        if (raw) {
+          const saved: OnboardingData = JSON.parse(raw);
+          if (saved.ageRange && saved.gender && saved.employmentStatus && saved.flowType) {
+            // Restore context so downstream screens have the data
+            setAgeRange(saved.ageRange);
+            setGender(saved.gender);
+            setEmploymentStatus(saved.employmentStatus);
+
+            if (saved.flowType === 'employed') {
+              navigation.navigate('ProfessionSelection', { onboardingData: saved });
+            } else {
+              navigation.navigate('UserProfile', { onboardingData: saved });
+            }
+            return;
+          }
+        }
+      } catch {
+        // Non-fatal — fall through to full onboarding
+      }
     }
-  }, [auth.isGuest]);
+
+    navigation.navigate('OnboardingAge');
+  }
 
   return (
     <View style={styles.container}>
@@ -44,21 +73,9 @@ export default function HomeScreen({ navigation }: Props) {
         ))}
       </View>
 
-      <TouchableOpacity style={styles.btn} onPress={() => navigation.navigate('OccupationIntent')} activeOpacity={0.85}>
+      <TouchableOpacity style={styles.btn} onPress={handleBeginAssessment} activeOpacity={0.85}>
         <Text style={styles.btnText}>Begin Assessment →</Text>
       </TouchableOpacity>
-
-      {!auth.isGuest && auth.userId ? (
-        <TouchableOpacity style={styles.historyBtn} onPress={() => navigation.navigate('History')} activeOpacity={0.85}>
-          <Text style={styles.historyBtnText}>📊 My Progress</Text>
-        </TouchableOpacity>
-      ) : null}
-
-      {!auth.isGuest && auth.userId ? (
-        <TouchableOpacity style={styles.profileBtn} onPress={() => navigation.navigate('UserProfile', { mode: 'edit' })} activeOpacity={0.85}>
-          <Text style={styles.profileBtnText}>👤 Edit Profile</Text>
-        </TouchableOpacity>
-      ) : null}
 
       <Text style={styles.note}>Takes about 10–15 minutes</Text>
       {!auth.isGuest && auth.userId ? (

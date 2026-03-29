@@ -39,6 +39,10 @@ export interface UserProfile {
   occupationTitles: string[];
   occupationEmojis: string[];
   interests: string;
+  ageRange?: string;
+  gender?: string;
+  employmentStatus?: string;
+  flowType?: 'employed' | 'career_guidance';
 }
 
 export interface GameResult {
@@ -392,8 +396,10 @@ export async function generateCareerReport(
   gameResults: GameResult[],
   gameBehaviorData?: GameBehaviorData,
   sessionId?: string,
-  traitHistory?: TraitHistoryEntry[]
+  traitHistory?: TraitHistoryEntry[],
+  flowType?: 'employed' | 'career_guidance'
 ): Promise<FullLLMResult> {
+  const resolvedFlowType = flowType ?? userProfile.flowType ?? 'career_guidance';
   const occupationLabel = userProfile.occupationTitles.join(' / ');
 
   // Build per-game performance lines with score context
@@ -440,9 +446,9 @@ export async function generateCareerReport(
     `Systematic Thinking: ${traits.systematic_thinking.toFixed(2)}`,
   ].join(' | ');
 
-  const prompt = `You are a behavioral assessment assistant for a career exploration platform.
+  const commonHeader = `You are a behavioral assessment assistant for a cognitive intelligence platform.
 
-The user is ${userProfile.age} years old and wants to become a ${occupationLabel}.
+The user is ${userProfile.age} years old${userProfile.gender ? ` (${userProfile.gender})` : ''}.
 They played ${gameResults.length} short cognitive games (2–3 minutes total). These provide WEAK behavioral signals — not definitive proof — about cognitive traits.
 Do NOT make strong personality judgments. Use language like "this suggests…" or "this may indicate…" — never "you are…".
 ${historicalContext}
@@ -454,12 +460,54 @@ ${traitLine}
 
 ═══ GAME PERFORMANCE ═══
 ${gamePerformance}
-Overall engagement: ${avgPct}% — ${overallEngagement}
+Overall engagement: ${avgPct}% — ${overallEngagement}`;
+
+  const prompt = resolvedFlowType === 'employed'
+    ? `${commonHeader}
 
 ═══ OCCUPATION CONTEXT ═══
-The user wants to become a ${occupationLabel}.
-First, infer the core cognitive traits needed for this occupation from the 10 measured traits above (curiosity, persistence, risk tolerance, learning speed, working memory, processing speed, impulse control, analytical thinking, attention to detail, systematic thinking).
-Then compare the observed game behaviors to those inferred traits.
+The user is currently employed as / was last employed as: ${occupationLabel}.
+Assess their cognitive fit for this specific role. Do NOT suggest career changes.
+
+═══ YOUR TASK ═══
+1. OBSERVE — Describe what the user actually did in each game (factual, second-person).
+2. COMPARE — Match observed behaviors to traits needed for success as a ${occupationLabel}.
+3. STRENGTHS — Highlight 2–3 cognitive behaviors that align with the role demands.
+4. DEVELOP — Identify 1–2 areas that may need development for this role.
+5. SUGGEST — Give age-appropriate workplace skill-building activities for a ${occupationLabel}.
+   Age group: ${ageGroup}.
+6. PROGRESS — Only if historical data is present: note trait changes vs previous sessions. Omit entirely if no history.
+
+Respond with valid JSON only (no markdown, no code fences):
+{
+  "thinkingStyle": "≤12 words describing their cognitive approach based on observed behavior",
+  "report": "2–3 sentences: key observed behaviors → relation to ${occupationLabel} → one strength and one area to develop",
+  "progressSummary": "Only if historical data was provided: 1–2 sentences on trait trends. Omit this key entirely if no history.",
+  "observations": [
+    {
+      "game": "game title",
+      "observation": "1 sentence: what the user did (factual, second-person)",
+      "relevance": "1 sentence: how it relates to performing as a ${occupationLabel}"
+    }
+  ],
+  "occupationFit": {
+    "occupation": "${occupationLabel}",
+    "rating": "excellent | good | moderate | low",
+    "summary": "1–2 sentences grounded in observed in-game behavior"
+  },
+  "skillDevelopment": [
+    {
+      "skill": "skill name",
+      "activities": ["activity 1", "activity 2"]
+    }
+  ],
+  "recommendedCareers": []
+}`
+    : `${commonHeader}
+
+═══ OCCUPATION CONTEXT ═══
+The user is exploring career options and is considering: ${occupationLabel}.
+First, infer the core cognitive traits needed for this occupation, then compare the observed game behaviors to those inferred traits.
 
 ═══ YOUR TASK ═══
 1. OBSERVE — Describe what the user actually did in each game using factual, second-person language.
