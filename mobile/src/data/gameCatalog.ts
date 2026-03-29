@@ -6,7 +6,7 @@
  * near-unlimited variety. Add more GameConfig entries to scale toward 50,000+ configs.
  */
 
-export type GameType = 'memory' | 'logic' | 'reaction' | 'stroop' | 'matrix' | 'spatial' | 'estimation' | 'search' | 'rule_discovery' | 'planning' | 'reactor' | 'reactor_chaos' | 'speed_reactor';
+export type GameType = 'memory' | 'logic' | 'reaction' | 'stroop' | 'matrix' | 'spatial' | 'estimation' | 'search' | 'rule_discovery' | 'planning' | 'reactor' | 'reactor_chaos' | 'speed_reactor' | 'archive' | 'circuit';
 
 export interface GameConfig {
   id: string;
@@ -193,6 +193,34 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     title: 'Speed Challenge', emoji: '🏎️', difficulty: 'hard',
     description: 'Four targets, one highlighted — tap fast and accurately.',
     config: { variant: 'speed' },
+  },
+
+  // ── The Archive variants (T06 Working Memory) ───────────────────────────
+  archive_standard: {
+    id: 'archive_standard', type: 'archive',
+    title: 'The Archive', emoji: '🗂️', difficulty: 'medium',
+    description: 'Ancient glyphs flash on a grid. Memorise positions and sequence, then recall.',
+    config: { gridSize: 3, seqLength: 3, blackoutMs: 0, flashMs: 1200, interference: false, nBack: 0, dualChannel: false, rounds: 4 },
+  },
+  archive_hard: {
+    id: 'archive_hard', type: 'archive',
+    title: 'The Archive: N-Back', emoji: '🧠', difficulty: 'hard',
+    description: 'Dual 3-Back — track both color and symbol from 3 steps ago simultaneously.',
+    config: { gridSize: 4, seqLength: 5, blackoutMs: 0, flashMs: 1200, interference: false, nBack: 3, dualChannel: true, rounds: 20 },
+  },
+
+  // ── Circuit Snap variants (T12 Systems Thinking) ─────────────────────────
+  circuit_standard: {
+    id: 'circuit_standard', type: 'circuit',
+    title: 'Circuit Snap', emoji: '⚡', difficulty: 'medium',
+    description: 'Flip switches to route power through logic gates to the goal node.',
+    config: { levelIndex: 2, cascadeMode: false },
+  },
+  circuit_hard: {
+    id: 'circuit_hard', type: 'circuit',
+    title: 'Circuit Snap: Cascade', emoji: '🌪️', difficulty: 'hard',
+    description: 'Cascade failure mode — the circuit degrades every few seconds. Keep all goals powered.',
+    config: { levelIndex: 8, cascadeMode: true, cascadeIntervalMs: 5000 },
   },
 
   // ── Speed Reactor variants (T21 Processing Speed) ───────────────────────

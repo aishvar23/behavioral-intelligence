@@ -218,25 +218,47 @@ export const TRAIT_CATALOG: Record<string, TraitDefinition> = {
     ]),
   },
 
-  // ── T06 · Working Memory ─────────────────────────────────────────────────
+  // ── T06 · Working Memory — The Archive ──────────────────────────────────
+  // Glyph Deciphering: symbols flash on a grid, recall after blackout.
+  // L1-2: 3×3 grid, no delay (baseline span measurement)
+  // L3-4: 4×4 grid, 2-4s blackout (Buffer test)
+  // L5-6: interference — math distractor fires during blackout
+  // L7-8: N-Back 2 — "does this match 2 turns ago?" + grid rotation (cosmetic)
+  // L9-10: Dual 3-Back — track both color AND symbol from 3 steps ago
+  //
+  // Key metrics: maxSpan (highest perfect-recall length), decayRate (accuracy
+  // vs blackout duration), interferenceResistance, updatingSpeed (N-Back hits)
+  //
+  // Validated by: T12 Systems Thinking (Short-Term Thinker: high T06, low T12)
   T06: {
     id: 'T06', name: 'Working Memory', icon: '🧠',
-    description: 'Accurately holding and manipulating information across increasingly long sequences.',
-    gameEngine: 'memory',
-    primaryGameId: 'memory_sequential',
+    description: 'Ancient glyphs flash on a grid — memorise sequence and position across a blackout, with interference and N-Back challenges.',
+    gameEngine: 'archive',
+    primaryGameId: 'archive_standard',
     ceilingDropPct: 0.40, ceilingLevels: 3,
     skipScore: 95, skipToLevel: 4,
+    validatedBy: 'T12',
+    benchmarks: [
+      { profession: 'Commercial Pilot',  minLevel: 9,  minAccuracy: 0.85, notes: 'Max span 7+ items; N-Back 2 accuracy ≥85%' },
+      { profession: 'Air Traffic Controller', minLevel: 10, minAccuracy: 0.80, notes: 'Dual 3-Back ≥80%; interference resistance >75%' },
+      { profession: 'Software Engineer', minLevel: 7,  minAccuracy: 0.80, notes: 'Span 6+; blackout accuracy with interference >70%' },
+    ],
     levels: levels([
-      { level: 1,  label: 'Imprint',        speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { variant: 'sequential', rounds: 3, seqLength: 3 }, targetAccuracy: 0.80, eliteLatencyMs: 3000 },
-      { level: 2,  label: 'Register',       speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { variant: 'sequential', rounds: 3, seqLength: 4 }, targetAccuracy: 0.78, eliteLatencyMs: 3500 },
-      { level: 3,  label: 'Encode',         speedMultiplier: 1.0, distractorDensity: 0.10, ruleShifting: false, uiInterference: false, gameParams: { variant: 'sequential', rounds: 4, seqLength: 4 }, targetAccuracy: 0.76, eliteLatencyMs: 4000 },
-      { level: 4,  label: 'Hold',           speedMultiplier: 1.1, distractorDensity: 0.10, ruleShifting: false, uiInterference: false, gameParams: { variant: 'sequential', rounds: 4, seqLength: 5 }, targetAccuracy: 0.75, eliteLatencyMs: 4500 },
-      { level: 5,  label: 'Retain',         speedMultiplier: 1.1, distractorDensity: 0.20, ruleShifting: false, uiInterference: false, gameParams: { variant: 'sequential', rounds: 4, seqLength: 5 }, targetAccuracy: 0.74, eliteLatencyMs: 5000 },
-      { level: 6,  label: 'Extend',         speedMultiplier: 1.2, distractorDensity: 0.20, ruleShifting: false, uiInterference: false, gameParams: { variant: 'sequential', rounds: 5, seqLength: 6 }, targetAccuracy: 0.72, eliteLatencyMs: 5000 },
-      { level: 7,  label: 'Overload',       speedMultiplier: 1.2, distractorDensity: 0.30, ruleShifting: false, uiInterference: false, gameParams: { variant: 'sequential', rounds: 5, seqLength: 6 }, targetAccuracy: 0.70, eliteLatencyMs: 5500 },
-      { level: 8,  label: 'Interference',   speedMultiplier: 1.3, distractorDensity: 0.40, ruleShifting: false, uiInterference: false, gameParams: { variant: 'sequential', rounds: 5, seqLength: 7 }, targetAccuracy: 0.68, eliteLatencyMs: 6000 },
-      { level: 9,  label: 'Deep Store',     speedMultiplier: 1.3, distractorDensity: 0.50, ruleShifting: false, uiInterference: true,  gameParams: { variant: 'sequential', rounds: 5, seqLength: 8 }, targetAccuracy: 0.65, eliteLatencyMs: 6500 },
-      { level: 10, label: 'Peak Capacity',  speedMultiplier: 1.4, distractorDensity: 0.60, ruleShifting: false, uiInterference: true,  gameParams: { variant: 'sequential', rounds: 5, seqLength: 9 }, targetAccuracy: 0.60, eliteLatencyMs: 7000 },
+      // L1-2: 3×3 grid, no blackout — establish raw span baseline
+      { level: 1,  label: 'Imprint',       speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { gridSize: 3, seqLength: 3, blackoutMs: 0,    flashMs: 1400, interference: false, nBack: 0, dualChannel: false, rounds: 4 }, targetAccuracy: 0.85, eliteLatencyMs: 5000 },
+      { level: 2,  label: 'Register',      speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { gridSize: 3, seqLength: 4, blackoutMs: 0,    flashMs: 1300, interference: false, nBack: 0, dualChannel: false, rounds: 4 }, targetAccuracy: 0.82, eliteLatencyMs: 5000 },
+      // L3-4: 4×4 grid + blackout delay (Buffer test)
+      { level: 3,  label: 'Buffer',        speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { gridSize: 4, seqLength: 4, blackoutMs: 2000, flashMs: 1200, interference: false, nBack: 0, dualChannel: false, rounds: 4 }, targetAccuracy: 0.78, eliteLatencyMs: 6000 },
+      { level: 4,  label: 'Hold',          speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { gridSize: 4, seqLength: 5, blackoutMs: 3000, flashMs: 1200, interference: false, nBack: 0, dualChannel: false, rounds: 4 }, targetAccuracy: 0.75, eliteLatencyMs: 6000 },
+      // L5-6: Math interference during blackout
+      { level: 5,  label: 'Interference',  speedMultiplier: 1.0, distractorDensity: 0.20, ruleShifting: false, uiInterference: true,  gameParams: { gridSize: 4, seqLength: 5, blackoutMs: 3000, flashMs: 1100, interference: true,  nBack: 0, dualChannel: false, rounds: 4 }, targetAccuracy: 0.72, eliteLatencyMs: 7000 },
+      { level: 6,  label: 'Distracted',    speedMultiplier: 1.0, distractorDensity: 0.30, ruleShifting: false, uiInterference: true,  gameParams: { gridSize: 4, seqLength: 6, blackoutMs: 4000, flashMs: 1000, interference: true,  nBack: 0, dualChannel: false, rounds: 5 }, targetAccuracy: 0.70, eliteLatencyMs: 7000 },
+      // L7-8: N-Back 2 — stimulus stream, YES/NO matching
+      { level: 7,  label: '2-Back',        speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { gridSize: 4, seqLength: 0, blackoutMs: 0,    flashMs: 1200, interference: false, nBack: 2, dualChannel: false, rounds: 16 }, targetAccuracy: 0.72, eliteLatencyMs: 4000 },
+      { level: 8,  label: '2-Back Plus',   speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { gridSize: 4, seqLength: 0, blackoutMs: 0,    flashMs: 1100, interference: false, nBack: 2, dualChannel: false, rounds: 20 }, targetAccuracy: 0.70, eliteLatencyMs: 4000 },
+      // L9-10: Dual 3-Back — track color + symbol simultaneously
+      { level: 9,  label: 'Dual 3-Back',   speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: true,  gameParams: { gridSize: 4, seqLength: 0, blackoutMs: 0,    flashMs: 1100, interference: false, nBack: 3, dualChannel: true,  rounds: 20 }, targetAccuracy: 0.68, eliteLatencyMs: 4000 },
+      { level: 10, label: 'Multi-Channel', speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: true,  gameParams: { gridSize: 4, seqLength: 0, blackoutMs: 0,    flashMs: 1000, interference: false, nBack: 3, dualChannel: true,  rounds: 24 }, targetAccuracy: 0.65, eliteLatencyMs: 4000 },
     ]),
   },
 
@@ -262,25 +284,48 @@ export const TRAIT_CATALOG: Record<string, TraitDefinition> = {
     ]),
   },
 
-  // ── T12 · Systems Thinking ───────────────────────────────────────────────
+  // ── T12 · Systems Thinking — Circuit Snap ───────────────────────────────
+  // Power Grid Repair: flip switches to route power through logic gates.
+  // Each level maps to a pre-defined circuit puzzle (PUZZLES[levelIndex]).
+  // L1-2: Linear & OR (single path, two-choice)
+  // L3-4: AND gate, OR→AND (multi-dependency)
+  // L5-6: NOT gate logic (counter-intuitive inversion)
+  // L7-8: Two simultaneous goals
+  // L9-10: Three goals + cascade failure (random switch flips continuously)
+  //
+  // Key metrics: inductionSpeed (time to first correct solution), trialRatio
+  // (wrong/total clicks), pathOptimisation (moves vs minimum possible)
+  //
+  // Validated by: T06 Working Memory (Slow Architect: high T12, low T06)
   T12: {
     id: 'T12', name: 'Systems Thinking', icon: '🗺️',
-    description: 'Mapping dependencies and sequencing tasks within complex networks without making mistakes.',
-    gameEngine: 'planning',
-    primaryGameId: 'task_planning_standard',
+    description: 'Route power through logic gates to illuminate all goal nodes — managing ripple effects with every switch flip.',
+    gameEngine: 'circuit',
+    primaryGameId: 'circuit_standard',
     ceilingDropPct: 0.40, ceilingLevels: 3,
     skipScore: 95, skipToLevel: 4,
+    validatedBy: 'T06',
+    benchmarks: [
+      { profession: 'Systems Engineer',   minLevel: 9,  minAccuracy: 0.90, notes: 'Three-goal cascade with <5 wrong moves' },
+      { profession: 'Commercial Pilot',   minLevel: 8,  minAccuracy: 0.88, notes: 'Two-goal puzzle in minimum moves' },
+      { profession: 'Project Manager',    minLevel: 7,  minAccuracy: 0.85, notes: 'Solves L7 two-goal circuit on first attempt' },
+    ],
     levels: levels([
-      { level: 1,  label: 'Linear',         speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { tasks: 3,  hard: false }, targetAccuracy: 0.85, eliteLatencyMs: 20000 },
-      { level: 2,  label: 'Fork',           speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { tasks: 4,  hard: false }, targetAccuracy: 0.83, eliteLatencyMs: 22000 },
-      { level: 3,  label: 'Branch',         speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { tasks: 5,  hard: false }, targetAccuracy: 0.81, eliteLatencyMs: 25000 },
-      { level: 4,  label: 'Merge',          speedMultiplier: 1.0, distractorDensity: 0.10, ruleShifting: false, uiInterference: false, gameParams: { tasks: 5,  hard: false }, targetAccuracy: 0.80, eliteLatencyMs: 28000 },
-      { level: 5,  label: 'Pipeline',       speedMultiplier: 1.0, distractorDensity: 0.10, ruleShifting: false, uiInterference: false, gameParams: { tasks: 6,  hard: false }, targetAccuracy: 0.78, eliteLatencyMs: 30000 },
-      { level: 6,  label: 'Network',        speedMultiplier: 1.0, distractorDensity: 0.20, ruleShifting: false, uiInterference: false, gameParams: { tasks: 7,  hard: true  }, targetAccuracy: 0.76, eliteLatencyMs: 35000 },
-      { level: 7,  label: 'Critical Path',  speedMultiplier: 1.0, distractorDensity: 0.20, ruleShifting: false, uiInterference: false, gameParams: { tasks: 8,  hard: true  }, targetAccuracy: 0.75, eliteLatencyMs: 38000 },
-      { level: 8,  label: 'Cascade',        speedMultiplier: 1.0, distractorDensity: 0.30, ruleShifting: true,  uiInterference: false, gameParams: { tasks: 9,  hard: true  }, targetAccuracy: 0.73, eliteLatencyMs: 42000 },
-      { level: 9,  label: 'System Failure', speedMultiplier: 1.0, distractorDensity: 0.40, ruleShifting: true,  uiInterference: true,  gameParams: { tasks: 10, hard: true  }, targetAccuracy: 0.70, eliteLatencyMs: 45000 },
-      { level: 10, label: 'Architect',      speedMultiplier: 1.0, distractorDensity: 0.50, ruleShifting: true,  uiInterference: true,  gameParams: { tasks: 12, hard: true  }, targetAccuracy: 0.68, eliteLatencyMs: 50000 },
+      // L1-2: Linear + OR (puzzle indices 0, 1)
+      { level: 1,  label: 'Linear',         speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { levelIndex: 0, cascadeMode: false }, targetAccuracy: 0.95, eliteLatencyMs: 15000 },
+      { level: 2,  label: 'OR Gate',         speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { levelIndex: 1, cascadeMode: false }, targetAccuracy: 0.92, eliteLatencyMs: 18000 },
+      // L3-4: AND, OR→AND (puzzle indices 2, 3)
+      { level: 3,  label: 'AND Gate',        speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { levelIndex: 2, cascadeMode: false }, targetAccuracy: 0.88, eliteLatencyMs: 22000 },
+      { level: 4,  label: 'Branching',       speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { levelIndex: 3, cascadeMode: false }, targetAccuracy: 0.85, eliteLatencyMs: 28000 },
+      // L5-6: NOT gate (puzzle indices 4, 5)
+      { level: 5,  label: 'NOT Gate',        speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { levelIndex: 4, cascadeMode: false }, targetAccuracy: 0.82, eliteLatencyMs: 30000 },
+      { level: 6,  label: 'Double Invert',   speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: true,  uiInterference: false, gameParams: { levelIndex: 5, cascadeMode: false }, targetAccuracy: 0.80, eliteLatencyMs: 35000 },
+      // L7-8: Two goals (puzzle indices 6, 7)
+      { level: 7,  label: 'Dual Goals',      speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: true,  uiInterference: false, gameParams: { levelIndex: 6, cascadeMode: false }, targetAccuracy: 0.78, eliteLatencyMs: 40000 },
+      { level: 8,  label: 'Mixed Network',   speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: true,  uiInterference: false, gameParams: { levelIndex: 7, cascadeMode: false }, targetAccuracy: 0.75, eliteLatencyMs: 45000 },
+      // L9-10: Three goals + cascade (puzzle indices 8, 9)
+      { level: 9,  label: 'Cascade',         speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: true,  uiInterference: true,  gameParams: { levelIndex: 8, cascadeMode: true, cascadeIntervalMs: 6000 }, targetAccuracy: 0.72, eliteLatencyMs: 60000 },
+      { level: 10, label: 'Total Cascade',   speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: true,  uiInterference: true,  gameParams: { levelIndex: 9, cascadeMode: true, cascadeIntervalMs: 4000 }, targetAccuracy: 0.68, eliteLatencyMs: 80000 },
     ]),
   },
 

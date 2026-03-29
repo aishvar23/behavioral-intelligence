@@ -53,6 +53,8 @@ import VisualSearchGame     from '../components/games/VisualSearchGame';
 import TheReactorGame       from '../components/games/TheReactorGame';
 import ReactorChaosGame     from '../components/games/ReactorChaosGame';
 import SpeedReactorGame     from '../components/games/SpeedReactorGame';
+import TheArchiveGame       from '../components/games/TheArchiveGame';
+import CircuitSnapGame      from '../components/games/CircuitSnapGame';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LevelGame'>;
 
@@ -468,6 +470,22 @@ function renderGameComponent(
       return (
         <SpeedReactorGame
           config={params as Parameters<typeof SpeedReactorGame>[0]['config']}
+          onComplete={onComplete}
+          sessionId={sid}
+        />
+      );
+    case 'archive':
+      return (
+        <TheArchiveGame
+          config={params as Parameters<typeof TheArchiveGame>[0]['config']}
+          onComplete={onComplete}
+          sessionId={sid}
+        />
+      );
+    case 'circuit':
+      return (
+        <CircuitSnapGame
+          config={params as Parameters<typeof CircuitSnapGame>[0]['config']}
           onComplete={onComplete}
           sessionId={sid}
         />
