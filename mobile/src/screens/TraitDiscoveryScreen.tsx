@@ -6,7 +6,7 @@
  * discover the top 5 cognitive traits, then navigate to BaselineScreen.
  */
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -33,6 +33,7 @@ export default function TraitDiscoveryScreen({ route, navigation }: Props) {
   const [traits, setTraits]         = useState<DiscoveredTrait[] | null>(null);
   const [sessionId]                 = useState(() => uuid());
   const [error, setError]           = useState<string | null>(null);
+  const submittingRef               = useRef(false);
 
   async function handleDiscover() {
     if (!profession.trim()) return;
@@ -49,13 +50,15 @@ export default function TraitDiscoveryScreen({ route, navigation }: Props) {
   }
 
   async function handleBegin() {
-    if (!traits) return;
+    if (!traits || submittingRef.current) return;
+    submittingRef.current = true;
     setLoading(true);
     try {
       await startAssessmentSession(sessionId, profession.trim(), traits, auth.userId ?? undefined);
       navigation.navigate('Baseline', { sessionId, profession: profession.trim(), traits });
     } catch {
       setError('Failed to start assessment — please try again.');
+      submittingRef.current = false;
     } finally {
       setLoading(false);
     }
