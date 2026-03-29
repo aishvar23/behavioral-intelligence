@@ -335,6 +335,9 @@ export function createAssessmentSession(
   traitsJson: string,
 ): AssessmentSessionRow {
   const db = getDb();
+  // Return existing session if already created (handles retries / double-calls)
+  const existing = getAssessmentSession(sessionId);
+  if (existing) return existing;
   const now = Date.now();
   db.prepare(`
     INSERT INTO assessment_sessions (session_id, user_id, profession, traits_json, status, created_at)

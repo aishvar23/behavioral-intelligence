@@ -113,7 +113,12 @@ router.post('/assessment/start', (req, res) => {
   try {
     const session = createAssessmentSession(sessionId, userId ?? null, profession, traitsJson);
     return res.json({ sessionId: session.sessionId, status: session.status });
-  } catch (err) {
+  } catch (err: any) {
+    // Idempotency: if session already exists return it rather than erroring
+    if (err?.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      const existing = getAssessmentSession(sessionId);
+      if (existing) return res.json({ sessionId: existing.sessionId, status: existing.status });
+    }
     console.error('[assessment/start]', err);
     return res.status(500).json({ error: 'Failed to start assessment session' });
   }
