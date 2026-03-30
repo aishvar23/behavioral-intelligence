@@ -58,9 +58,13 @@ jobs:
             "version": "'"$(node -p "require('./package.json').version")"'"
           }' > version.json
 
+      - name: Install production dependencies for deployment
+        working-directory: backend
+        run: npm ci --omit=dev
+
       - name: Create deployment zip
         working-directory: backend
-        run: zip -r ../deploy.zip dist/ src/ package.json package-lock.json tsconfig.json version.json
+        run: zip -r ../deploy.zip dist/ node_modules/ package.json version.json
 
       - name: Disable Kudu build (we ship a pre-built zip)
         env:
