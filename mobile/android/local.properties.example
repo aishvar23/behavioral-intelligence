@@ -11,3 +11,8 @@ sdk.dir=C\:\\Users\\<YOUR_USER>\\AppData\\Local\\Android\\Sdk
 # App: Behavioral Intelligence · App ID: 1655685855631376
 FACEBOOK_APP_ID=1655685855631376
 FACEBOOK_CLIENT_TOKEN=<from Facebook Developer Console → Settings → Advanced → Client token>
+
+# Google Sign-In has NO entries here.
+# It is configured via mobile/android/app/google-services.json (gitignored).
+# Download it from Firebase Console → Project Settings → Android app → google-services.json.
+# The web client ID in mobile/src/config.ts is already committed — no local change needed.
