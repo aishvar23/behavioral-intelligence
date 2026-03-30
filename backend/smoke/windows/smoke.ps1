@@ -10,6 +10,9 @@ param(
   [string]$Target = ""
 )
 
+# Azure requires TLS 1.2 — PowerShell 5.x defaults to TLS 1.0
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
 # -- Target URL ---------------------------------------------------------------
 $DevUrl   = "https://bi-backend-dev.azurewebsites.net"
 $LocalUrl = "http://localhost:3000"
