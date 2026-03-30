@@ -60,7 +60,7 @@ jobs:
 
       - name: Create deployment zip
         working-directory: backend
-        run: zip -r ../deploy.zip dist/ src/ package.json package-lock.json version.json
+        run: zip -r ../deploy.zip dist/ package.json package-lock.json version.json
 
       - name: Enable Kudu build (Azure installs production deps on startup)
         env:
