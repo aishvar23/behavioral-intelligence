@@ -50,6 +50,22 @@ function makeDbRow(gameId: string, eventType: string, data: Record<string, unkno
   };
 }
 
+function makeTrialRow(gameId: string, isCorrect = true) {
+  return {
+    game_id: gameId,
+    game_variant: null,
+    trial_index: 0,
+    difficulty: 'medium',
+    stimulus_json: '{}',
+    response_json: '{}',
+    is_correct: isCorrect ? 1 : 0,
+    response_error: 0,
+    response_time_ms: 1000,
+    timeout_extended: 0,
+    skipped: 0,
+  };
+}
+
 beforeEach(() => {
   // resetAllMocks clears calls AND resets implementations, preventing
   // mockRejectedValue/mockResolvedValue from leaking between tests.
@@ -151,7 +167,7 @@ describe('GET /report/:sessionId', () => {
     const res = await request(app).get('/report/unknown-session');
 
     expect(res.status).toBe(404);
-    expect(res.body).toHaveProperty('error', 'No events found for session');
+    expect(res.body).toHaveProperty('error', 'No trials found for session');
   });
 
   it('returns cached report when one exists in db', async () => {
@@ -179,12 +195,12 @@ describe('GET /report/:sessionId', () => {
   it('returns traits and report when events are present', async () => {
     mockGet.mockReturnValue(undefined); // no cache
 
-    const events = [
-      makeDbRow('exploration', 'move', { explorationPct: 0.6 }),
-      makeDbRow('puzzle', 'solved', {}),
-      makeDbRow('exploration', 'move', { tileType: 'trap' }),
+    const trials = [
+      makeTrialRow('logic_deduction', true),
+      makeTrialRow('logic_deduction', true),
+      makeTrialRow('reaction_basic', true),
     ];
-    mockAll.mockReturnValue(events);
+    mockAll.mockReturnValue(trials);
 
     (generateBehaviorReport as jest.Mock).mockResolvedValue({
       aiReport: 'You are highly curious.',
@@ -206,9 +222,7 @@ describe('GET /report/:sessionId', () => {
 
   it('returns fallback text when LLM throws an error', async () => {
     mockGet.mockReturnValue(undefined);
-    mockAll.mockReturnValue([
-      makeDbRow('exploration', 'move', { explorationPct: 0.3 }),
-    ]);
+    mockAll.mockReturnValue([makeTrialRow('logic_deduction')]);
 
     (generateBehaviorReport as jest.Mock).mockRejectedValue(new Error('LLM unavailable'));
 
@@ -223,7 +237,7 @@ describe('GET /report/:sessionId', () => {
 
   it('caches the generated report after computing it', async () => {
     mockGet.mockReturnValue(undefined);
-    mockAll.mockReturnValue([makeDbRow('exploration', 'move', { explorationPct: 0.5 })]);
+    mockAll.mockReturnValue([makeTrialRow('logic_deduction')]);
 
     (generateBehaviorReport as jest.Mock).mockResolvedValue({
       aiReport: 'New report.',
@@ -288,8 +302,8 @@ describe('POST /career-report', () => {
 
   it('returns full career report on valid request', async () => {
     mockAll.mockReturnValue([
-      makeDbRow('matrix_standard', 'option_selected', { correct: true, responseTime: 8000 }),
-      makeDbRow('pattern_advanced', 'correct_guess', { adaptationRound: 2 }),
+      makeTrialRow('matrix_standard'),
+      makeTrialRow('logic_deduction'),
     ]);
 
     const cannedResult = {
@@ -318,7 +332,7 @@ describe('POST /career-report', () => {
   });
 
   it('returns 500 when generateCareerReport throws', async () => {
-    mockAll.mockReturnValue([makeDbRow('exploration', 'move', { explorationPct: 0.5 })]);
+    mockAll.mockReturnValue([makeTrialRow('logic_deduction')]);
 
     (generateCareerReport as jest.Mock).mockRejectedValue(new Error('LLM down'));
 
@@ -331,9 +345,7 @@ describe('POST /career-report', () => {
   });
 
   it('passes traits and userProfile to generateCareerReport', async () => {
-    mockAll.mockReturnValue([
-      makeDbRow('exploration', 'move', { explorationPct: 0.6 }),
-    ]);
+    mockAll.mockReturnValue([makeTrialRow('logic_deduction')]);
 
     (generateCareerReport as jest.Mock).mockResolvedValue({
       thinkingStyle: 'Test style.',
