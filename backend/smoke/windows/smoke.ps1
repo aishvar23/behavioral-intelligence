@@ -94,6 +94,25 @@ function Check {
   }
 }
 
+# Passes when status is 4xx — used for social auth where the exact code
+# (401 invalid token vs 503 not configured) depends on server env vars.
+function Check4xx {
+  param(
+    [string]$Label,
+    [int]$Status,
+    [string]$Body
+  )
+
+  if ($Status -ge 400 -and $Status -lt 500) {
+    Write-Host "PASS [$Label] ($Status)"
+    $script:Pass++
+  } else {
+    Write-Host "FAIL [$Label] expected 4xx, got $Status"
+    Write-Host "     body: $Body"
+    $script:Fail++
+  }
+}
+
 # -- 1. Health ----------------------------------------------------------------
 Write-Host ""
 Write-Host "1. Health check"
@@ -252,6 +271,34 @@ $r = Invoke-Endpoint -Method POST -Url "$BaseUrl/auth/login" -Body @{
   password = "wrongpassword"
 }
 Check -Label "POST /auth/login bad password -> 401" -Status $r.Status -Body $r.Body -ExpectStatus 401 -ExpectBody '"error"'
+
+# -- 9. Social auth — Google --------------------------------------------------
+Write-Host ""
+Write-Host "9. Social auth — Google"
+
+# 9a. Missing idToken -> 400 validation error (always, regardless of env)
+$r = Invoke-Endpoint -Method POST -Url "$BaseUrl/auth/google" -Body @{}
+Check -Label "POST /auth/google no body -> 400" -Status $r.Status -Body $r.Body -ExpectStatus 400 -ExpectBody '"error"'
+
+# 9b. Fake idToken -> 401 (GOOGLE_CLIENT_ID set, token rejected) or 503 (not configured)
+$r = Invoke-Endpoint -Method POST -Url "$BaseUrl/auth/google" -Body @{
+  idToken = "fake.google.idtoken"
+}
+Check4xx -Label "POST /auth/google fake token -> 4xx" -Status $r.Status -Body $r.Body
+
+# -- 10. Social auth — Facebook -----------------------------------------------
+Write-Host ""
+Write-Host "10. Social auth — Facebook"
+
+# 10a. Missing accessToken -> 400 validation error (always, regardless of env)
+$r = Invoke-Endpoint -Method POST -Url "$BaseUrl/auth/facebook" -Body @{}
+Check -Label "POST /auth/facebook no body -> 400" -Status $r.Status -Body $r.Body -ExpectStatus 400 -ExpectBody '"error"'
+
+# 10b. Fake accessToken -> 401 (FACEBOOK_APP_ID set, Graph API rejects) or 503 (not configured)
+$r = Invoke-Endpoint -Method POST -Url "$BaseUrl/auth/facebook" -Body @{
+  accessToken = "fake-facebook-access-token"
+}
+Check4xx -Label "POST /auth/facebook fake token -> 4xx" -Status $r.Status -Body $r.Body
 
 # -- Summary ------------------------------------------------------------------
 Write-Host ""

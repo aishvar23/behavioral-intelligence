@@ -55,6 +55,23 @@ check() {
   fi
 }
 
+# Passes when status is 4xx — used for social auth where the exact code
+# (401 invalid token vs 503 not configured) depends on server env vars.
+check_4xx() {
+  local label="$1"
+  local status="$2"
+  local body="$3"
+
+  if [[ "$status" -ge 400 && "$status" -lt 500 ]]; then
+    echo "PASS [$label] ($status)"
+    PASS=$((PASS + 1))
+  else
+    echo "FAIL [$label] expected 4xx, got $status"
+    echo "     body: $body"
+    FAIL=$((FAIL + 1))
+  fi
+}
+
 # ── 1. Health ────────────────────────────────────────────────────────────────
 echo ""
 echo "1. Health check"
@@ -228,6 +245,46 @@ RESP=$(curl -s -o /tmp/bi_body.txt -w "%{http_code}" \
   -d "{\"email\":\"$AUTH_EMAIL\",\"password\":\"wrongpassword\"}")
 BODY=$(cat /tmp/bi_body.txt)
 check "POST /auth/login bad password -> 401" "$RESP" "$BODY" "401" '"error"'
+
+# ── 9. Social auth — Google ──────────────────────────────────────────────────
+echo ""
+echo "9. Social auth — Google"
+
+# 9a. Missing idToken → 400 validation error (always, regardless of env)
+RESP=$(curl -s -o /tmp/bi_body.txt -w "%{http_code}" \
+  -X POST "$TARGET/auth/google" \
+  -H "Content-Type: application/json" \
+  -d '{}')
+BODY=$(cat /tmp/bi_body.txt)
+check "POST /auth/google no body → 400" "$RESP" "$BODY" "400" '"error"'
+
+# 9b. Fake idToken → 401 (GOOGLE_CLIENT_ID set, token rejected) or 503 (not configured)
+RESP=$(curl -s -o /tmp/bi_body.txt -w "%{http_code}" \
+  -X POST "$TARGET/auth/google" \
+  -H "Content-Type: application/json" \
+  -d '{"idToken":"fake.google.idtoken"}')
+BODY=$(cat /tmp/bi_body.txt)
+check_4xx "POST /auth/google fake token → 4xx" "$RESP" "$BODY"
+
+# ── 10. Social auth — Facebook ────────────────────────────────────────────────
+echo ""
+echo "10. Social auth — Facebook"
+
+# 10a. Missing accessToken → 400 validation error (always, regardless of env)
+RESP=$(curl -s -o /tmp/bi_body.txt -w "%{http_code}" \
+  -X POST "$TARGET/auth/facebook" \
+  -H "Content-Type: application/json" \
+  -d '{}')
+BODY=$(cat /tmp/bi_body.txt)
+check "POST /auth/facebook no body → 400" "$RESP" "$BODY" "400" '"error"'
+
+# 10b. Fake accessToken → 401 (FACEBOOK_APP_ID set, Graph API rejects) or 503 (not configured)
+RESP=$(curl -s -o /tmp/bi_body.txt -w "%{http_code}" \
+  -X POST "$TARGET/auth/facebook" \
+  -H "Content-Type: application/json" \
+  -d '{"accessToken":"fake-facebook-access-token"}')
+BODY=$(cat /tmp/bi_body.txt)
+check_4xx "POST /auth/facebook fake token → 4xx" "$RESP" "$BODY"
 
 # ── Summary ──────────────────────────────────────────────────────────────────
 echo ""
