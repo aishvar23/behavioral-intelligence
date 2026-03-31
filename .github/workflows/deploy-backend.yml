@@ -58,11 +58,15 @@ jobs:
             "version": "'"$(node -p "require('./package.json').version")"'"
           }' > version.json
 
+      - name: Install production dependencies for deployment
+        working-directory: backend
+        run: npm ci --omit=dev
+
       - name: Create deployment zip
         working-directory: backend
-        run: zip -r ../deploy.zip dist/ package.json package-lock.json version.json
+        run: zip -r ../deploy.zip dist/ node_modules/ package.json version.json
 
-      - name: Enable Kudu build (Azure installs production deps on startup)
+      - name: Disable Kudu build (node_modules pre-built in zip)
         env:
           KUDU_USER: ${{ secrets.AZURE_KUDU_USER }}
           KUDU_PASS: ${{ secrets.AZURE_KUDU_PASS }}
@@ -71,7 +75,7 @@ jobs:
           curl -s -o /dev/null -X PUT \
             -u "$KUDU_USER:$KUDU_PASS" \
             -H "Content-Type: application/json" \
-            -d '{"name":"SCM_DO_BUILD_DURING_DEPLOYMENT","value":"true","slotSetting":false}' \
+            -d '{"name":"SCM_DO_BUILD_DURING_DEPLOYMENT","value":"false","slotSetting":false}' \
             "https://$APP_HOSTNAME/api/settings"
 
       - name: Deploy to Azure App Service
@@ -102,9 +106,9 @@ jobs:
             fi
           done
 
-          # Poll until complete (max 10 min — Kudu can be slow on cold restarts)
-          for i in $(seq 1 30); do
-            sleep 20
+          # Poll until complete (max 25 min — zip includes node_modules, extraction takes time)
+          for i in $(seq 1 50); do
+            sleep 30
             STATUS=$(curl -s --max-time 10 -u "$KUDU_USER:$KUDU_PASS" \
               "https://$APP_HOSTNAME/api/deployments/latest" | \
               python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status'))" 2>/dev/null)
