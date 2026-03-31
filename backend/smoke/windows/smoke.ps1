@@ -94,7 +94,7 @@ function Check {
   }
 }
 
-# Passes when status is 4xx — used for social auth where the exact code
+# Passes when status is 4xx -- used for social auth where the exact code
 # (401 invalid token vs 503 not configured) depends on server env vars.
 function Check4xx {
   param(
@@ -272,9 +272,9 @@ $r = Invoke-Endpoint -Method POST -Url "$BaseUrl/auth/login" -Body @{
 }
 Check -Label "POST /auth/login bad password -> 401" -Status $r.Status -Body $r.Body -ExpectStatus 401 -ExpectBody '"error"'
 
-# -- 9. Social auth — Google --------------------------------------------------
+# -- 9. Social auth -- Google -------------------------------------------------
 Write-Host ""
-Write-Host "9. Social auth — Google"
+Write-Host "9. Social auth -- Google"
 
 # 9a. Missing idToken -> 400 validation error (always, regardless of env)
 $r = Invoke-Endpoint -Method POST -Url "$BaseUrl/auth/google" -Body @{}
@@ -286,9 +286,9 @@ $r = Invoke-Endpoint -Method POST -Url "$BaseUrl/auth/google" -Body @{
 }
 Check4xx -Label "POST /auth/google fake token -> 4xx" -Status $r.Status -Body $r.Body
 
-# -- 10. Social auth — Facebook -----------------------------------------------
+# -- 10. Social auth -- Facebook ----------------------------------------------
 Write-Host ""
-Write-Host "10. Social auth — Facebook"
+Write-Host "10. Social auth -- Facebook"
 
 # 10a. Missing accessToken -> 400 validation error (always, regardless of env)
 $r = Invoke-Endpoint -Method POST -Url "$BaseUrl/auth/facebook" -Body @{}
