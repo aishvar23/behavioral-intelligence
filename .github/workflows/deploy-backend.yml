@@ -1,3 +1,4 @@
+# ci: retrigger to run Postgres migration with DATABASE_URL secret
 name: Deploy Backend to Azure App Service
 
 on:
