@@ -3,9 +3,18 @@ import { OnboardingData, AgeRange, Gender, EmploymentStatus, FlowType } from '..
 
 interface OnboardingContextValue {
   onboarding: Partial<OnboardingData>;
+  // New profile fields
+  name: string;
+  age: string;
+  country: string;
+  setName: (v: string) => void;
+  setAge: (v: string) => void;
+  setCountry: (v: string) => void;
+  // Existing setters
   setAgeRange: (v: AgeRange) => void;
   setGender: (v: Gender) => void;
   setEmploymentStatus: (v: EmploymentStatus) => void;
+  setFlowType: (v: FlowType) => void;
   reset: () => void;
 }
 
@@ -13,6 +22,13 @@ const OnboardingContext = createContext<OnboardingContextValue | undefined>(unde
 
 export function OnboardingProvider({ children }: { children: ReactNode }) {
   const [onboarding, setOnboarding] = useState<Partial<OnboardingData>>({});
+  const [name, setNameState] = useState('');
+  const [age, setAgeState] = useState('');
+  const [country, setCountryState] = useState('');
+
+  function setName(v: string) { setNameState(v); }
+  function setAge(v: string) { setAgeState(v); }
+  function setCountry(v: string) { setCountryState(v); }
 
   function setAgeRange(ageRange: AgeRange) {
     setOnboarding(prev => ({ ...prev, ageRange }));
@@ -30,12 +46,32 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     setOnboarding(prev => ({ ...prev, employmentStatus, flowType }));
   }
 
+  function setFlowType(flowType: FlowType) {
+    setOnboarding(prev => ({ ...prev, flowType }));
+  }
+
   function reset() {
     setOnboarding({});
+    setNameState('');
+    setAgeState('');
+    setCountryState('');
   }
 
   return (
-    <OnboardingContext.Provider value={{ onboarding, setAgeRange, setGender, setEmploymentStatus, reset }}>
+    <OnboardingContext.Provider value={{
+      onboarding,
+      name,
+      age,
+      country,
+      setName,
+      setAge,
+      setCountry,
+      setAgeRange,
+      setGender,
+      setEmploymentStatus,
+      setFlowType,
+      reset,
+    }}>
       {children}
     </OnboardingContext.Provider>
   );

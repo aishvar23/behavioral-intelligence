@@ -21,12 +21,12 @@ import {
   OccupationCategory,
   getOccupationsByCategory,
 } from '../data/occupations';
-import { COUNTRIES } from '../data/countries';
 import { GAME_CONFIGS } from '../data/gameCatalog';
 import { OCCUPATION_GAME_POOLS, GENERAL_POOL } from '../data/occupationGamePools';
 import { selectGames, registerUser } from '../services/api';
 import { startSession } from '../services/session';
 import { useAuth } from '../context/AuthContext';
+import { useOnboarding } from '../context/OnboardingContext';
 import { guestStore } from '../services/guestStore';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'UserProfile'>;
@@ -76,17 +76,19 @@ function mergeGamePools(occupationIds: string[]): string[] {
 export default function UserProfileScreen({ navigation, route }: Props) {
   const { onboardingData } = route.params;
   const { auth } = useAuth();
+  const { name: ctxName, age: ctxAge, country: ctxCountry } = useOnboarding();
   const isAuthenticated = auth.userId != null && !auth.isGuest;
 
-  // Pre-fill name/age/country from guestStore for guests coming through GuestSetup
+  // Name/age/country already collected in OnboardingProfileScreen — read from context
+  // Fall back to guestStore / auth.displayName for legacy paths
   const guestBasic = guestStore.get();
+  const resolvedName = ctxName || auth.displayName || guestBasic?.name || '';
+  const resolvedAge = ctxAge || guestBasic?.age || '';
+  const resolvedCountry = ctxCountry || guestBasic?.country || 'India';
 
   const [loaded, setLoaded] = useState(false);
   const [hasSavedProfile, setHasSavedProfile] = useState(false);
 
-  const [userName, setUserName] = useState(guestBasic?.name ?? '');
-  const [age, setAge] = useState(guestBasic?.age ?? '');
-  const [country, setCountry] = useState(guestBasic?.country ?? 'India');
   const [lifeStage, setLifeStage] = useState('');
   const [interests, setInterests] = useState('');
 
@@ -96,9 +98,7 @@ export default function UserProfileScreen({ navigation, route }: Props) {
   const [selectedEmojis, setSelectedEmojis] = useState<Record<string, string>>({});
 
   const [showOccupationPicker, setShowOccupationPicker] = useState(false);
-  const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [occSearch, setOccSearch] = useState('');
-  const [countrySearch, setCountrySearch] = useState('');
   const [selecting, setSelecting] = useState(false);
   const [error, setError] = useState('');
 
@@ -114,11 +114,6 @@ export default function UserProfileScreen({ navigation, route }: Props) {
     })).filter(s => s.data.length > 0);
   }, [occSearch, byCategory]);
 
-  const filteredCountries = useMemo(() => {
-    const q = countrySearch.toLowerCase().trim();
-    return q ? COUNTRIES.filter(c => c.toLowerCase().includes(q)) : COUNTRIES;
-  }, [countrySearch]);
-
   // Load saved profile for authenticated users
   useEffect(() => {
     async function loadProfile() {
@@ -127,8 +122,6 @@ export default function UserProfileScreen({ navigation, route }: Props) {
           const raw = await AsyncStorage.getItem(profileKey(auth.userId));
           if (raw) {
             const saved = JSON.parse(raw);
-            setAge(saved.age ?? '');
-            setCountry(saved.country ?? 'India');
             setLifeStage(saved.lifeStage ?? '');
             setInterests(saved.interests ?? '');
 
@@ -174,7 +167,10 @@ export default function UserProfileScreen({ navigation, route }: Props) {
   async function saveProfile() {
     if (!isAuthenticated || auth.userId == null || selectedOccupations.length === 0) return;
     const saved: SavedProfile = {
-      age, country, lifeStage, interests,
+      age: resolvedAge,
+      country: resolvedCountry,
+      lifeStage,
+      interests,
       occupations: selectedOccupations,
       occupationTitles: selectedOccupations.map(id => selectedTitles[id] ?? id),
       occupationEmojis: selectedOccupations.map(id => selectedEmojis[id] ?? '💼'),
@@ -189,19 +185,13 @@ export default function UserProfileScreen({ navigation, route }: Props) {
   async function handleStart() {
     if (selectedOccupations.length === 0 || selecting) return;
 
-    const effectiveName = isAuthenticated ? (auth.displayName ?? '') : userName.trim();
-    if (!isAuthenticated && !effectiveName) {
-      setError('Please enter a username to track your progress across sessions.');
-      return;
-    }
-
     setError('');
     setSelecting(true);
 
     const profile: UserProfile = {
-      userName: effectiveName,
-      age: onboardingData.ageRange,
-      country,
+      userName: resolvedName,
+      age: resolvedAge || onboardingData.ageRange,
+      country: resolvedCountry,
       lifeStage: lifeStage || lifeStageFromEmploymentStatus(onboardingData.employmentStatus) || 'Not specified',
       occupations: selectedOccupations,
       occupationTitles: selectedOccupations.map(id => selectedTitles[id] ?? id),
@@ -290,53 +280,11 @@ export default function UserProfileScreen({ navigation, route }: Props) {
               <Text style={styles.title}>{pageTitle}</Text>
               <Text style={styles.subtitle}>{pageSubtitle}</Text>
 
-              {/* Identity row for authenticated users */}
-              {isAuthenticated ? (
-                <View style={styles.identityRow}>
-                  <Text style={styles.identityLabel}>Signed in as</Text>
-                  <Text style={styles.identityName}>{auth.displayName}</Text>
-                </View>
-              ) : (
-                <>
-                  <Text style={styles.label}>
-                    Username <Text style={styles.required}>*</Text>
-                  </Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g. alex_2025"
-                    placeholderTextColor="#5555aa"
-                    value={userName}
-                    onChangeText={setUserName}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    maxLength={50}
-                  />
-                  <Text style={styles.fieldNote}>Used to track your progress across sessions. Never shared externally.</Text>
-                </>
-              )}
-
-              {/* Age */}
-              <Text style={styles.label}>Your Age</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. 26"
-                placeholderTextColor="#5555aa"
-                keyboardType="numeric"
-                value={age}
-                onChangeText={setAge}
-                maxLength={3}
-              />
-
-              {/* Country — dropdown */}
-              <Text style={styles.label}>Country</Text>
-              <TouchableOpacity
-                style={styles.pickerBtn}
-                onPress={() => setShowCountryPicker(true)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.pickerBtnText}>{country}</Text>
-                <Text style={styles.chevron}>›</Text>
-              </TouchableOpacity>
+              {/* Identity row — name collected in OnboardingProfileScreen */}
+              <View style={styles.identityRow}>
+                <Text style={styles.identityLabel}>Personalising for</Text>
+                <Text style={styles.identityName}>{resolvedName}</Text>
+              </View>
 
               {/* Life Stage */}
               <Text style={styles.label}>Current Life Stage</Text>
@@ -416,42 +364,6 @@ export default function UserProfileScreen({ navigation, route }: Props) {
           }
         />
       </KeyboardAvoidingView>
-
-      {/* Country Picker Modal */}
-      <Modal visible={showCountryPicker} animationType="slide" onRequestClose={() => setShowCountryPicker(false)}>
-        <SafeAreaView style={styles.modal}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Select Country</Text>
-            <TouchableOpacity onPress={() => setShowCountryPicker(false)} style={styles.closeBtn}>
-              <Text style={styles.closeBtnText}>✕</Text>
-            </TouchableOpacity>
-          </View>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search countries…"
-            placeholderTextColor="#5555aa"
-            value={countrySearch}
-            onChangeText={setCountrySearch}
-            autoFocus
-          />
-          <FlatList
-            data={filteredCountries}
-            keyExtractor={item => item}
-            keyboardShouldPersistTaps="handled"
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[styles.listItem, country === item && styles.listItemSelected]}
-                onPress={() => { setCountry(item); setShowCountryPicker(false); setCountrySearch(''); }}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.listItemText, country === item && styles.listItemTextSelected]}>{item}</Text>
-                {country === item && <Text style={styles.checkmark}>✓</Text>}
-              </TouchableOpacity>
-            )}
-            contentContainerStyle={{ paddingBottom: 40 }}
-          />
-        </SafeAreaView>
-      </Modal>
 
       {/* Occupation Picker Modal */}
       <Modal visible={showOccupationPicker} animationType="slide" onRequestClose={() => setShowOccupationPicker(false)}>

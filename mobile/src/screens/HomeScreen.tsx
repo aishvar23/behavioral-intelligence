@@ -1,11 +1,9 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useAuth } from '../context/AuthContext';
-import { useOnboarding } from '../context/OnboardingContext';
-import { OnboardingData } from '../types/onboarding';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -15,36 +13,44 @@ function onboardingKey(userId: number) {
 
 export default function HomeScreen({ navigation }: Props) {
   const { auth, logout } = useAuth();
-  const { setAgeRange, setGender, setEmploymentStatus } = useOnboarding();
   const name = auth.displayName;
+  const autoNavDone = useRef(false);
 
-  async function handleBeginAssessment() {
-    // Returning authenticated users skip onboarding if they've already completed it
-    if (auth.userId != null) {
-      try {
-        const raw = await AsyncStorage.getItem(onboardingKey(auth.userId));
-        if (raw) {
-          const saved: OnboardingData = JSON.parse(raw);
-          if (saved.ageRange && saved.gender && saved.employmentStatus && saved.flowType) {
-            // Restore context so downstream screens have the data
-            setAgeRange(saved.ageRange);
-            setGender(saved.gender);
-            setEmploymentStatus(saved.employmentStatus);
+  // Auto-navigate new users to onboarding without requiring a tap
+  useEffect(() => {
+    if (autoNavDone.current) return;
 
-            if (saved.flowType === 'employed') {
-              navigation.navigate('ProfessionSelection', { onboardingData: saved });
-            } else {
-              navigation.navigate('UserProfile', { onboardingData: saved });
-            }
-            return;
+    async function checkAndNavigate() {
+      // Guest users always start onboarding
+      if (auth.isGuest) {
+        autoNavDone.current = true;
+        navigation.navigate('OnboardingProfile');
+        return;
+      }
+
+      // Authenticated users: check if they've completed onboarding before
+      if (auth.userId != null) {
+        try {
+          const raw = await AsyncStorage.getItem(onboardingKey(auth.userId));
+          if (!raw) {
+            // New user — start onboarding automatically
+            autoNavDone.current = true;
+            navigation.navigate('OnboardingProfile');
           }
+          // Returning user with saved data — stay on HomeScreen
+        } catch {
+          // Non-fatal — stay on HomeScreen
         }
-      } catch {
-        // Non-fatal — fall through to full onboarding
       }
     }
 
-    navigation.navigate('OnboardingAge');
+    if (!auth.isLoading && (auth.userId != null || auth.isGuest)) {
+      checkAndNavigate();
+    }
+  }, [auth.userId, auth.isGuest, auth.isLoading, navigation]);
+
+  async function handleBeginAssessment() {
+    navigation.navigate('OnboardingProfile');
   }
 
   return (

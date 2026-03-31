@@ -20,7 +20,7 @@ export default function OnboardingGenderScreen({ navigation }: Props) {
   function handleNext() {
     if (!selected) return;
     setGender(selected);
-    navigation.navigate('OnboardingEmployment');
+    navigation.navigate('OnboardingOccupation');
   }
 
   return (

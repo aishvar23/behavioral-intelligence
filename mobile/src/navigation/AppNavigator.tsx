@@ -3,9 +3,11 @@ import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import HomeScreen from '../screens/HomeScreen';
+import OnboardingProfileScreen from '../screens/OnboardingProfileScreen';
 import OnboardingAgeScreen from '../screens/OnboardingAgeScreen';
 import OnboardingGenderScreen from '../screens/OnboardingGenderScreen';
 import OnboardingEmploymentScreen from '../screens/OnboardingEmploymentScreen';
+import OnboardingOccupationScreen from '../screens/OnboardingOccupationScreen';
 import ProfessionSelectionScreen from '../screens/ProfessionSelectionScreen';
 import UserProfileScreen from '../screens/UserProfileScreen';
 import GameScreen from '../screens/GameScreen';
@@ -65,9 +67,11 @@ export type AuthStackParamList = {
 
 export type RootStackParamList = {
   Home: undefined;
+  OnboardingProfile: undefined;
   OnboardingAge: undefined;
   OnboardingGender: undefined;
   OnboardingEmployment: undefined;
+  OnboardingOccupation: undefined;
   ProfessionSelection: { onboardingData: OnboardingData };
   UserProfile: { onboardingData: OnboardingData };
   Game: {
@@ -130,13 +134,19 @@ function AppNavigatorInner() {
     <OnboardingProvider>
       <AppStack.Navigator
         initialRouteName="Home"
-        screenOptions={HEADER_OPTS}
+        screenOptions={{ ...HEADER_OPTS, animation: 'slide_from_right' }}
       >
         <AppStack.Screen
           name="Home"
           component={HomeScreen}
           options={{ title: 'Behavioral Intelligence', headerShown: false }}
         />
+        <AppStack.Screen
+          name="OnboardingProfile"
+          component={OnboardingProfileScreen}
+          options={{ title: 'About You', headerShown: false, animation: 'slide_from_right' }}
+        />
+        {/* Legacy — kept for backward compat but not in new flow */}
         <AppStack.Screen
           name="OnboardingAge"
           component={OnboardingAgeScreen}
@@ -145,13 +155,20 @@ function AppNavigatorInner() {
         <AppStack.Screen
           name="OnboardingGender"
           component={OnboardingGenderScreen}
-          options={{ title: 'About You', headerShown: false }}
+          options={{ title: 'About You', headerShown: false, animation: 'slide_from_right' }}
         />
+        {/* Legacy — kept for backward compat but not in new flow */}
         <AppStack.Screen
           name="OnboardingEmployment"
           component={OnboardingEmploymentScreen}
           options={{ title: 'About You', headerShown: false }}
         />
+        <AppStack.Screen
+          name="OnboardingOccupation"
+          component={OnboardingOccupationScreen}
+          options={{ title: 'Your Occupation', headerShown: false, animation: 'slide_from_right' }}
+        />
+        {/* Kept for backward compat — returning users who saved ProfessionSelection data */}
         <AppStack.Screen
           name="ProfessionSelection"
           component={ProfessionSelectionScreen}
@@ -160,7 +177,7 @@ function AppNavigatorInner() {
         <AppStack.Screen
           name="UserProfile"
           component={UserProfileScreen}
-          options={{ title: 'Your Profile' }}
+          options={{ title: 'Your Profile', animation: 'slide_from_right' }}
         />
         <AppStack.Screen
           name="Game"
