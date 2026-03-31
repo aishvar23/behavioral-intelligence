@@ -49,6 +49,13 @@ jobs:
         working-directory: backend
         run: npx tsc
 
+      - name: Run Postgres migration
+        if: ${{ env.DATABASE_URL != '' }}
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: node dist/db/migrate.js
+
       - name: Write version.json
         working-directory: backend
         run: |
