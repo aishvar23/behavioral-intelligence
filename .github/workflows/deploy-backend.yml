@@ -86,6 +86,23 @@ jobs:
             -d '{"name":"SCM_DO_BUILD_DURING_DEPLOYMENT","value":"false","slotSetting":false}' \
             "https://$APP_HOSTNAME/api/settings"
 
+      - name: Remove Oryx artifacts (prevent slow tar.gz extraction on container start)
+        env:
+          KUDU_USER: ${{ secrets.AZURE_KUDU_USER }}
+          KUDU_PASS: ${{ secrets.AZURE_KUDU_PASS }}
+          APP_HOSTNAME: ${{ secrets.AZURE_APP_HOSTNAME }}
+        run: |
+          # Delete leftover Oryx manifest and node_modules tarball from previous builds.
+          # Without oryx-manifest.toml, Oryx skips the ~90s tar.gz extraction step on
+          # every container restart, keeping cold starts under 10s.
+          # Both calls use || true so a 404 (already gone) doesn't fail the step.
+          curl -s -o /dev/null -X DELETE \
+            -u "$KUDU_USER:$KUDU_PASS" \
+            "https://$APP_HOSTNAME/api/vfs/site/wwwroot/oryx-manifest.toml" || true
+          curl -s -o /dev/null -X DELETE \
+            -u "$KUDU_USER:$KUDU_PASS" \
+            "https://$APP_HOSTNAME/api/vfs/site/wwwroot/node_modules.tar.gz" || true
+
       - name: Deploy to Azure App Service
         env:
           KUDU_USER: ${{ secrets.AZURE_KUDU_USER }}
