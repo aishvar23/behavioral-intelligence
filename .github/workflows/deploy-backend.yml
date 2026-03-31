@@ -106,12 +106,12 @@ jobs:
             fi
           done
 
-          # Poll until complete (max 25 min — zip includes node_modules, extraction takes time)
-          for i in $(seq 1 50); do
+          # Poll until complete (max 40 min — zip includes node_modules, extraction takes time)
+          for i in $(seq 1 80); do
             sleep 30
-            STATUS=$(curl -s --max-time 10 -u "$KUDU_USER:$KUDU_PASS" \
+            STATUS=$(curl -s --max-time 15 -u "$KUDU_USER:$KUDU_PASS" \
               "https://$APP_HOSTNAME/api/deployments/latest" | \
-              python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status'))" 2>/dev/null)
+              python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status'))" 2>/dev/null) || STATUS=""
             echo "[${i}] Deployment status: $STATUS"
             if [ "$STATUS" = "4" ]; then echo "Deployment succeeded."; exit 0; fi
             if [ "$STATUS" = "3" ]; then echo "Deployment failed."; exit 1; fi
