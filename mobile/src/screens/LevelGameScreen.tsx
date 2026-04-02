@@ -197,6 +197,38 @@ export default function LevelGameScreen({ route, navigation }: Props) {
     setPhase('level_result');
   }, [traitDef, levelConfig, currentTrait, currentLevel, sessionId]);
 
+  // ── Skip current game ─────────────────────────────────────────────────────
+  // Records a skipped entry (score 0, level stays the same) and advances
+  // to the next trait. The skipped level is replayed next round.
+  function handleSkipGame() {
+    const saved = savedProgressRef.current[currentTrait.id];
+
+    const entry: RoundEntry = {
+      traitId:     currentTrait.id,
+      traitName:   currentTrait.name,
+      playedLevel: currentLevel,
+      score:       0,
+      outcome:     'continue',
+      nextLevel:   currentLevel,          // replay same level next time
+      nextStatus:  'in_progress',
+      bestScore:   saved?.bestScore ?? 0, // don't overwrite personal best
+      bestLevel:   saved?.bestLevel ?? 0,
+    };
+
+    const updatedEntries = [...roundEntries, entry];
+    setRoundEntries(updatedEntries);
+
+    if (traitIndex + 1 < traits.length) {
+      const nextTraitId    = traits[traitIndex + 1].id;
+      const nextTraitLevel = savedProgressRef.current[nextTraitId]?.nextLevel ?? 1;
+      setTraitIndex(i => i + 1);
+      setCurrentLevel(nextTraitLevel);
+      setPhase('trait_intro');
+    } else {
+      finishRound(updatedEntries);
+    }
+  }
+
   // ── Advance after level result ─────────────────────────────────────────────
   function advanceFromLevelResult() {
     const score   = lastScore ?? 0;
@@ -569,6 +601,10 @@ export default function LevelGameScreen({ route, navigation }: Props) {
           <TouchableOpacity style={styles.btn} onPress={() => setPhase('playing')}>
             <Text style={styles.btnText}>Start Level {currentLevel}</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity style={styles.skipBtn} onPress={handleSkipGame}>
+            <Text style={styles.skipBtnText}>Skip this game</Text>
+          </TouchableOpacity>
         </ScrollView>
       </View>
     );
@@ -593,6 +629,9 @@ export default function LevelGameScreen({ route, navigation }: Props) {
         <Text style={styles.gameHeaderText}>
           {traitDef.name}  ·  Level {currentLevel}
         </Text>
+        <TouchableOpacity onPress={handleSkipGame} style={styles.gameHeaderSkip}>
+          <Text style={styles.gameHeaderSkipText}>Skip</Text>
+        </TouchableOpacity>
       </View>
       {renderGameComponent(traitDef.gameEngine, gameParams)}
     </View>
@@ -1057,10 +1096,24 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
 
+  skipBtn: {
+    marginTop: 4,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  skipBtnText: {
+    fontSize: 14,
+    color: '#4b5563',
+    textDecorationLine: 'underline',
+  },
+
   // Game header
   gameHeader: {
     backgroundColor: '#1a1330', paddingVertical: 10, paddingHorizontal: 16,
     borderBottomWidth: 1, borderBottomColor: '#3d3a5c',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
   },
-  gameHeaderText: { fontSize: 12, color: '#a78bfa', fontWeight: '600', textAlign: 'center' },
+  gameHeaderText: { fontSize: 12, color: '#a78bfa', fontWeight: '600', flex: 1, textAlign: 'center' },
+  gameHeaderSkip: { paddingHorizontal: 4, paddingVertical: 2 },
+  gameHeaderSkipText: { fontSize: 11, color: '#4b5563', textDecorationLine: 'underline' },
 });
