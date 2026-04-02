@@ -74,6 +74,10 @@ const CALLSIGN_SUFFIX = () => String(Math.floor(100 + Math.random() * 900));
 // Aircraft decision window before it auto-resolves
 const DECISION_WINDOW_MS = 5000;
 
+// How long a runway stays occupied after an aircraft is cleared to proceed.
+// Must be longer than approachSpeed at low levels to guarantee hold scenarios.
+const RUNWAY_CLEAR_TIME_MS = 6000;
+
 // Fog: only show callsign when within proximity
 const FOG_PROXIMITY_REVEAL_MS = 2000; // reveal callsign 2s after spawn in fog
 
@@ -88,20 +92,16 @@ function nextCallsign(): string {
 }
 
 /**
- * Determine optimal decision.
- * Simple rule: if multiple aircraft share the same runway → one must hold.
- * Mayday aircraft always Proceed.
- * Active runway (already proceeding) → new aircraft holds.
+ * Determine optimal decision based on runway occupancy.
+ * A runway is occupied for RUNWAY_CLEAR_TIME_MS after any aircraft is cleared to proceed.
+ * Mayday aircraft always Proceed regardless of runway state.
  */
 function computeOptimal(
   aircraft: Aircraft,
-  active: Aircraft[],
+  occupiedUntil: Record<RunwayId, number>,
 ): 'hold' | 'proceed' {
   if (aircraft.isMayday) return 'proceed';
-  const sameRunway = active.filter(
-    a => a.runway === aircraft.runway && a.status === 'proceeding' && a.id !== aircraft.id
-  );
-  return sameRunway.length > 0 ? 'hold' : 'proceed';
+  return Date.now() < (occupiedUntil[aircraft.runway] ?? 0) ? 'hold' : 'proceed';
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -130,6 +130,9 @@ export default function HoldShortGame({ sessionId, onComplete, config }: Props) 
   const sessionActiveRef = useRef(false);
   const spawnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const decisionTimersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
+
+  // Runway occupancy: maps each runway to the timestamp it becomes free again
+  const runwayOccupiedUntilRef = useRef<Record<RunwayId, number>>({ R1: 0, R2: 0, R3: 0 });
 
   // Mayday stress recovery tracking
   const lastMaydayMs = useRef<number | null>(null);
@@ -183,7 +186,10 @@ export default function HoldShortGame({ sessionId, onComplete, config }: Props) 
     }
 
     const isMayday = cfg.maydayInterrupts && Math.random() < 0.15;
-    const runway = RUNWAYS[Math.floor(Math.random() * Math.min(RUNWAYS.length, Math.ceil(cfg.aircraftCount / 3)))];
+    // Use fewer runways than aircraft slots so conflicts are guaranteed.
+    // aircraftCount 2-3 → 2 runways, 4-6 → 2 runways, 7+ → 3 runways
+    const numRunways = cfg.aircraftCount >= 7 ? 3 : 2;
+    const runway = RUNWAYS[Math.floor(Math.random() * numRunways)];
     const newAircraft: Aircraft = {
       id: ++idCounter.current,
       callsign: nextCallsign(),
@@ -210,7 +216,7 @@ export default function HoldShortGame({ sessionId, onComplete, config }: Props) 
     }
 
     setAircraft(prev => {
-      const optimal = computeOptimal(newAircraft, prev);
+      const optimal = computeOptimal(newAircraft, runwayOccupiedUntilRef.current);
       const registered: Aircraft = { ...newAircraft, optimalDecision: optimal };
       const next = [...prev, registered];
       aircraftRef.current = next;
@@ -292,6 +298,10 @@ export default function HoldShortGame({ sessionId, onComplete, config }: Props) 
       }
 
       const newStatus: AircraftStatus = decision === 'proceed' ? 'proceeding' : 'holding';
+      // Mark runway occupied so the next arriving aircraft must hold
+      if (decision === 'proceed') {
+        runwayOccupiedUntilRef.current[a.runway] = Date.now() + RUNWAY_CLEAR_TIME_MS;
+      }
       let next = prev.map(x =>
         x.id === id
           ? { ...x, userDecision: decision, decisionMs: decisionRt, status: newStatus, isCorrect: correct }
@@ -355,6 +365,7 @@ export default function HoldShortGame({ sessionId, onComplete, config }: Props) 
     totalDecisionsRef.current = 0;
     postMaydayRts.current = [];
     preMaydayRts.current = [];
+    runwayOccupiedUntilRef.current = { R1: 0, R2: 0, R3: 0 };
     setViolations(0);
     setClearedCount(0);
     setAircraft([]);
