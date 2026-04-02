@@ -23,7 +23,7 @@ async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
       // Never retry self-imposed timeouts — they just compound the wait
       const isSelfTimeout = msg === 'LLM timeout';
       // Only retry on overload (529) or server errors (≥500)
-      const isRetryable = !isSelfTimeout && (status === 529 || status >= 500);
+      const isRetryable = !isSelfTimeout && (status === 529 || (status !== undefined && status >= 500));
       if (!isRetryable || attempt >= maxAttempts) break;
       // Exponential backoff: 3s → 8s
       const delayMs = [3000, 8000][attempt - 1] ?? 8000;
