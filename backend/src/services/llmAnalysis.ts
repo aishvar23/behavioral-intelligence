@@ -744,39 +744,26 @@ export async function generateArchetypeReport(
     ? `Baseline reaction time: ${Math.round(baselineRtMs)}ms (calibrated)`
     : 'Baseline: not calibrated';
 
-  const prompt = `You are a cognitive profiling expert generating a personalised Archetype Card for a user who completed the Cognitive Mirror Assessment.
+  const prompt = `You are a cognitive profiling expert. Generate a personalised Archetype Card from this Cognitive Mirror Assessment data.
 
-Target Profession: "${profession}"
+Profession: "${profession}"
 ${baselineContext}
 
-Trait Performance:
+Traits:
 ${traitSummary}
 
 ${traitTalkSection}
 
-Generate a rich, insightful Archetype Card. Be specific to the data — do NOT use generic phrases like "well-rounded" or "room for improvement". Draw direct connections between the scores and what that means professionally.
+Rules: Be specific to the scores. No generic phrases like "well-rounded" or "room for improvement". Every sentence must reference the data.
 
-Respond ONLY with valid JSON in this format:
-{
-  "archetypeName": "The [Archetype Name]",
-  "archetypeTagline": "One punchy line that captures this cognitive profile",
-  "professionalAlignment": "Specific statement about how their primary traits align with ${profession} demands",
-  "strengthSummary": "2-3 sentences describing their cognitive strengths based on the data",
-  "developmentArea": "1-2 sentences on the specific gap or risk area revealed by the data",
-  "traitNarratives": [
-    { "traitId": "T01", "traitName": "Triage", "level": "Elite|Strong|Developing|Foundational", "narrative": "1-2 sentence insight tied directly to their performance data" }
-  ],
-  "traitTalkInsights": ["One insight per flag, explaining what the conflict means for their professional profile"],
-  "recommendations": [
-    { "action": "Specific development action", "rationale": "Why this addresses the data-revealed gap" }
-  ]
-}`;
+Respond ONLY with this JSON (no markdown, no preamble):
+{"archetypeName":"The [Name]","archetypeTagline":"[punchy one-liner]","professionalAlignment":"[how primary traits align with ${profession}]","strengthSummary":"[2-3 sentences on cognitive strengths]","developmentArea":"[1-2 sentences on the key gap]","traitNarratives":[{"traitId":"","traitName":"","level":"Elite|Strong|Developing|Foundational","narrative":"[1-2 sentences]"}],"traitTalkInsights":["[one insight per flag]"],"recommendations":[{"action":"[specific action]","rationale":"[why it addresses the gap]"}]}`;
 
   const message = await withRetry(() =>
     Promise.race([
       client.messages.create({
         model: 'claude-sonnet-4-6',
-        max_tokens: 1500,
+        max_tokens: 1024,
         messages: [{ role: 'user', content: prompt }],
       }),
       new Promise<never>((_, reject) =>
