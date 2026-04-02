@@ -3,6 +3,8 @@
  * All calls to the /assessment/* endpoints.
  */
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { v4 as uuid } from 'uuid';
 import api from './api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -124,4 +126,78 @@ export async function generateArchetype(
     traitTalk,
   });
   return res.data;
+}
+
+// ── Trait Progress ────────────────────────────────────────────────────────────
+
+const DEVICE_ID_KEY = '@bi_device_id';
+const LOCAL_PROGRESS_KEY = '@bi_trait_progress';
+
+export interface TraitProgressItem {
+  traitId: string;
+  nextLevel: number;    // level to play next time (1–10)
+  bestScore: number;
+  bestLevel: number;
+  status: 'in_progress' | 'ceiling' | 'complete';
+}
+
+/** Returns a stable device ID, generating one on first call. */
+export async function getDeviceId(): Promise<string> {
+  let id = await AsyncStorage.getItem(DEVICE_ID_KEY);
+  if (!id) {
+    id = uuid();
+    await AsyncStorage.setItem(DEVICE_ID_KEY, id);
+  }
+  return id;
+}
+
+/**
+ * Load trait progress for this device.
+ * Tries the backend first; falls back to AsyncStorage on network failure.
+ * Returns a map of traitId → TraitProgressItem.
+ */
+export async function getTraitProgress(deviceId: string): Promise<Record<string, TraitProgressItem>> {
+  try {
+    const res = await api.get<{ progress: TraitProgressItem[] }>('/assessment/progress', {
+      params: { deviceId },
+    });
+    const map: Record<string, TraitProgressItem> = {};
+    for (const item of res.data.progress) map[item.traitId] = item;
+    // Keep local copy in sync
+    await AsyncStorage.setItem(LOCAL_PROGRESS_KEY, JSON.stringify(map));
+    return map;
+  } catch (err) {
+    console.warn('[assessmentApi:getTraitProgress] API failed, using local cache', {
+      deviceId,
+      error: err instanceof Error ? err.message : err,
+    });
+    const cached = await AsyncStorage.getItem(LOCAL_PROGRESS_KEY);
+    return cached ? JSON.parse(cached) : {};
+  }
+}
+
+/**
+ * Save trait progress after a completed round.
+ * Always writes to AsyncStorage immediately; also sends to backend (non-blocking on failure).
+ */
+export async function saveTraitProgress(
+  deviceId: string,
+  userId: number | undefined,
+  items: TraitProgressItem[],
+): Promise<void> {
+  // Update local cache immediately
+  const cached = await AsyncStorage.getItem(LOCAL_PROGRESS_KEY);
+  const map: Record<string, TraitProgressItem> = cached ? JSON.parse(cached) : {};
+  for (const item of items) map[item.traitId] = item;
+  await AsyncStorage.setItem(LOCAL_PROGRESS_KEY, JSON.stringify(map));
+
+  // Best-effort backend sync
+  try {
+    await api.post('/assessment/progress', { deviceId, userId, items });
+  } catch (err) {
+    console.warn('[assessmentApi:saveTraitProgress] Backend sync failed — local cache updated', {
+      deviceId,
+      error: err instanceof Error ? err.message : err,
+    });
+  }
 }

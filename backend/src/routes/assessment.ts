@@ -21,6 +21,8 @@ import {
   saveLevelResult,
   getLevelResults,
   getAssessmentHistory,
+  getTraitProgress,
+  upsertTraitProgress,
 } from '../db/database';
 import { discoverTraitsForProfession, generateArchetypeReport, TraitResult } from '../services/llmAnalysis';
 import { runTraitTalk } from '../services/traitTalk';
@@ -210,6 +212,53 @@ router.get('/assessment/history', authenticateJWT, (req, res) => {
   } catch (err) {
     console.error('[assessment/history]', err);
     return res.status(500).json({ error: 'Failed to fetch history' });
+  }
+});
+
+// ── GET /assessment/progress ──────────────────────────────────────────────────
+// Returns saved trait progress for a device. Auth optional (guest-friendly).
+
+router.get('/assessment/progress', (req, res) => {
+  const deviceId = req.query.deviceId as string | undefined;
+  if (!deviceId) return res.status(400).json({ error: 'deviceId required' });
+
+  try {
+    const rows = getTraitProgress(deviceId);
+    return res.json({ progress: rows });
+  } catch (err) {
+    console.error('[assessment/progress:GET]', { deviceId, error: err instanceof Error ? err.message : err });
+    return res.status(500).json({ error: 'Failed to fetch progress' });
+  }
+});
+
+// ── POST /assessment/progress ─────────────────────────────────────────────────
+// Upsert trait progress after a completed round.
+
+const SaveProgressSchema = z.object({
+  deviceId: z.string().min(1).max(100),
+  userId:   z.number().int().positive().optional(),
+  items: z.array(z.object({
+    traitId:   z.string(),
+    nextLevel: z.number().int().min(1).max(10),
+    bestScore: z.number().min(0).max(100),
+    bestLevel: z.number().int().min(0).max(10),
+    status:    z.enum(['in_progress', 'ceiling', 'complete']),
+  })),
+});
+
+router.post('/assessment/progress', (req, res) => {
+  const parse = SaveProgressSchema.safeParse(req.body);
+  if (!parse.success) return res.status(400).json({ error: parse.error.flatten() });
+
+  const { deviceId, userId, items } = parse.data;
+  try {
+    for (const item of items) {
+      upsertTraitProgress(deviceId, userId ?? null, item.traitId, item.nextLevel, item.bestScore, item.bestLevel, item.status);
+    }
+    return res.json({ ok: true, saved: items.length });
+  } catch (err) {
+    console.error('[assessment/progress:POST]', { deviceId, error: err instanceof Error ? err.message : err });
+    return res.status(500).json({ error: 'Failed to save progress' });
   }
 });
 

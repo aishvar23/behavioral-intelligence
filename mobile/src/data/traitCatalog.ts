@@ -188,77 +188,79 @@ export const TRAIT_CATALOG: Record<string, TraitDefinition> = {
   // Validated by: T01 Triage (Trait Talk — Fair-Weather Triage / Stress-Fragile)
   T04: {
     id: 'T04', name: 'Panic Management', icon: '🧘',
-    description: 'Maintaining accuracy and speed under sudden system failures — chaos events that shake, dim, flicker and invert the interface.',
-    gameEngine: 'reactor_chaos',
-    primaryGameId: 'reactor_chaos_standard',
+    description: 'Maintaining accuracy under sudden system failures — runway intersection control with emergencies, fog, and rapid multi-aircraft convergence.',
+    gameEngine: 'hold_short',
+    primaryGameId: 'hold_short_standard',
     ceilingDropPct: 0.40, ceilingLevels: 3,
     skipScore: 95, skipToLevel: 4,
     validatedBy: 'T01',
     benchmarks: [
-      { profession: 'Commercial Pilot',     minLevel: 10, minAccuracy: 0.97, maxLatencyMs: 150, notes: 'precisionDelta <3%, recoveryMs <150ms in full-meltdown mode' },
-      { profession: 'Air Traffic Controller', minLevel: 9, minAccuracy: 0.95, notes: 'zero panic clicks, precisionDelta <5%' },
-      { profession: 'Stock Trader',          minLevel: 8, minAccuracy: 0.92, maxLatencyMs: 200, notes: 'recoveryMs <200ms, precisionDelta <8%' },
+      { profession: 'Commercial Pilot',       minLevel: 9, minAccuracy: 0.95, notes: 'Zero collisions at Level 9+ fog + mayday conditions' },
+      { profession: 'Air Traffic Controller', minLevel: 9, minAccuracy: 0.95, notes: 'Zero violations; ≥95% triage accuracy under low-vis fog' },
+      { profession: 'Stock Trader',           minLevel: 8, minAccuracy: 0.90, notes: '≥90% triage accuracy; recovers in <1s post-mayday' },
     ],
     levels: levels([
-      // L1–2: No chaos — establish calm baseline with 2 bins, slow rods
-      { level: 1,  label: 'Calm',             speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { numBins: 2, fallDurationMs: 3500, totalRods: 12, highRatio: 0.40, distractorRatio: 0.00, chaosIntervalMs: 99999, chaosDurationMs: 0, effects: [], inputLagMs: 0, steamOpacity: 0, dimOpacity: 0, shakeIntensityX: 0, shakeIntensityY: 0, invertColors: false }, targetAccuracy: 0.75, eliteLatencyMs: 600  },
-      { level: 2,  label: 'Aware',            speedMultiplier: 1.0, distractorDensity: 0.05, ruleShifting: false, uiInterference: false, gameParams: { numBins: 2, fallDurationMs: 3200, totalRods: 14, highRatio: 0.40, distractorRatio: 0.05, chaosIntervalMs: 99999, chaosDurationMs: 0, effects: [], inputLagMs: 0, steamOpacity: 0, dimOpacity: 0, shakeIntensityX: 0, shakeIntensityY: 0, invertColors: false }, targetAccuracy: 0.76, eliteLatencyMs: 580  },
-      // L3–4: Flicker only — first chaos signal, mild visual disruption
-      { level: 3,  label: 'Flicker',          speedMultiplier: 1.1, distractorDensity: 0.10, ruleShifting: false, uiInterference: false, gameParams: { numBins: 2, fallDurationMs: 3000, totalRods: 14, highRatio: 0.40, distractorRatio: 0.08, chaosIntervalMs: 9000, chaosDurationMs: 2500, effects: ['flicker'], inputLagMs: 0, steamOpacity: 0, dimOpacity: 0, shakeIntensityX: 0, shakeIntensityY: 0, invertColors: false }, targetAccuracy: 0.74, eliteLatencyMs: 560  },
-      { level: 4,  label: 'Disrupted',        speedMultiplier: 1.2, distractorDensity: 0.10, ruleShifting: false, uiInterference: false, gameParams: { numBins: 3, fallDurationMs: 2800, totalRods: 16, highRatio: 0.40, distractorRatio: 0.10, chaosIntervalMs: 8000, chaosDurationMs: 3000, effects: ['flicker'], inputLagMs: 0, steamOpacity: 0, dimOpacity: 0, shakeIntensityX: 0, shakeIntensityY: 0, invertColors: false }, targetAccuracy: 0.73, eliteLatencyMs: 540  },
-      // L5–6: Steam + dim overlay — visual degradation
-      { level: 5,  label: 'Obscured',         speedMultiplier: 1.2, distractorDensity: 0.15, ruleShifting: false, uiInterference: true,  gameParams: { numBins: 3, fallDurationMs: 2600, totalRods: 16, highRatio: 0.38, distractorRatio: 0.12, chaosIntervalMs: 7500, chaosDurationMs: 3000, effects: ['steam', 'dim'], inputLagMs: 0, steamOpacity: 0.25, dimOpacity: 0.20, shakeIntensityX: 0, shakeIntensityY: 0, invertColors: false }, targetAccuracy: 0.72, eliteLatencyMs: 520  },
-      { level: 6,  label: 'Degraded',         speedMultiplier: 1.3, distractorDensity: 0.20, ruleShifting: false, uiInterference: true,  gameParams: { numBins: 4, fallDurationMs: 2400, totalRods: 18, highRatio: 0.38, distractorRatio: 0.15, chaosIntervalMs: 7000, chaosDurationMs: 3500, effects: ['steam', 'dim', 'flicker'], inputLagMs: 0, steamOpacity: 0.30, dimOpacity: 0.25, shakeIntensityX: 0, shakeIntensityY: 0, invertColors: false }, targetAccuracy: 0.71, eliteLatencyMs: 500  },
-      // L7–8: Shake added — physical disorientation
-      { level: 7,  label: 'Shaking',          speedMultiplier: 1.4, distractorDensity: 0.20, ruleShifting: true,  uiInterference: true,  gameParams: { numBins: 4, fallDurationMs: 2200, totalRods: 20, highRatio: 0.37, distractorRatio: 0.18, chaosIntervalMs: 6500, chaosDurationMs: 4000, effects: ['shake', 'steam', 'dim'], inputLagMs: 0, steamOpacity: 0.30, dimOpacity: 0.25, shakeIntensityX: 5, shakeIntensityY: 4, invertColors: false }, targetAccuracy: 0.70, eliteLatencyMs: 480  },
-      { level: 8,  label: 'Crisis',           speedMultiplier: 1.5, distractorDensity: 0.25, ruleShifting: true,  uiInterference: true,  gameParams: { numBins: 5, fallDurationMs: 2000, totalRods: 22, highRatio: 0.36, distractorRatio: 0.20, chaosIntervalMs: 6000, chaosDurationMs: 4500, effects: ['shake', 'steam', 'dim', 'flicker', 'input_lag'], inputLagMs: 120, steamOpacity: 0.35, dimOpacity: 0.30, shakeIntensityX: 6, shakeIntensityY: 5, invertColors: false }, targetAccuracy: 0.68, eliteLatencyMs: 460  },
-      // L9–10: Full meltdown — all effects including input lag + color inversion
-      { level: 9,  label: 'Meltdown',         speedMultiplier: 1.7, distractorDensity: 0.30, ruleShifting: true,  uiInterference: true,  gameParams: { numBins: 5, fallDurationMs: 1800, totalRods: 22, highRatio: 0.35, distractorRatio: 0.22, chaosIntervalMs: 5000, chaosDurationMs: 5000, effects: ['shake', 'steam', 'dim', 'flicker', 'input_lag', 'inversion'], inputLagMs: 150, steamOpacity: 0.38, dimOpacity: 0.32, shakeIntensityX: 7, shakeIntensityY: 5, invertColors: true }, targetAccuracy: 0.65, eliteLatencyMs: 440  },
-      { level: 10, label: 'Total Failure',    speedMultiplier: 2.0, distractorDensity: 0.35, ruleShifting: true,  uiInterference: true,  gameParams: { numBins: 6, fallDurationMs: 1600, totalRods: 24, highRatio: 0.35, distractorRatio: 0.25, chaosIntervalMs: 4000, chaosDurationMs: 5000, effects: ['shake', 'steam', 'dim', 'flicker', 'input_lag', 'inversion'], inputLagMs: 200, steamOpacity: 0.40, dimOpacity: 0.35, shakeIntensityX: 8, shakeIntensityY: 6, invertColors: true }, targetAccuracy: 0.62, eliteLatencyMs: 420  },
+      // L1–2: Calm — slow approach, 2-3 aircraft, no fog or emergencies
+      { level: 1,  label: 'Calm',          speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { aircraftCount: 2, maydayInterrupts: false, lowVisFog: false, approachSpeed: 5000, totalAircraft: 8  }, targetAccuracy: 0.80, eliteLatencyMs: 2500 },
+      { level: 2,  label: 'Steady',        speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { aircraftCount: 3, maydayInterrupts: false, lowVisFog: false, approachSpeed: 4500, totalAircraft: 10 }, targetAccuracy: 0.80, eliteLatencyMs: 2400 },
+      // L3–4: Faster approach, 4-5 aircraft
+      { level: 3,  label: 'Busy',          speedMultiplier: 1.1, distractorDensity: 0.05, ruleShifting: false, uiInterference: false, gameParams: { aircraftCount: 4, maydayInterrupts: false, lowVisFog: false, approachSpeed: 4000, totalAircraft: 12 }, targetAccuracy: 0.78, eliteLatencyMs: 2200 },
+      { level: 4,  label: 'Rush Hour',     speedMultiplier: 1.2, distractorDensity: 0.05, ruleShifting: false, uiInterference: false, gameParams: { aircraftCount: 5, maydayInterrupts: false, lowVisFog: false, approachSpeed: 3500, totalAircraft: 14 }, targetAccuracy: 0.76, eliteLatencyMs: 2000 },
+      // L5–6: Mayday interrupts begin
+      { level: 5,  label: 'Emergency',     speedMultiplier: 1.2, distractorDensity: 0.10, ruleShifting: true,  uiInterference: false, gameParams: { aircraftCount: 5, maydayInterrupts: true,  lowVisFog: false, approachSpeed: 3500, totalAircraft: 14 }, targetAccuracy: 0.74, eliteLatencyMs: 1900 },
+      { level: 6,  label: 'Crisis',        speedMultiplier: 1.3, distractorDensity: 0.15, ruleShifting: true,  uiInterference: false, gameParams: { aircraftCount: 6, maydayInterrupts: true,  lowVisFog: false, approachSpeed: 3000, totalAircraft: 16 }, targetAccuracy: 0.72, eliteLatencyMs: 1800 },
+      // L7–8: Low-vis fog + mayday
+      { level: 7,  label: 'Low Vis',       speedMultiplier: 1.4, distractorDensity: 0.20, ruleShifting: true,  uiInterference: true,  gameParams: { aircraftCount: 7, maydayInterrupts: true,  lowVisFog: true,  approachSpeed: 2800, totalAircraft: 16 }, targetAccuracy: 0.70, eliteLatencyMs: 1700 },
+      { level: 8,  label: 'Fog + Chaos',   speedMultiplier: 1.5, distractorDensity: 0.25, ruleShifting: true,  uiInterference: true,  gameParams: { aircraftCount: 8, maydayInterrupts: true,  lowVisFog: true,  approachSpeed: 2500, totalAircraft: 18 }, targetAccuracy: 0.68, eliteLatencyMs: 1600 },
+      // L9–10: Max saturation — 10-12 aircraft, all stress conditions
+      { level: 9,  label: 'Saturation',    speedMultiplier: 1.7, distractorDensity: 0.30, ruleShifting: true,  uiInterference: true,  gameParams: { aircraftCount: 10, maydayInterrupts: true, lowVisFog: true,  approachSpeed: 2200, totalAircraft: 18 }, targetAccuracy: 0.65, eliteLatencyMs: 1500 },
+      { level: 10, label: 'Total Control', speedMultiplier: 2.0, distractorDensity: 0.35, ruleShifting: true,  uiInterference: true,  gameParams: { aircraftCount: 12, maydayInterrupts: true, lowVisFog: true,  approachSpeed: 2000, totalAircraft: 20 }, targetAccuracy: 0.62, eliteLatencyMs: 1400 },
     ]),
   },
 
-  // ── T06 · Working Memory — The Archive ──────────────────────────────────
-  // Glyph Deciphering: symbols flash on a grid, recall after blackout.
-  // L1-2: 3×3 grid, no delay (baseline span measurement)
-  // L3-4: 4×4 grid, 2-4s blackout (Buffer test)
-  // L5-6: interference — math distractor fires during blackout
-  // L7-8: N-Back 2 — "does this match 2 turns ago?" + grid rotation (cosmetic)
-  // L9-10: Dual 3-Back — track both color AND symbol from 3 steps ago
+  // ── T06 · Working Memory — Radar Sweep ──────────────────────────────────
+  // Circular radar display. Contacts blink sequentially as the sweep passes.
+  // User taps them in REVERSE order. Decoys and 90° mental rotation added at
+  // higher levels to stress spatial working memory vs rote sequence recall.
   //
-  // Key metrics: maxSpan (highest perfect-recall length), decayRate (accuracy
-  // vs blackout duration), interferenceResistance, updatingSpeed (N-Back hits)
+  // L1-2: 3-4 contacts, 180° field, no decoys, no rotation
+  // L3-4: 4-5 contacts, 180°→360°, no decoys
+  // L5-6: 5-6 contacts, 360°, decoys introduced
+  // L7-8: 6-7 contacts, 360°, decoys + mental rotation
+  // L9-10: 7-8 contacts, 360°, decoys + rotation + fast display
   //
-  // Validated by: T12 Systems Thinking (Short-Term Thinker: high T06, low T12)
+  // Key metrics: maxReverseSpan, spatialErrorDeg, interferenceResistance
+  // Pilot Floor: 6+ reverse span; <15° rotation error at L10
+  // Validated by: T12 Systems Thinking (Spatial Rotation failure vs Rote success)
   T06: {
     id: 'T06', name: 'Working Memory', icon: '🧠',
-    description: 'Ancient glyphs flash on a grid — memorise sequence and position across a blackout, with interference and N-Back challenges.',
-    gameEngine: 'archive',
-    primaryGameId: 'archive_standard',
+    description: 'Circular radar sweep — memorise blinking contact positions, then tap them in reverse order. Decoys and mental rotation at elite levels.',
+    gameEngine: 'radar_sweep',
+    primaryGameId: 'radar_sweep_standard',
     ceilingDropPct: 0.40, ceilingLevels: 3,
     skipScore: 95, skipToLevel: 4,
     validatedBy: 'T12',
     benchmarks: [
-      { profession: 'Commercial Pilot',  minLevel: 9,  minAccuracy: 0.85, notes: 'Max span 7+ items; N-Back 2 accuracy ≥85%' },
-      { profession: 'Air Traffic Controller', minLevel: 10, minAccuracy: 0.80, notes: 'Dual 3-Back ≥80%; interference resistance >75%' },
-      { profession: 'Software Engineer', minLevel: 7,  minAccuracy: 0.80, notes: 'Span 6+; blackout accuracy with interference >70%' },
+      { profession: 'Commercial Pilot',       minLevel: 8, minAccuracy: 0.82, notes: '6+ reverse span in 360° field; <20° spatial error' },
+      { profession: 'Air Traffic Controller', minLevel: 9, minAccuracy: 0.80, notes: '≥6 span with decoys + mental rotation; error <15°' },
+      { profession: 'Software Engineer',      minLevel: 7, minAccuracy: 0.78, notes: 'Span 5+; decoy resistance >75%; <25° spatial error' },
     ],
     levels: levels([
-      // L1-2: 3×3 grid, no blackout — establish raw span baseline
-      { level: 1,  label: 'Imprint',       speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { gridSize: 3, seqLength: 3, blackoutMs: 0,    flashMs: 1400, interference: false, nBack: 0, dualChannel: false, rounds: 4 }, targetAccuracy: 0.85, eliteLatencyMs: 5000 },
-      { level: 2,  label: 'Register',      speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { gridSize: 3, seqLength: 4, blackoutMs: 0,    flashMs: 1300, interference: false, nBack: 0, dualChannel: false, rounds: 4 }, targetAccuracy: 0.82, eliteLatencyMs: 5000 },
-      // L3-4: 4×4 grid + blackout delay (Buffer test)
-      { level: 3,  label: 'Buffer',        speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { gridSize: 4, seqLength: 4, blackoutMs: 2000, flashMs: 1200, interference: false, nBack: 0, dualChannel: false, rounds: 4 }, targetAccuracy: 0.78, eliteLatencyMs: 6000 },
-      { level: 4,  label: 'Hold',          speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { gridSize: 4, seqLength: 5, blackoutMs: 3000, flashMs: 1200, interference: false, nBack: 0, dualChannel: false, rounds: 4 }, targetAccuracy: 0.75, eliteLatencyMs: 6000 },
-      // L5-6: Math interference during blackout
-      { level: 5,  label: 'Interference',  speedMultiplier: 1.0, distractorDensity: 0.20, ruleShifting: false, uiInterference: true,  gameParams: { gridSize: 4, seqLength: 5, blackoutMs: 3000, flashMs: 1100, interference: true,  nBack: 0, dualChannel: false, rounds: 4 }, targetAccuracy: 0.72, eliteLatencyMs: 7000 },
-      { level: 6,  label: 'Distracted',    speedMultiplier: 1.0, distractorDensity: 0.30, ruleShifting: false, uiInterference: true,  gameParams: { gridSize: 4, seqLength: 6, blackoutMs: 4000, flashMs: 1000, interference: true,  nBack: 0, dualChannel: false, rounds: 5 }, targetAccuracy: 0.70, eliteLatencyMs: 7000 },
-      // L7-8: N-Back 2 — stimulus stream, YES/NO matching
-      { level: 7,  label: '2-Back',        speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { gridSize: 4, seqLength: 0, blackoutMs: 0,    flashMs: 1200, interference: false, nBack: 2, dualChannel: false, rounds: 16 }, targetAccuracy: 0.72, eliteLatencyMs: 4000 },
-      { level: 8,  label: '2-Back Plus',   speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { gridSize: 4, seqLength: 0, blackoutMs: 0,    flashMs: 1100, interference: false, nBack: 2, dualChannel: false, rounds: 20 }, targetAccuracy: 0.70, eliteLatencyMs: 4000 },
-      // L9-10: Dual 3-Back — track color + symbol simultaneously
-      { level: 9,  label: 'Dual 3-Back',   speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: true,  gameParams: { gridSize: 4, seqLength: 0, blackoutMs: 0,    flashMs: 1100, interference: false, nBack: 3, dualChannel: true,  rounds: 20 }, targetAccuracy: 0.68, eliteLatencyMs: 4000 },
-      { level: 10, label: 'Multi-Channel', speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: true,  gameParams: { gridSize: 4, seqLength: 0, blackoutMs: 0,    flashMs: 1000, interference: false, nBack: 3, dualChannel: true,  rounds: 24 }, targetAccuracy: 0.65, eliteLatencyMs: 4000 },
+      // L1-2: 3-4 contacts, 180°, clean — establish raw reverse-span baseline
+      { level: 1,  label: 'Sweep',         speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { contactCount: 3, fieldDegrees: 180, decoys: false, mentalRotation: false, displayMs: 1000, rounds: 3 }, targetAccuracy: 0.85, eliteLatencyMs: 6000 },
+      { level: 2,  label: 'Track',         speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { contactCount: 4, fieldDegrees: 180, decoys: false, mentalRotation: false, displayMs: 950,  rounds: 3 }, targetAccuracy: 0.82, eliteLatencyMs: 6000 },
+      // L3-4: 360° field
+      { level: 3,  label: 'Full Arc',      speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { contactCount: 4, fieldDegrees: 360, decoys: false, mentalRotation: false, displayMs: 950,  rounds: 4 }, targetAccuracy: 0.78, eliteLatencyMs: 6500 },
+      { level: 4,  label: 'Span 5',        speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { contactCount: 5, fieldDegrees: 360, decoys: false, mentalRotation: false, displayMs: 900,  rounds: 4 }, targetAccuracy: 0.76, eliteLatencyMs: 7000 },
+      // L5-6: Decoys introduced
+      { level: 5,  label: 'Decoy Field',   speedMultiplier: 1.1, distractorDensity: 0.20, ruleShifting: false, uiInterference: false, gameParams: { contactCount: 5, fieldDegrees: 360, decoys: true,  mentalRotation: false, displayMs: 900,  rounds: 4 }, targetAccuracy: 0.74, eliteLatencyMs: 7000 },
+      { level: 6,  label: 'Span 6',        speedMultiplier: 1.2, distractorDensity: 0.25, ruleShifting: false, uiInterference: false, gameParams: { contactCount: 6, fieldDegrees: 360, decoys: true,  mentalRotation: false, displayMs: 850,  rounds: 4 }, targetAccuracy: 0.72, eliteLatencyMs: 7500 },
+      // L7-8: Mental rotation (90° before recall phase)
+      { level: 7,  label: 'Rotated',       speedMultiplier: 1.2, distractorDensity: 0.25, ruleShifting: true,  uiInterference: false, gameParams: { contactCount: 6, fieldDegrees: 360, decoys: true,  mentalRotation: true,  displayMs: 850,  rounds: 4 }, targetAccuracy: 0.70, eliteLatencyMs: 8000 },
+      { level: 8,  label: 'Span 7',        speedMultiplier: 1.3, distractorDensity: 0.30, ruleShifting: true,  uiInterference: false, gameParams: { contactCount: 7, fieldDegrees: 360, decoys: true,  mentalRotation: true,  displayMs: 800,  rounds: 5 }, targetAccuracy: 0.68, eliteLatencyMs: 8500 },
+      // L9-10: Fast display + all stressors
+      { level: 9,  label: 'Elite Scan',    speedMultiplier: 1.4, distractorDensity: 0.35, ruleShifting: true,  uiInterference: true,  gameParams: { contactCount: 7, fieldDegrees: 360, decoys: true,  mentalRotation: true,  displayMs: 750,  rounds: 5 }, targetAccuracy: 0.65, eliteLatencyMs: 9000 },
+      { level: 10, label: 'Pilot Grade',   speedMultiplier: 1.5, distractorDensity: 0.40, ruleShifting: true,  uiInterference: true,  gameParams: { contactCount: 8, fieldDegrees: 360, decoys: true,  mentalRotation: true,  displayMs: 700,  rounds: 5 }, targetAccuracy: 0.62, eliteLatencyMs: 10000 },
     ]),
   },
 
@@ -284,48 +286,46 @@ export const TRAIT_CATALOG: Record<string, TraitDefinition> = {
     ]),
   },
 
-  // ── T12 · Systems Thinking — Circuit Snap ───────────────────────────────
-  // Power Grid Repair: flip switches to route power through logic gates.
-  // Each level maps to a pre-defined circuit puzzle (PUZZLES[levelIndex]).
-  // L1-2: Linear & OR (single path, two-choice)
-  // L3-4: AND gate, OR→AND (multi-dependency)
-  // L5-6: NOT gate logic (counter-intuitive inversion)
-  // L7-8: Two simultaneous goals
-  // L9-10: Three goals + cascade failure (random switch flips continuously)
+  // ── T12 · Systems Thinking — Nav-Link ───────────────────────────────────
+  // Satellite-to-Ground data routing. Tap pairs of nodes to establish links;
+  // maintain an optimal path as nodes orbit, degrade, and brown out.
+  // L1-2: 3-5 static nodes, no signal decay
+  // L3-4: 6-7 nodes, signal decay active
+  // L5-6: 7-8 nodes, bandwidth caps
+  // L7-8: 9-10 nodes, brown-out cycling
+  // L9-10: 10-12 nodes, orbit + all features
   //
-  // Key metrics: inductionSpeed (time to first correct solution), trialRatio
-  // (wrong/total clicks), pathOptimisation (moves vs minimum possible)
-  //
+  // Key metrics: uptimePct, pathEfficiency, mttrMs
   // Validated by: T06 Working Memory (Slow Architect: high T12, low T06)
   T12: {
     id: 'T12', name: 'Systems Thinking', icon: '🗺️',
-    description: 'Route power through logic gates to illuminate all goal nodes — managing ripple effects with every switch flip.',
-    gameEngine: 'circuit',
-    primaryGameId: 'circuit_standard',
+    description: 'Route satellite data to the ground via relay nodes — maintain optimal path as nodes orbit, degrade, and brown out.',
+    gameEngine: 'nav_link',
+    primaryGameId: 'nav_link_standard',
     ceilingDropPct: 0.40, ceilingLevels: 3,
     skipScore: 95, skipToLevel: 4,
     validatedBy: 'T06',
     benchmarks: [
-      { profession: 'Systems Engineer',   minLevel: 9,  minAccuracy: 0.90, notes: 'Three-goal cascade with <5 wrong moves' },
-      { profession: 'Commercial Pilot',   minLevel: 8,  minAccuracy: 0.88, notes: 'Two-goal puzzle in minimum moves' },
-      { profession: 'Project Manager',    minLevel: 7,  minAccuracy: 0.85, notes: 'Solves L7 two-goal circuit on first attempt' },
+      { profession: 'Systems Engineer',   minLevel: 9,  minAccuracy: 0.92, notes: '>92% uptime with orbital flux and brown-outs' },
+      { profession: 'Commercial Pilot',   minLevel: 8,  minAccuracy: 0.88, notes: '>88% uptime; MTTR <3s at 10-node network' },
+      { profession: 'Project Manager',    minLevel: 7,  minAccuracy: 0.85, notes: 'Bandwidth-cap network with >85% path efficiency' },
     ],
     levels: levels([
-      // L1-2: Linear + OR (puzzle indices 0, 1)
-      { level: 1,  label: 'Linear',         speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { levelIndex: 0, cascadeMode: false }, targetAccuracy: 0.95, eliteLatencyMs: 15000 },
-      { level: 2,  label: 'OR Gate',         speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { levelIndex: 1, cascadeMode: false }, targetAccuracy: 0.92, eliteLatencyMs: 18000 },
-      // L3-4: AND, OR→AND (puzzle indices 2, 3)
-      { level: 3,  label: 'AND Gate',        speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { levelIndex: 2, cascadeMode: false }, targetAccuracy: 0.88, eliteLatencyMs: 22000 },
-      { level: 4,  label: 'Branching',       speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { levelIndex: 3, cascadeMode: false }, targetAccuracy: 0.85, eliteLatencyMs: 28000 },
-      // L5-6: NOT gate (puzzle indices 4, 5)
-      { level: 5,  label: 'NOT Gate',        speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { levelIndex: 4, cascadeMode: false }, targetAccuracy: 0.82, eliteLatencyMs: 30000 },
-      { level: 6,  label: 'Double Invert',   speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: true,  uiInterference: false, gameParams: { levelIndex: 5, cascadeMode: false }, targetAccuracy: 0.80, eliteLatencyMs: 35000 },
-      // L7-8: Two goals (puzzle indices 6, 7)
-      { level: 7,  label: 'Dual Goals',      speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: true,  uiInterference: false, gameParams: { levelIndex: 6, cascadeMode: false }, targetAccuracy: 0.78, eliteLatencyMs: 40000 },
-      { level: 8,  label: 'Mixed Network',   speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: true,  uiInterference: false, gameParams: { levelIndex: 7, cascadeMode: false }, targetAccuracy: 0.75, eliteLatencyMs: 45000 },
-      // L9-10: Three goals + cascade (puzzle indices 8, 9)
-      { level: 9,  label: 'Cascade',         speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: true,  uiInterference: true,  gameParams: { levelIndex: 8, cascadeMode: true, cascadeIntervalMs: 6000 }, targetAccuracy: 0.72, eliteLatencyMs: 60000 },
-      { level: 10, label: 'Total Cascade',   speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: true,  uiInterference: true,  gameParams: { levelIndex: 9, cascadeMode: true, cascadeIntervalMs: 4000 }, targetAccuracy: 0.68, eliteLatencyMs: 80000 },
+      // L1-2: 3-5 static nodes, no decay, no caps, no brownout
+      { level: 1,  label: 'Link',          speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { nodeCount: 3,  signalDecay: false, bandwidthCaps: false, brownOuts: false, durationMs: 50000, orbitSpeed: 0     }, targetAccuracy: 0.90, eliteLatencyMs: 15000 },
+      { level: 2,  label: 'Route',         speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { nodeCount: 5,  signalDecay: false, bandwidthCaps: false, brownOuts: false, durationMs: 55000, orbitSpeed: 0     }, targetAccuracy: 0.88, eliteLatencyMs: 18000 },
+      // L3-4: Signal decay (prefer shorter links)
+      { level: 3,  label: 'Decay',         speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { nodeCount: 6,  signalDecay: true,  bandwidthCaps: false, brownOuts: false, durationMs: 60000, orbitSpeed: 0     }, targetAccuracy: 0.85, eliteLatencyMs: 20000 },
+      { level: 4,  label: 'Attenuation',   speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { nodeCount: 7,  signalDecay: true,  bandwidthCaps: false, brownOuts: false, durationMs: 60000, orbitSpeed: 0     }, targetAccuracy: 0.83, eliteLatencyMs: 22000 },
+      // L5-6: Bandwidth caps
+      { level: 5,  label: 'Capacity',      speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: true,  uiInterference: false, gameParams: { nodeCount: 7,  signalDecay: true,  bandwidthCaps: true,  brownOuts: false, durationMs: 65000, orbitSpeed: 0     }, targetAccuracy: 0.80, eliteLatencyMs: 25000 },
+      { level: 6,  label: 'Constrained',   speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: true,  uiInterference: false, gameParams: { nodeCount: 8,  signalDecay: true,  bandwidthCaps: true,  brownOuts: false, durationMs: 65000, orbitSpeed: 0     }, targetAccuracy: 0.78, eliteLatencyMs: 28000 },
+      // L7-8: Brown-out cycling
+      { level: 7,  label: 'Brownout',      speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: true,  uiInterference: true,  gameParams: { nodeCount: 9,  signalDecay: true,  bandwidthCaps: true,  brownOuts: true,  durationMs: 70000, orbitSpeed: 0     }, targetAccuracy: 0.75, eliteLatencyMs: 30000 },
+      { level: 8,  label: 'Flux',          speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: true,  uiInterference: true,  gameParams: { nodeCount: 10, signalDecay: true,  bandwidthCaps: true,  brownOuts: true,  durationMs: 75000, orbitSpeed: 0     }, targetAccuracy: 0.72, eliteLatencyMs: 35000 },
+      // L9-10: Orbiting nodes + all features
+      { level: 9,  label: 'Orbital',       speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: true,  uiInterference: true,  gameParams: { nodeCount: 10, signalDecay: true,  bandwidthCaps: true,  brownOuts: true,  durationMs: 80000, orbitSpeed: 25000 }, targetAccuracy: 0.68, eliteLatencyMs: 40000 },
+      { level: 10, label: 'Deep Space',    speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: true,  uiInterference: true,  gameParams: { nodeCount: 12, signalDecay: true,  bandwidthCaps: true,  brownOuts: true,  durationMs: 90000, orbitSpeed: 18000 }, targetAccuracy: 0.65, eliteLatencyMs: 50000 },
     ]),
   },
 
@@ -351,69 +351,177 @@ export const TRAIT_CATALOG: Record<string, TraitDefinition> = {
     ]),
   },
 
-  // ── T15 · Social Inference ───────────────────────────────────────────────
+  // ── T15 · Social Inference — The Briefing ───────────────────────────────
+  // Text-based Theory of Mind game. User reads crew transcripts and identifies
+  // the hidden intent behind words + cues.
+  //
+  // Metrics:
+  //   inferenceAccuracy  — % correct intent identifications (60pts)
+  //   cueWeighting       — relying on non-verbal over verbal cues (25pts)
+  //   biasScore          — avoiding projection bias choices (15pts)
+  //
+  // Professional benchmarks:
+  //   Commercial Pilot   : Level 8+ · ≥80% non-verbal cue weighting
+  //   Air Traffic Control: Level 7+ · zero projection bias flags
+  //   Military Commander : Level 9+ · ≥85% accuracy under noise conditions
+  //
+  // Validated by: T16 Affective Empathy (Trait Talk — Social Analyst rule)
   T15: {
     id: 'T15', name: 'Social Inference', icon: '👥',
-    description: 'Reading between the lines in social situations — inferring intent, subtext, and optimal responses.',
-    gameEngine: 'logic',
-    primaryGameId: 'logic_situational',
+    description: 'Reading between the lines — inferring hidden intent from tone, body language, and subtext across high-stakes crew interactions.',
+    gameEngine: 'briefing',
+    primaryGameId: 'briefing_standard',
     ceilingDropPct: 0.40, ceilingLevels: 3,
     skipScore: 95, skipToLevel: 4,
+    validatedBy: 'T16',
+    benchmarks: [
+      { profession: 'Commercial Pilot',      minLevel: 8, minAccuracy: 0.80, notes: '≥80% non-verbal cue weighting; hidden alarm detection at L7+' },
+      { profession: 'Air Traffic Controller', minLevel: 7, minAccuracy: 0.78, notes: 'Zero projection bias flags across formal radio exchanges' },
+      { profession: 'Military Commander',     minLevel: 9, minAccuracy: 0.85, notes: '≥85% accuracy under noise/static (L10 garbled conditions)' },
+    ],
     levels: levels([
-      { level: 1,  label: 'Greeting',       speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { variant: 'situational', questions: 5, timeLimitMs: 35000 }, targetAccuracy: 0.70, eliteLatencyMs: 14000 },
-      { level: 2,  label: 'Context',        speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { variant: 'situational', questions: 5, timeLimitMs: 32000 }, targetAccuracy: 0.71, eliteLatencyMs: 13500 },
-      { level: 3,  label: 'Subtext',        speedMultiplier: 1.0, distractorDensity: 0.10, ruleShifting: false, uiInterference: false, gameParams: { variant: 'situational', questions: 5, timeLimitMs: 30000 }, targetAccuracy: 0.72, eliteLatencyMs: 13000 },
-      { level: 4,  label: 'Motive',         speedMultiplier: 1.1, distractorDensity: 0.10, ruleShifting: false, uiInterference: false, gameParams: { variant: 'situational', questions: 6, timeLimitMs: 28000 }, targetAccuracy: 0.73, eliteLatencyMs: 12500 },
-      { level: 5,  label: 'Ambiguity',      speedMultiplier: 1.1, distractorDensity: 0.20, ruleShifting: false, uiInterference: false, gameParams: { variant: 'situational', questions: 6, timeLimitMs: 26000 }, targetAccuracy: 0.73, eliteLatencyMs: 12000 },
-      { level: 6,  label: 'Conflict',       speedMultiplier: 1.2, distractorDensity: 0.20, ruleShifting: false, uiInterference: false, gameParams: { variant: 'situational', questions: 6, timeLimitMs: 24000 }, targetAccuracy: 0.73, eliteLatencyMs: 11500 },
-      { level: 7,  label: 'Power Play',     speedMultiplier: 1.2, distractorDensity: 0.30, ruleShifting: true,  uiInterference: false, gameParams: { variant: 'situational', questions: 7, timeLimitMs: 22000 }, targetAccuracy: 0.72, eliteLatencyMs: 11000 },
-      { level: 8,  label: 'Deception',      speedMultiplier: 1.3, distractorDensity: 0.40, ruleShifting: true,  uiInterference: false, gameParams: { variant: 'situational', questions: 7, timeLimitMs: 20000 }, targetAccuracy: 0.72, eliteLatencyMs: 10500 },
-      { level: 9,  label: 'High Stakes',    speedMultiplier: 1.4, distractorDensity: 0.50, ruleShifting: true,  uiInterference: false, gameParams: { variant: 'situational', questions: 7, timeLimitMs: 18000 }, targetAccuracy: 0.71, eliteLatencyMs: 10000 },
-      { level: 10, label: 'Crisis Diplomacy', speedMultiplier: 1.5, distractorDensity: 0.60, ruleShifting: true, uiInterference: true, gameParams: { variant: 'situational', questions: 7, timeLimitMs: 15000 }, targetAccuracy: 0.70, eliteLatencyMs: 9000  },
+      // L1–2: Clear emotions, all cues visible, generous timer
+      { level: 1,  label: 'Direct Read',      speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false,
+        gameParams: { level: 1, scenarioCount: 4, timePerScenarioMs: 22000, visibleCues: ['verbal', 'tonal', 'body'], noiseLevel: 0 },
+        targetAccuracy: 0.72, eliteLatencyMs: 8000 },
+      { level: 2,  label: 'Clear Signal',     speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false,
+        gameParams: { level: 2, scenarioCount: 4, timePerScenarioMs: 20000, visibleCues: ['verbal', 'tonal', 'body'], noiseLevel: 0 },
+        targetAccuracy: 0.73, eliteLatencyMs: 8000 },
+      // L3–4: Sarcasm/doubt, tonal cue is key signal
+      { level: 3,  label: 'Between the Lines', speedMultiplier: 1.0, distractorDensity: 0.10, ruleShifting: false, uiInterference: false,
+        gameParams: { level: 3, scenarioCount: 4, timePerScenarioMs: 20000, visibleCues: ['verbal', 'tonal', 'body'], noiseLevel: 0 },
+        targetAccuracy: 0.72, eliteLatencyMs: 9000 },
+      { level: 4,  label: 'Sarcasm Layer',    speedMultiplier: 1.0, distractorDensity: 0.10, ruleShifting: false, uiInterference: false,
+        gameParams: { level: 4, scenarioCount: 5, timePerScenarioMs: 18000, visibleCues: ['verbal', 'tonal', 'body'], noiseLevel: 0 },
+        targetAccuracy: 0.71, eliteLatencyMs: 9000 },
+      // L5–6: Conflicting verbal vs body — weigh which cue is reliable
+      { level: 5,  label: 'Mixed Signal',     speedMultiplier: 1.1, distractorDensity: 0.20, ruleShifting: false, uiInterference: false,
+        gameParams: { level: 5, scenarioCount: 5, timePerScenarioMs: 18000, visibleCues: ['verbal', 'tonal', 'body'], noiseLevel: 0 },
+        targetAccuracy: 0.70, eliteLatencyMs: 9500 },
+      { level: 6,  label: 'Conflict Channel', speedMultiplier: 1.1, distractorDensity: 0.20, ruleShifting: false, uiInterference: false,
+        gameParams: { level: 6, scenarioCount: 5, timePerScenarioMs: 16000, visibleCues: ['verbal', 'tonal', 'body'], noiseLevel: 0 },
+        targetAccuracy: 0.70, eliteLatencyMs: 9500 },
+      // L7–8: Professional deference, cockpit formality, hidden alarm
+      { level: 7,  label: 'Professional Mask', speedMultiplier: 1.2, distractorDensity: 0.30, ruleShifting: true, uiInterference: false,
+        gameParams: { level: 7, scenarioCount: 5, timePerScenarioMs: 16000, visibleCues: ['verbal', 'tonal'], noiseLevel: 0 },
+        targetAccuracy: 0.68, eliteLatencyMs: 10000 },
+      { level: 8,  label: 'Hidden Alarm',     speedMultiplier: 1.3, distractorDensity: 0.40, ruleShifting: true, uiInterference: false,
+        gameParams: { level: 8, scenarioCount: 5, timePerScenarioMs: 14000, visibleCues: ['verbal', 'tonal'], noiseLevel: 0 },
+        targetAccuracy: 0.67, eliteLatencyMs: 10000 },
+      // L9: Multi-step exchanges, rapid inference
+      { level: 9,  label: 'Multi-Channel',    speedMultiplier: 1.4, distractorDensity: 0.50, ruleShifting: true, uiInterference: false,
+        gameParams: { level: 9, scenarioCount: 5, timePerScenarioMs: 14000, visibleCues: ['verbal', 'tonal'], noiseLevel: 0 },
+        targetAccuracy: 0.65, eliteLatencyMs: 10500 },
+      // L10: Garbled / [STATIC] partial — Fog of War
+      { level: 10, label: 'Fog of War',       speedMultiplier: 1.5, distractorDensity: 0.60, ruleShifting: true, uiInterference: true,
+        gameParams: { level: 10, scenarioCount: 5, timePerScenarioMs: 12000, visibleCues: ['verbal'], noiseLevel: 2 },
+        targetAccuracy: 0.62, eliteLatencyMs: 11000 },
     ]),
   },
 
-  // ── T16 · Affective Empathy ──────────────────────────────────────────────
+  // ── T16 · Affective Empathy — Empathy Response ──────────────────────────
+  // Emergency Response Coordinator metaphor. User chooses responses to crew
+  // in distress — must balance mission success with emotional support.
+  //
+  // Metrics:
+  //   supportAccuracy   — % de-escalating responses (50pts)
+  //   contagionPenalty  — RT slowdown on high-distress vs neutral (30pts)
+  //   boundariesScore   — avoids over-apologetic/mission-abandoning choices (20pts)
+  //
+  // Level 10 dual-game: The Reactor runs as a HUD strip simultaneously.
+  //   Gatekeeper: if reactor miss rate > 50% during any answer → score capped at 40.
+  //   Degradation: score drop vs L9 baseline → up to 20pt penalty.
+  //
+  // Professional benchmarks:
+  //   Commercial Pilot   : Level 9+ · contagionPenalty < 0.10, boundaries ≥85%
+  //   ER Surgeon         : Level 8+ · supportAccuracy ≥80% under extreme distress
+  //   Crisis Negotiator  : Level 10 · full dual-game score ≥70
+  //
+  // Validated by: T15 Social Inference (Trait Talk — Emotional Sponge / Social Analyst)
   T16: {
     id: 'T16', name: 'Affective Empathy', icon: '❤️',
-    description: 'Accurately encoding and recalling emotional contexts — the foundation of empathic response.',
-    gameEngine: 'memory',
-    primaryGameId: 'memory_faces',
+    description: 'Choosing responses that de-escalate distress without losing mission focus — measured under escalating emotional load.',
+    gameEngine: 'empathy',
+    primaryGameId: 'empathy_standard',
     ceilingDropPct: 0.40, ceilingLevels: 3,
     skipScore: 95, skipToLevel: 4,
+    validatedBy: 'T15',
+    benchmarks: [
+      { profession: 'Commercial Pilot',  minLevel: 9, minAccuracy: 0.80, notes: 'contagionPenalty <10%; boundaries ≥85% in high-distress scenarios' },
+      { profession: 'ER Surgeon',        minLevel: 8, minAccuracy: 0.80, notes: 'supportAccuracy ≥80% in extreme-distress events' },
+      { profession: 'Crisis Negotiator', minLevel: 10, minAccuracy: 0.70, notes: 'Full dual-game (Mayday+Reactor) score ≥70' },
+    ],
     levels: levels([
-      { level: 1,  label: 'Recognition',    speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { variant: 'faces', rounds: 3, seqLength: 3 }, targetAccuracy: 0.80, eliteLatencyMs: 4000 },
-      { level: 2,  label: 'Association',    speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { variant: 'faces', rounds: 3, seqLength: 4 }, targetAccuracy: 0.77, eliteLatencyMs: 4500 },
-      { level: 3,  label: 'Context',        speedMultiplier: 1.0, distractorDensity: 0.10, ruleShifting: false, uiInterference: false, gameParams: { variant: 'faces', rounds: 4, seqLength: 4 }, targetAccuracy: 0.75, eliteLatencyMs: 5000 },
-      { level: 4,  label: 'Nuance',         speedMultiplier: 1.1, distractorDensity: 0.10, ruleShifting: false, uiInterference: false, gameParams: { variant: 'faces', rounds: 4, seqLength: 5 }, targetAccuracy: 0.73, eliteLatencyMs: 5000 },
-      { level: 5,  label: 'Mixed Signals',  speedMultiplier: 1.1, distractorDensity: 0.20, ruleShifting: false, uiInterference: false, gameParams: { variant: 'faces', rounds: 4, seqLength: 5 }, targetAccuracy: 0.72, eliteLatencyMs: 5500 },
-      { level: 6,  label: 'Masked',         speedMultiplier: 1.2, distractorDensity: 0.30, ruleShifting: false, uiInterference: false, gameParams: { variant: 'faces', rounds: 5, seqLength: 6 }, targetAccuracy: 0.70, eliteLatencyMs: 5500 },
-      { level: 7,  label: 'Complexity',     speedMultiplier: 1.2, distractorDensity: 0.40, ruleShifting: false, uiInterference: false, gameParams: { variant: 'faces', rounds: 5, seqLength: 6 }, targetAccuracy: 0.68, eliteLatencyMs: 6000 },
-      { level: 8,  label: 'Contradiction',  speedMultiplier: 1.3, distractorDensity: 0.50, ruleShifting: false, uiInterference: false, gameParams: { variant: 'faces', rounds: 5, seqLength: 7 }, targetAccuracy: 0.66, eliteLatencyMs: 6000 },
-      { level: 9,  label: 'Overload',       speedMultiplier: 1.3, distractorDensity: 0.60, ruleShifting: false, uiInterference: true,  gameParams: { variant: 'faces', rounds: 5, seqLength: 8 }, targetAccuracy: 0.63, eliteLatencyMs: 6500 },
-      { level: 10, label: 'Full Room',      speedMultiplier: 1.4, distractorDensity: 0.70, ruleShifting: false, uiInterference: true,  gameParams: { variant: 'faces', rounds: 5, seqLength: 9 }, targetAccuracy: 0.60, eliteLatencyMs: 7000 },
+      // L1–2: Mild disappointment, warm supportive responses needed
+      { level: 1,  label: 'Soft Landing',   speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false,
+        gameParams: { level: 1, scenarioCount: 4, timePerScenarioMs: 28000, dualGame: false, baselineAccuracy: 0 },
+        targetAccuracy: 0.75, eliteLatencyMs: 10000 },
+      { level: 2,  label: 'First Response', speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false,
+        gameParams: { level: 2, scenarioCount: 4, timePerScenarioMs: 26000, dualGame: false, baselineAccuracy: 0 },
+        targetAccuracy: 0.74, eliteLatencyMs: 10000 },
+      // L3–4: User-caused stress — avoid becoming over-apologetic
+      { level: 3,  label: 'Own It',         speedMultiplier: 1.0, distractorDensity: 0.10, ruleShifting: false, uiInterference: false,
+        gameParams: { level: 3, scenarioCount: 4, timePerScenarioMs: 25000, dualGame: false, baselineAccuracy: 0 },
+        targetAccuracy: 0.72, eliteLatencyMs: 10500 },
+      { level: 4,  label: 'Fault Line',     speedMultiplier: 1.0, distractorDensity: 0.10, ruleShifting: false, uiInterference: false,
+        gameParams: { level: 4, scenarioCount: 4, timePerScenarioMs: 23000, dualGame: false, baselineAccuracy: 0 },
+        targetAccuracy: 0.72, eliteLatencyMs: 10500 },
+      // L5–6: Mission vs face-saving trade-off
+      { level: 5,  label: 'The Trade-off',  speedMultiplier: 1.1, distractorDensity: 0.20, ruleShifting: false, uiInterference: false,
+        gameParams: { level: 5, scenarioCount: 5, timePerScenarioMs: 22000, dualGame: false, baselineAccuracy: 0 },
+        targetAccuracy: 0.70, eliteLatencyMs: 11000 },
+      { level: 6,  label: 'Truth or Shield', speedMultiplier: 1.1, distractorDensity: 0.20, ruleShifting: false, uiInterference: false,
+        gameParams: { level: 6, scenarioCount: 5, timePerScenarioMs: 20000, dualGame: false, baselineAccuracy: 0 },
+        targetAccuracy: 0.70, eliteLatencyMs: 11000 },
+      // L7–8: High intensity (irate/panicked characters + RT measurement)
+      { level: 7,  label: 'Pressure Point', speedMultiplier: 1.2, distractorDensity: 0.30, ruleShifting: false, uiInterference: false,
+        gameParams: { level: 7, scenarioCount: 5, timePerScenarioMs: 20000, dualGame: false, baselineAccuracy: 0 },
+        targetAccuracy: 0.68, eliteLatencyMs: 11500 },
+      { level: 8,  label: 'Panic Protocol', speedMultiplier: 1.3, distractorDensity: 0.40, ruleShifting: false, uiInterference: false,
+        gameParams: { level: 8, scenarioCount: 5, timePerScenarioMs: 18000, dualGame: false, baselineAccuracy: 0 },
+        targetAccuracy: 0.67, eliteLatencyMs: 12000 },
+      // L9: Extreme crisis, multiple escalation layers
+      { level: 9,  label: 'Critical Mass',  speedMultiplier: 1.4, distractorDensity: 0.50, ruleShifting: false, uiInterference: true,
+        gameParams: { level: 9, scenarioCount: 4, timePerScenarioMs: 18000, dualGame: false, baselineAccuracy: 0 },
+        targetAccuracy: 0.65, eliteLatencyMs: 12000 },
+      // L10: Dual game — Mayday scenario + Reactor HUD concurrently
+      { level: 10, label: 'Mayday Protocol', speedMultiplier: 1.5, distractorDensity: 0.60, ruleShifting: true, uiInterference: true,
+        gameParams: {
+          level: 10, scenarioCount: 3, timePerScenarioMs: 30000, dualGame: true, baselineAccuracy: 0.70,
+          reactorConfig: {
+            numBins: 3, fallDurationMs: 2000, distractors: false,
+            highPriorityBoost: 0, oscillate: false, meltdown: false,
+            totalRods: 20, highRatio: 0.5, distractorRatio: 0,
+          },
+        },
+        targetAccuracy: 0.60, eliteLatencyMs: 13000 },
     ]),
   },
 
   // ── T19 · Anomaly Detection ──────────────────────────────────────────────
   T19: {
     id: 'T19', name: 'Anomaly Detection', icon: '🔎',
-    description: 'Identifying rare signals within dense, uniform fields — precision vs false-positive balance.',
-    gameEngine: 'search',
-    primaryGameId: 'visual_search_standard',
+    description: 'Scrolling 8-track waveform monitor — tap spikes and phase-shifts before they scroll off screen. Precision vs false-positive balance.',
+    gameEngine: 'signal_sift',
+    primaryGameId: 'signal_sift_standard',
     ceilingDropPct: 0.40, ceilingLevels: 3,
     skipScore: 95, skipToLevel: 4,
     levels: levels([
-      { level: 1,  label: 'Scan',           speedMultiplier: 1.0, distractorDensity: 0.20, ruleShifting: false, uiInterference: false, gameParams: { hard: false, gridSize: 4, timeLimitMs: 30000 }, targetAccuracy: 0.80, eliteLatencyMs: 12000 },
-      { level: 2,  label: 'Survey',         speedMultiplier: 1.1, distractorDensity: 0.25, ruleShifting: false, uiInterference: false, gameParams: { hard: false, gridSize: 4, timeLimitMs: 27000 }, targetAccuracy: 0.79, eliteLatencyMs: 11500 },
-      { level: 3,  label: 'Screen',         speedMultiplier: 1.2, distractorDensity: 0.30, ruleShifting: false, uiInterference: false, gameParams: { hard: false, gridSize: 5, timeLimitMs: 25000 }, targetAccuracy: 0.78, eliteLatencyMs: 11000 },
-      { level: 4,  label: 'Filter',         speedMultiplier: 1.2, distractorDensity: 0.35, ruleShifting: false, uiInterference: false, gameParams: { hard: false, gridSize: 5, timeLimitMs: 23000 }, targetAccuracy: 0.77, eliteLatencyMs: 10500 },
-      { level: 5,  label: 'Vigilance',      speedMultiplier: 1.3, distractorDensity: 0.40, ruleShifting: false, uiInterference: false, gameParams: { hard: true,  gridSize: 5, timeLimitMs: 22000 }, targetAccuracy: 0.76, eliteLatencyMs: 10000 },
-      { level: 6,  label: 'Dense Field',    speedMultiplier: 1.4, distractorDensity: 0.50, ruleShifting: false, uiInterference: false, gameParams: { hard: true,  gridSize: 6, timeLimitMs: 20000 }, targetAccuracy: 0.75, eliteLatencyMs: 9500  },
-      { level: 7,  label: 'Camouflage',     speedMultiplier: 1.5, distractorDensity: 0.60, ruleShifting: true,  uiInterference: false, gameParams: { hard: true,  gridSize: 6, timeLimitMs: 18000 }, targetAccuracy: 0.73, eliteLatencyMs: 9000  },
-      { level: 8,  label: 'Noise',          speedMultiplier: 1.6, distractorDensity: 0.70, ruleShifting: true,  uiInterference: false, gameParams: { hard: true,  gridSize: 7, timeLimitMs: 16000 }, targetAccuracy: 0.72, eliteLatencyMs: 8500  },
-      { level: 9,  label: 'Near-Identical', speedMultiplier: 1.7, distractorDensity: 0.80, ruleShifting: true,  uiInterference: true,  gameParams: { hard: true,  gridSize: 7, timeLimitMs: 14000 }, targetAccuracy: 0.70, eliteLatencyMs: 8000  },
-      { level: 10, label: 'Expert Eye',     speedMultiplier: 1.8, distractorDensity: 0.90, ruleShifting: true,  uiInterference: true,  gameParams: { hard: true,  gridSize: 8, timeLimitMs: 12000 }, targetAccuracy: 0.68, eliteLatencyMs: 7500  },
+      // L1-2: 1-2 tracks, clean signal, high-contrast spikes
+      { level: 1,  label: 'Scan',           speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { trackCount: 1, visualSnow: false, phaseShifts: false, lowContrast: false, durationMs: 45000, anomalyRate: 0.15 }, targetAccuracy: 0.82, eliteLatencyMs: 800 },
+      { level: 2,  label: 'Dual Track',     speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { trackCount: 2, visualSnow: false, phaseShifts: false, lowContrast: false, durationMs: 50000, anomalyRate: 0.18 }, targetAccuracy: 0.80, eliteLatencyMs: 800 },
+      // L3-4: 3-4 tracks
+      { level: 3,  label: 'Monitor',        speedMultiplier: 1.1, distractorDensity: 0.10, ruleShifting: false, uiInterference: false, gameParams: { trackCount: 3, visualSnow: false, phaseShifts: false, lowContrast: false, durationMs: 55000, anomalyRate: 0.20 }, targetAccuracy: 0.78, eliteLatencyMs: 800 },
+      { level: 4,  label: 'Array',          speedMultiplier: 1.1, distractorDensity: 0.15, ruleShifting: false, uiInterference: false, gameParams: { trackCount: 4, visualSnow: false, phaseShifts: false, lowContrast: false, durationMs: 55000, anomalyRate: 0.22 }, targetAccuracy: 0.77, eliteLatencyMs: 800 },
+      // L5-6: Visual snow + higher anomaly rate
+      { level: 5,  label: 'Snow',           speedMultiplier: 1.2, distractorDensity: 0.25, ruleShifting: false, uiInterference: true,  gameParams: { trackCount: 5, visualSnow: true,  phaseShifts: false, lowContrast: false, durationMs: 60000, anomalyRate: 0.22 }, targetAccuracy: 0.75, eliteLatencyMs: 800 },
+      { level: 6,  label: 'Noise Field',    speedMultiplier: 1.3, distractorDensity: 0.35, ruleShifting: false, uiInterference: true,  gameParams: { trackCount: 6, visualSnow: true,  phaseShifts: false, lowContrast: false, durationMs: 60000, anomalyRate: 0.25 }, targetAccuracy: 0.74, eliteLatencyMs: 800 },
+      // L7-8: Phase shifts added
+      { level: 7,  label: 'Phase Shift',    speedMultiplier: 1.4, distractorDensity: 0.45, ruleShifting: true,  uiInterference: true,  gameParams: { trackCount: 6, visualSnow: true,  phaseShifts: true,  lowContrast: false, durationMs: 60000, anomalyRate: 0.27 }, targetAccuracy: 0.72, eliteLatencyMs: 800 },
+      { level: 8,  label: 'Inversion',      speedMultiplier: 1.5, distractorDensity: 0.55, ruleShifting: true,  uiInterference: true,  gameParams: { trackCount: 7, visualSnow: true,  phaseShifts: true,  lowContrast: false, durationMs: 60000, anomalyRate: 0.28 }, targetAccuracy: 0.71, eliteLatencyMs: 800 },
+      // L9-10: Low-contrast + all 8 tracks
+      { level: 9,  label: 'Near-Identical', speedMultiplier: 1.6, distractorDensity: 0.65, ruleShifting: true,  uiInterference: true,  gameParams: { trackCount: 8, visualSnow: true,  phaseShifts: true,  lowContrast: true,  durationMs: 60000, anomalyRate: 0.30 }, targetAccuracy: 0.70, eliteLatencyMs: 800 },
+      { level: 10, label: 'Expert Eye',     speedMultiplier: 1.8, distractorDensity: 0.75, ruleShifting: true,  uiInterference: true,  gameParams: { trackCount: 8, visualSnow: true,  phaseShifts: true,  lowContrast: true,  durationMs: 60000, anomalyRate: 0.33 }, targetAccuracy: 0.68, eliteLatencyMs: 800 },
     ]),
   },
 
@@ -439,57 +547,48 @@ export const TRAIT_CATALOG: Record<string, TraitDefinition> = {
     ]),
   },
 
-  // ── T21 · Processing Speed — Speed Reactor ──────────────────────────────
-  // Nuclear Core — Reaction Phase: rods appear, measure spawn→tap delta.
-  // No sorting required; score is entirely RT-based.
+  // ── T21 · Processing Speed — Vector Flow ───────────────────────────────
+  // Mach-speed classification tunnel. Objects rush toward you — classify
+  // Mechanical vs Biological (later 4 sub-classes) before they pass.
+  // Rule-flips swap L/R sides every 10s at higher levels.
   //
   // Level axes:
-  //   highContrast     L1-2: large bright rods, establish baseline
-  //   randomInterval   L3-4: jitter spawn timing — breaks rhythm anticipation
-  //   peripheralBias   L5-6: 70% of rods at edge columns — tests eye scanning
-  //   maxSimultaneous  L7-8: 2-3 rods per batch — must choose fastest first
-  //   instantRefresh   L9-10: next rod spawns on tap — Continuous Flow mode
+  //   speed (ms)     L1-2: slow (3000ms); L9-10: Mach (<1300ms)
+  //   classCount     L1-6: 2 classes; L7-10: 4 sub-classes
+  //   tunnelRotation L7-8: barrel slowly rotates
+  //   ruleFlips      L9-10: L/R swap every 10s
   //
-  // Score formula (0-100):
-  //   MRT score        = clamp(100 - (MRT - eliteMs) / 4, 0, 100) × 60%
-  //   Consistency      = clamp(20 × (1 - sdRT / 120), 0, 20) × 25%
-  //   Completion rate  = tapped / totalRods × 100 × 15%
-  //
-  // Professional benchmarks:
-  //   Commercial Pilot         : <280ms MRT + tight consistency (σ < 40ms)
-  //   Pro Esports Athlete      : <200ms MRT at L10
-  //   Data Entry Specialist    : Level 6+ with σ < 30ms
-  //
-  // Validated by: T01 Triage (Trait Talk — Overclocked rule: speed elite + triage low)
+  // Key metrics: mrt, accuracy, switchingCost
+  // Validated by: T01 Triage (Overclocked: MRT <250ms but accuracy <80%)
   T21: {
     id: 'T21', name: 'Processing Speed', icon: '⚡',
-    description: 'Tap each fuel rod the instant it appears — raw velocity from stimulus to touch, measured across progressive visual complexity.',
-    gameEngine: 'speed_reactor',
-    primaryGameId: 't21_speed_standard',
+    description: 'Mach-speed classification tunnel — classify objects rushing toward you before they pass. Rule flips and rotating barrel at elite levels.',
+    gameEngine: 'vector_flow',
+    primaryGameId: 'vector_flow_standard',
     ceilingDropPct: 0.40, ceilingLevels: 3,
     skipScore: 95, skipToLevel: 4,
     validatedBy: 'T01',
     benchmarks: [
-      { profession: 'Commercial Pilot',    minLevel: 8, minAccuracy: 0.85, maxLatencyMs: 280, notes: 'MRT <280ms with σ <40ms — consistent under pressure' },
-      { profession: 'Pro Esports Athlete', minLevel: 10, minAccuracy: 0.80, maxLatencyMs: 200, notes: 'MRT <200ms at L10 — elite attentional capture' },
-      { profession: 'Data Entry Specialist', minLevel: 6, minAccuracy: 0.90, notes: 'L6+ with near-zero motor variance (σ <30ms)' },
+      { profession: 'Commercial Pilot',    minLevel: 9, minAccuracy: 0.90, maxLatencyMs: 250, notes: 'MRT <250ms; >90% accuracy at Mach Speed' },
+      { profession: 'Pro Esports Athlete', minLevel: 10, minAccuracy: 0.85, maxLatencyMs: 200, notes: 'MRT <200ms with <50ms switching cost' },
+      { profession: 'Stock Trader',        minLevel: 8, minAccuracy: 0.88, maxLatencyMs: 280, notes: 'MRT <280ms; rule-flip recovery <80ms' },
     ],
     levels: levels([
-      // L1-2: One rod at a time, high contrast — pure baseline
-      { level: 1,  label: 'Baseline',       speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { numBins: 2, fallDurationMs: 3500, totalRods: 10, highContrast: true,  randomInterval: false, peripheralBias: false, maxSimultaneous: 1, instantRefresh: false, spawnIntervalMs: 2000, level: 1 }, targetAccuracy: 0.85, eliteLatencyMs: 450 },
-      { level: 2,  label: 'Steady',         speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { numBins: 2, fallDurationMs: 3200, totalRods: 10, highContrast: true,  randomInterval: false, peripheralBias: false, maxSimultaneous: 1, instantRefresh: false, spawnIntervalMs: 1800, level: 2 }, targetAccuracy: 0.85, eliteLatencyMs: 420 },
-      // L3-4: Random intervals — no rhythm to anticipate
-      { level: 3,  label: 'Irregular',      speedMultiplier: 1.1, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { numBins: 2, fallDurationMs: 3000, totalRods: 12, highContrast: true,  randomInterval: true,  peripheralBias: false, maxSimultaneous: 1, instantRefresh: false, spawnIntervalMs: 1600, level: 3 }, targetAccuracy: 0.85, eliteLatencyMs: 390 },
-      { level: 4,  label: 'Unpredictable',  speedMultiplier: 1.2, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { numBins: 3, fallDurationMs: 2800, totalRods: 12, highContrast: false, randomInterval: true,  peripheralBias: false, maxSimultaneous: 1, instantRefresh: false, spawnIntervalMs: 1500, level: 4 }, targetAccuracy: 0.84, eliteLatencyMs: 360 },
-      // L5-6: Peripheral bias — scan wide, react fast
-      { level: 5,  label: 'Wide Scan',      speedMultiplier: 1.2, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { numBins: 3, fallDurationMs: 2600, totalRods: 14, highContrast: false, randomInterval: true,  peripheralBias: true,  maxSimultaneous: 1, instantRefresh: false, spawnIntervalMs: 1400, level: 5 }, targetAccuracy: 0.83, eliteLatencyMs: 330 },
-      { level: 6,  label: 'Edge Awareness', speedMultiplier: 1.3, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { numBins: 4, fallDurationMs: 2400, totalRods: 14, highContrast: false, randomInterval: true,  peripheralBias: true,  maxSimultaneous: 1, instantRefresh: false, spawnIntervalMs: 1300, level: 6 }, targetAccuracy: 0.83, eliteLatencyMs: 300 },
-      // L7-8: Crowded field — multiple rods, High-Speed Window
-      { level: 7,  label: 'Crowded',        speedMultiplier: 1.4, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { numBins: 4, fallDurationMs: 2200, totalRods: 16, highContrast: false, randomInterval: true,  peripheralBias: true,  maxSimultaneous: 2, instantRefresh: false, spawnIntervalMs: 1800, level: 7 }, targetAccuracy: 0.82, eliteLatencyMs: 280 },
-      { level: 8,  label: 'Burst',          speedMultiplier: 1.5, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { numBins: 4, fallDurationMs: 2000, totalRods: 18, highContrast: false, randomInterval: true,  peripheralBias: true,  maxSimultaneous: 3, instantRefresh: false, spawnIntervalMs: 1600, level: 8 }, targetAccuracy: 0.80, eliteLatencyMs: 255 },
-      // L9-10: Instant Refresh — Continuous Flow, zero hesitation
-      { level: 9,  label: 'Flow State',     speedMultiplier: 1.7, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { numBins: 4, fallDurationMs: 1800, totalRods: 20, highContrast: false, randomInterval: true,  peripheralBias: true,  maxSimultaneous: 2, instantRefresh: true,  spawnIntervalMs: 900,  level: 9  }, targetAccuracy: 0.80, eliteLatencyMs: 225 },
-      { level: 10, label: 'Pilot Grade',    speedMultiplier: 2.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { numBins: 4, fallDurationMs: 1400, totalRods: 24, highContrast: false, randomInterval: true,  peripheralBias: true,  maxSimultaneous: 2, instantRefresh: true,  spawnIntervalMs: 900,  level: 10 }, targetAccuracy: 0.78, eliteLatencyMs: 200 },
+      // L1-2: 2 classes, slow approach, no rotation, no flips
+      { level: 1,  label: 'Baseline',       speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { speed: 3000, classCount: 2, tunnelRotation: false, ruleFlips: false, totalObjects: 12 }, targetAccuracy: 0.85, eliteLatencyMs: 500 },
+      { level: 2,  label: 'Steady',         speedMultiplier: 1.0, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { speed: 2700, classCount: 2, tunnelRotation: false, ruleFlips: false, totalObjects: 14 }, targetAccuracy: 0.83, eliteLatencyMs: 460 },
+      // L3-4: Faster approach
+      { level: 3,  label: 'Approach',       speedMultiplier: 1.1, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { speed: 2400, classCount: 2, tunnelRotation: false, ruleFlips: false, totalObjects: 14 }, targetAccuracy: 0.82, eliteLatencyMs: 420 },
+      { level: 4,  label: 'Mach',           speedMultiplier: 1.2, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { speed: 2100, classCount: 2, tunnelRotation: false, ruleFlips: false, totalObjects: 16 }, targetAccuracy: 0.80, eliteLatencyMs: 380 },
+      // L5-6: Higher speed
+      { level: 5,  label: 'Sprint',         speedMultiplier: 1.3, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { speed: 1900, classCount: 2, tunnelRotation: false, ruleFlips: false, totalObjects: 18 }, targetAccuracy: 0.80, eliteLatencyMs: 350 },
+      { level: 6,  label: 'Velocity',       speedMultiplier: 1.4, distractorDensity: 0.00, ruleShifting: false, uiInterference: false, gameParams: { speed: 1700, classCount: 2, tunnelRotation: false, ruleFlips: false, totalObjects: 20 }, targetAccuracy: 0.78, eliteLatencyMs: 320 },
+      // L7-8: 4 sub-classes + tunnel rotation
+      { level: 7,  label: 'Quad Class',     speedMultiplier: 1.5, distractorDensity: 0.00, ruleShifting: false, uiInterference: true,  gameParams: { speed: 1600, classCount: 4, tunnelRotation: true,  ruleFlips: false, totalObjects: 20 }, targetAccuracy: 0.76, eliteLatencyMs: 295 },
+      { level: 8,  label: 'Barrel Roll',    speedMultiplier: 1.6, distractorDensity: 0.00, ruleShifting: false, uiInterference: true,  gameParams: { speed: 1450, classCount: 4, tunnelRotation: true,  ruleFlips: false, totalObjects: 22 }, targetAccuracy: 0.74, eliteLatencyMs: 270 },
+      // L9-10: Rule flips every 10s — switching cost measured
+      { level: 9,  label: 'Rule Flip',      speedMultiplier: 1.8, distractorDensity: 0.00, ruleShifting: true,  uiInterference: true,  gameParams: { speed: 1350, classCount: 4, tunnelRotation: true,  ruleFlips: true,  totalObjects: 24 }, targetAccuracy: 0.72, eliteLatencyMs: 250 },
+      { level: 10, label: 'Pilot Grade',    speedMultiplier: 2.0, distractorDensity: 0.00, ruleShifting: true,  uiInterference: true,  gameParams: { speed: 1200, classCount: 4, tunnelRotation: true,  ruleFlips: true,  totalObjects: 24 }, targetAccuracy: 0.70, eliteLatencyMs: 220 },
     ]),
   },
 

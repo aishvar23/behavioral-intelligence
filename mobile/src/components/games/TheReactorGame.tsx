@@ -75,6 +75,10 @@ interface Props {
   sessionId: string;
   onComplete: (score: number) => void;
   config: Partial<ReactorConfig>;
+  /** HUD mode: auto-starts, uses compact sizing, suppresses intro/done screens */
+  compact?: boolean;
+  /** Called after each rod resolution with current high-priority miss rate (0–1) */
+  onMissRateUpdate?: (missRate: number) => void;
 }
 
 let _rodIdCounter = 0;
@@ -86,8 +90,25 @@ const DEFAULT_CONFIG: ReactorConfig = {
   totalRods: 12, highRatio: 0.4, distractorRatio: 0,
 };
 
-export default function TheReactorGame({ sessionId, onComplete, config }: Props) {
+export default function TheReactorGame({ sessionId, onComplete, config, compact = false, onMissRateUpdate }: Props) {
   const cfg: ReactorConfig = { ...DEFAULT_CONFIG, ...config };
+
+  // Compact sizing — used when rendering as HUD strip inside EmpathyResponseGame L10
+  const playH = compact
+    ? Math.max(70, SCREEN_H * 0.16)
+    : SCREEN_H - HEADER_H - BIN_H - 40;
+  const rodH_c = compact ? 20 : ROD_H;
+  const rodW_c = compact ? 20 : ROD_W;
+
+  // Keep onMissRateUpdate in a ref so spawnRod/handleTapRod closures don't need it as a dep
+  const onMissRateRef = useRef(onMissRateUpdate);
+  useEffect(() => { onMissRateRef.current = onMissRateUpdate; }, [onMissRateUpdate]);
+
+  function emitMissRate() {
+    if (!onMissRateRef.current) return;
+    const totalHigh = Math.round(cfg.totalRods * cfg.highRatio);
+    onMissRateRef.current(totalHigh > 0 ? highMissedRef.current / totalHigh : 0);
+  }
 
   const [phase, setPhase]         = useState<'intro' | 'playing' | 'done'>('intro');
   const [rods, setRods]           = useState<FallingRod[]>([]);
@@ -119,8 +140,8 @@ export default function TheReactorGame({ sessionId, onComplete, config }: Props)
   // Column x-positions
   const colX = useCallback((binIndex: number): number => {
     const colW = SCREEN_W / cfg.numBins;
-    return colW * binIndex + colW / 2 - ROD_W / 2;
-  }, [cfg.numBins]);
+    return colW * binIndex + colW / 2 - rodW_c / 2;
+  }, [cfg.numBins, rodW_c]);
 
   // ── Scoring ──────────────────────────────────────────────────────────────
 
@@ -218,7 +239,7 @@ export default function TheReactorGame({ sessionId, onComplete, config }: Props)
 
     // Fall animation
     const fall = Animated.timing(yAnim, {
-      toValue: PLAY_H + ROD_H + 20,
+      toValue: playH + rodH_c + 20,
       duration: fallMs,
       useNativeDriver: true,
     });
@@ -239,6 +260,7 @@ export default function TheReactorGame({ sessionId, onComplete, config }: Props)
         highMissedRef.current += 1;
         setHighMissed(highMissedRef.current);
         if (cfg.meltdown) triggerShake();
+        emitMissRate();
       }
 
       logTrial({
@@ -280,6 +302,7 @@ export default function TheReactorGame({ sessionId, onComplete, config }: Props)
       isCorrect = true;
       highCaughtRef.current += 1;
       setHighCaught(highCaughtRef.current);
+      emitMissRate();
     } else if (rod.type === 'low') {
       isCorrect = true;
       lowCaughtRef.current += 1;
@@ -400,11 +423,20 @@ export default function TheReactorGame({ sessionId, onComplete, config }: Props)
     };
   }, []);
 
+  // Compact HUD: auto-start on mount, skip intro
+  useEffect(() => {
+    if (compact && phase === 'intro') startGame();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compact]);
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   const colors = BIN_COLORS.slice(0, cfg.numBins);
   const labels = BIN_LABELS.slice(0, cfg.numBins);
   const totalHigh = Math.round(cfg.totalRods * cfg.highRatio);
+
+  // Compact HUD suppresses intro / done screens — parent component manages layout
+  if (compact && (phase === 'intro' || phase === 'done')) return null;
 
   if (phase === 'intro') {
     return (
@@ -446,7 +478,7 @@ export default function TheReactorGame({ sessionId, onComplete, config }: Props)
   return (
     <Animated.View style={[styles.gameContainer, { transform: [{ translateX: shakeAnim }] }]}>
       {/* Header */}
-      <View style={styles.gameHeader}>
+      <View style={[styles.gameHeader, compact && { paddingTop: 4, paddingBottom: 3 }]}>
         <Text style={styles.gameTitle}>☢️ Reactor</Text>
         <View style={styles.statRow}>
           <Text style={styles.statText}>⚡ {highCaughtRef.current}/{totalHigh}</Text>
@@ -475,6 +507,7 @@ export default function TheReactorGame({ sessionId, onComplete, config }: Props)
               key={rod.id}
               style={[
                 styles.rod,
+                compact && { width: rodW_c, height: rodH_c, borderRadius: rodH_c / 2 },
                 { backgroundColor: rodColor + (isHigh ? 'ff' : '88') },
                 { left: x },
                 { transform: [{ translateY: rod.yAnim }] },
@@ -484,7 +517,7 @@ export default function TheReactorGame({ sessionId, onComplete, config }: Props)
             >
               <TouchableOpacity
                 onPress={() => handleTapRod(rod)}
-                style={styles.rodTouchable}
+                style={[styles.rodTouchable, compact && { width: rodW_c + 8, height: rodH_c + 8, borderRadius: (rodH_c + 8) / 2 }]}
                 activeOpacity={0.7}
               >
                 <Text style={styles.rodIcon}>
@@ -500,7 +533,7 @@ export default function TheReactorGame({ sessionId, onComplete, config }: Props)
       </View>
 
       {/* Bins */}
-      <View style={styles.binsRow}>
+      <View style={[styles.binsRow, compact && { height: 28 }]}>
         {colors.map((c, i) => (
           <Animated.View
             key={i}

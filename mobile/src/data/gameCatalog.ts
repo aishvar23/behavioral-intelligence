@@ -6,7 +6,7 @@
  * near-unlimited variety. Add more GameConfig entries to scale toward 50,000+ configs.
  */
 
-export type GameType = 'memory' | 'logic' | 'reaction' | 'stroop' | 'matrix' | 'spatial' | 'estimation' | 'search' | 'rule_discovery' | 'planning' | 'reactor' | 'reactor_chaos' | 'speed_reactor' | 'archive' | 'circuit';
+export type GameType = 'memory' | 'logic' | 'reaction' | 'stroop' | 'matrix' | 'spatial' | 'estimation' | 'search' | 'rule_discovery' | 'planning' | 'reactor' | 'reactor_chaos' | 'speed_reactor' | 'archive' | 'circuit' | 'briefing' | 'empathy' | 'radar_sweep' | 'vector_flow' | 'signal_sift' | 'hold_short' | 'nav_link';
 
 export interface GameConfig {
   id: string;
@@ -265,6 +265,104 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     config: { numBins: 6, fallDurationMs: 1800, distractors: true, highPriorityBoost: 0.25, oscillate: true, meltdown: true, highRatio: 0.35, distractorRatio: 0.2, totalRods: 24 },
   },
 };
+
+  // ── The Briefing variants (T15 Social Inference) ─────────────────────────
+  briefing_standard: {
+    id: 'briefing_standard', type: 'briefing',
+    title: 'The Briefing', emoji: '🎭', difficulty: 'medium',
+    description: 'Read crew transcripts and identify the hidden intent behind what is said.',
+    config: { level: 3, scenarioCount: 4, timePerScenarioMs: 20000, visibleCues: ['verbal', 'tonal', 'body'], noiseLevel: 0 },
+  },
+  briefing_hard: {
+    id: 'briefing_hard', type: 'briefing',
+    title: 'The Briefing: Signals', emoji: '📡', difficulty: 'hard',
+    description: 'Conflicting cues and professional deference — read the intent behind formal language.',
+    config: { level: 7, scenarioCount: 5, timePerScenarioMs: 16000, visibleCues: ['verbal', 'tonal'], noiseLevel: 1 },
+  },
+
+  // ── Empathy Response variants (T16 Affective Empathy) ─────────────────────
+  empathy_standard: {
+    id: 'empathy_standard', type: 'empathy',
+    title: 'Response Protocol', emoji: '🧭', difficulty: 'medium',
+    description: 'A crew member is in distress. Choose a response that balances mission and emotional support.',
+    config: { level: 3, scenarioCount: 4, timePerScenarioMs: 25000, dualGame: false, baselineAccuracy: 0.75 },
+  },
+  empathy_hard: {
+    id: 'empathy_hard', type: 'empathy',
+    title: 'Response Protocol: Crisis', emoji: '🚨', difficulty: 'hard',
+    description: 'High-intensity scenarios — irate passengers, panicked crew, post-incident. Stay steady.',
+    config: { level: 7, scenarioCount: 5, timePerScenarioMs: 20000, dualGame: false, baselineAccuracy: 0.70 },
+  },
+
+  // ── Radar Sweep variants (G09 / T06 Working Memory) ──────────────────────
+  radar_sweep_standard: {
+    id: 'radar_sweep_standard', type: 'radar_sweep',
+    title: 'Radar Sweep', emoji: '📡', difficulty: 'medium',
+    description: 'Circular radar: watch contacts blink, then tap them in reverse order.',
+    config: { contactCount: 4, fieldDegrees: 180, decoys: false, mentalRotation: false, displayMs: 900, rounds: 4 },
+  },
+  radar_sweep_hard: {
+    id: 'radar_sweep_hard', type: 'radar_sweep',
+    title: 'Radar Sweep: Rotated', emoji: '🛰️', difficulty: 'hard',
+    description: '8 contacts, 360° field, decoy blinks, 90° mental rotation before input.',
+    config: { contactCount: 7, fieldDegrees: 360, decoys: true, mentalRotation: true, displayMs: 700, rounds: 5 },
+  },
+
+  // ── Vector Flow variants (G10 / T21 Processing Speed) ────────────────────
+  vector_flow_standard: {
+    id: 'vector_flow_standard', type: 'vector_flow',
+    title: 'Vector Flow', emoji: '🚀', difficulty: 'medium',
+    description: 'Mach-speed tunnel — classify Mechanical vs Biological objects before they pass.',
+    config: { speed: 3000, classCount: 2, tunnelRotation: false, ruleFlips: false, totalObjects: 12 },
+  },
+  vector_flow_hard: {
+    id: 'vector_flow_hard', type: 'vector_flow',
+    title: 'Vector Flow: Elite', emoji: '⚡', difficulty: 'hard',
+    description: 'Sub-250ms window, 4 sub-classes, rotating tunnel, L/R rule swaps every 10s.',
+    config: { speed: 1200, classCount: 4, tunnelRotation: true, ruleFlips: true, totalObjects: 24 },
+  },
+
+  // ── Signal Sift variants (G07 / T19 Anomaly Detection) ───────────────────
+  signal_sift_standard: {
+    id: 'signal_sift_standard', type: 'signal_sift',
+    title: 'Signal Sift', emoji: '📊', difficulty: 'medium',
+    description: '4-track scrolling waveform monitor. Tap spikes before they scroll off screen.',
+    config: { trackCount: 4, visualSnow: false, phaseShifts: false, lowContrast: false, durationMs: 60000, anomalyRate: 0.2 },
+  },
+  signal_sift_hard: {
+    id: 'signal_sift_hard', type: 'signal_sift',
+    title: 'Signal Sift: Pro', emoji: '📡', difficulty: 'hard',
+    description: '8-track monitor with visual noise, phase shifts, and subtle amplitude deviations.',
+    config: { trackCount: 8, visualSnow: true, phaseShifts: true, lowContrast: true, durationMs: 60000, anomalyRate: 0.3 },
+  },
+
+  // ── Hold-Short variants (G08 / T04 Panic Management) ─────────────────────
+  hold_short_standard: {
+    id: 'hold_short_standard', type: 'hold_short',
+    title: 'Hold-Short', emoji: '✈️', difficulty: 'medium',
+    description: 'Runway intersection controller. Hold or Proceed each aircraft — zero collisions.',
+    config: { aircraftCount: 4, maydayInterrupts: false, lowVisFog: false, approachSpeed: 4000, totalAircraft: 10 },
+  },
+  hold_short_hard: {
+    id: 'hold_short_hard', type: 'hold_short',
+    title: 'Hold-Short: Meltdown', emoji: '🚨', difficulty: 'hard',
+    description: 'Low-vis fog, Mayday interrupts, 10+ simultaneous aircraft. Zero tolerance.',
+    config: { aircraftCount: 10, maydayInterrupts: true, lowVisFog: true, approachSpeed: 2000, totalAircraft: 20 },
+  },
+
+  // ── Nav-Link variants (G06 / T12 Systems Thinking) ───────────────────────
+  nav_link_standard: {
+    id: 'nav_link_standard', type: 'nav_link',
+    title: 'Nav-Link', emoji: '🛰️', difficulty: 'medium',
+    description: 'Route satellite data to ground via relay nodes. Tap to connect.',
+    config: { nodeCount: 5, signalDecay: false, bandwidthCaps: false, brownOuts: false, durationMs: 60000, orbitSpeed: 0 },
+  },
+  nav_link_hard: {
+    id: 'nav_link_hard', type: 'nav_link',
+    title: 'Nav-Link: Orbital', emoji: '🌐', difficulty: 'hard',
+    description: 'Orbiting nodes, signal decay, bandwidth caps, and rapid brown-outs.',
+    config: { nodeCount: 10, signalDecay: true, bandwidthCaps: true, brownOuts: true, durationMs: 90000, orbitSpeed: 20000 },
+  },
 
 // Game selection is handled dynamically by the backend LLM (/select-games endpoint).
 // GAME_CONFIGS is the authoritative catalog used by the frontend to render games

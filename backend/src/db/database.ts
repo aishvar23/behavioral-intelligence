@@ -168,6 +168,21 @@ export function initSchema(db: Database.Database) {
     );
     CREATE INDEX IF NOT EXISTS idx_level_results_session ON assessment_level_results(session_id);
     CREATE INDEX IF NOT EXISTS idx_level_results_trait   ON assessment_level_results(session_id, trait_id);
+
+    -- Per-user trait progress (persists across sessions — resume from last level)
+    CREATE TABLE IF NOT EXISTS trait_progress (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id     INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      device_id   TEXT    NOT NULL,          -- stable ID for guests; same as userId key for auth'd users
+      trait_id    TEXT    NOT NULL,
+      next_level  INTEGER NOT NULL DEFAULT 1, -- level to play in the next session (1–10)
+      best_score  REAL    NOT NULL DEFAULT 0,
+      best_level  INTEGER NOT NULL DEFAULT 0,
+      status      TEXT    NOT NULL DEFAULT 'in_progress', -- in_progress | ceiling | complete
+      updated_at  INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_trait_progress_device_trait ON trait_progress(device_id, trait_id);
+    CREATE INDEX IF NOT EXISTS idx_trait_progress_user ON trait_progress(user_id);
   `);
 
   // Migrations for existing databases — add columns that may be missing
@@ -411,6 +426,53 @@ export function getLevelResults(sessionId: string, traitId?: string): LevelResul
     score: r.score, accuracy: r.accuracy, avgLatencyMs: r.avg_latency_ms,
     outcome: r.outcome, levelConfigJson: r.level_config_json, createdAt: r.created_at,
   }));
+}
+
+// ── Trait Progress helpers ────────────────────────────────────────────────────
+
+export interface TraitProgressRow {
+  traitId: string;
+  nextLevel: number;
+  bestScore: number;
+  bestLevel: number;
+  status: string;
+  updatedAt: number;
+}
+
+export function getTraitProgress(deviceId: string): TraitProgressRow[] {
+  const rows = getDb()
+    .prepare('SELECT * FROM trait_progress WHERE device_id = ? ORDER BY trait_id')
+    .all(deviceId) as Array<{
+      trait_id: string; next_level: number; best_score: number;
+      best_level: number; status: string; updated_at: number;
+    }>;
+  return rows.map(r => ({
+    traitId: r.trait_id, nextLevel: r.next_level,
+    bestScore: r.best_score, bestLevel: r.best_level,
+    status: r.status, updatedAt: r.updated_at,
+  }));
+}
+
+export function upsertTraitProgress(
+  deviceId: string,
+  userId: number | null,
+  traitId: string,
+  nextLevel: number,
+  bestScore: number,
+  bestLevel: number,
+  status: string,
+): void {
+  getDb().prepare(`
+    INSERT INTO trait_progress (device_id, user_id, trait_id, next_level, best_score, best_level, status, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, unixepoch())
+    ON CONFLICT(device_id, trait_id) DO UPDATE SET
+      user_id    = excluded.user_id,
+      next_level = excluded.next_level,
+      best_score = excluded.best_score,
+      best_level = excluded.best_level,
+      status     = excluded.status,
+      updated_at = unixepoch()
+  `).run(deviceId, userId ?? null, traitId, nextLevel, bestScore, bestLevel, status);
 }
 
 export function getAssessmentHistory(userId: number, limit = 5): AssessmentSessionRow[] {

@@ -1,24 +1,22 @@
 /**
- * Level Game Screen — Cognitive Mirror
+ * Level Game Screen — Cognitive Mirror (Round-Based Session Model)
  *
- * Manages the full adaptive assessment loop:
- *   For each of 5 traits:
- *     Play levels 1–10 (adaptive)
- *     → Skip rule: Level 1 score ≥ skipScore → jump to level 4
- *     → Ceiling rule: score drops ≥40% over 3 consecutive levels → end trait
- *     → Complete: level 10 done or ceiling hit
+ * Session model:
+ *   Each visit = one "round". The user plays ONE level per trait (5 games total).
+ *   After the round, progress is saved. Next visit resumes from where they left off.
  *
- * After all 5 traits: run Trait Talk → navigate to ArchetypeCard.
+ * Adaptive progression per trait across rounds:
+ *   - Skip rule  : Level 1 score ≥ skipScore → next round starts at Level 4
+ *   - Ceiling    : score drops ≥40% over 3 consecutive rounds → trait marked 'ceiling'
+ *   - Complete   : Level 10 done → trait marked 'complete'
+ *   - Continue   : next round plays currentLevel + 1
  *
- * This screen acts as the orchestrator. The actual game UI is rendered via
- * the existing GameScreen-compatible game components, bridged through a
- * minimal inline game wrapper.
+ * When all 5 traits reach ceiling/complete, the user is offered Archetype generation.
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Animated,
   ScrollView,
   StyleSheet,
   Text,
@@ -37,12 +35,17 @@ import {
   submitLevelResult,
   runTraitTalk,
   generateArchetype,
+  getDeviceId,
+  getTraitProgress,
+  saveTraitProgress,
   DiscoveredTrait,
   TraitResult,
   TraitTalkResult,
+  TraitProgressItem,
 } from '../services/assessmentApi';
+import { useAuth } from '../context/AuthContext';
 
-// ── Game components (same as GameScreen uses) ─────────────────────────────────
+// ── Game components ───────────────────────────────────────────────────────────
 import BlackBoxGame         from '../components/games/BlackBoxGame';
 import TaskPlanningGame     from '../components/games/TaskPlanningGame';
 import MemorySequenceGame   from '../components/games/MemorySequenceGame';
@@ -55,46 +58,107 @@ import ReactorChaosGame     from '../components/games/ReactorChaosGame';
 import SpeedReactorGame     from '../components/games/SpeedReactorGame';
 import TheArchiveGame       from '../components/games/TheArchiveGame';
 import CircuitSnapGame      from '../components/games/CircuitSnapGame';
+import TheBriefingGame      from '../components/games/TheBriefingGame';
+import EmpathyResponseGame  from '../components/games/EmpathyResponseGame';
+import RadarSweepGame       from '../components/games/RadarSweepGame';
+import VectorFlowGame       from '../components/games/VectorFlowGame';
+import SignalSiftGame       from '../components/games/SignalSiftGame';
+import HoldShortGame        from '../components/games/HoldShortGame';
+import NavLinkGame          from '../components/games/NavLinkGame';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LevelGame'>;
 
 type Phase =
-  | 'trait_intro'   // show current trait + level info before playing
-  | 'playing'       // game component is active
-  | 'level_result'  // show score + adaptive decision
-  | 'trait_complete'// all levels for this trait done
-  | 'processing'    // running trait talk + generating archetype
+  | 'loading'         // fetching saved progress on mount
+  | 'trait_intro'     // show trait + level to play, start button
+  | 'playing'         // game component active
+  | 'level_result'    // show score + outcome for this level
+  | 'round_complete'  // all traits played this round — show summary
+  | 'processing'      // generating archetype (when all traits complete)
   | 'error';
+
+/** One entry per trait played in this round */
+interface RoundEntry {
+  traitId:    string;
+  traitName:  string;
+  playedLevel: number;
+  score:       number;
+  outcome:     'continue' | 'skip' | 'ceiling' | 'complete';
+  nextLevel:   number;
+  nextStatus:  'in_progress' | 'ceiling' | 'complete';
+  bestScore:   number;
+  bestLevel:   number;
+}
 
 export default function LevelGameScreen({ route, navigation }: Props) {
   const { sessionId, profession, traits, baselineRtMs } = route.params;
+  const { userId } = useAuth();
 
-  // ── State ─────────────────────────────────────────────────────────────────
+  // ── Core state ────────────────────────────────────────────────────────────
+  const [phase, setPhase]             = useState<Phase>('loading');
   const [traitIndex, setTraitIndex]   = useState(0);
   const [currentLevel, setCurrentLevel] = useState(1);
-  const [phase, setPhase]             = useState<Phase>('trait_intro');
   const [lastScore, setLastScore]     = useState<number | null>(null);
-  const [outcomeLabel, setOutcomeLabel] = useState('');
-  const [allTraitResults, setAllTraitResults] = useState<TraitResult[]>([]);
+  const [lastOutcome, setLastOutcome] = useState<'continue'|'skip'|'ceiling'|'complete'>('continue');
+  const [roundEntries, setRoundEntries] = useState<RoundEntry[]>([]);
   const [error, setError]             = useState<string | null>(null);
 
-  // Per-trait tracking
-  const levelScoresRef  = useRef<number[]>([]);
+  // ── Persistent progress ───────────────────────────────────────────────────
+  const [deviceId, setDeviceId]       = useState('');
+  // Mutable ref so advanceFromLevelResult can read latest without stale closure
+  const savedProgressRef = useRef<Record<string, TraitProgressItem>>({});
+
+  // ── Per-level timing tracking ─────────────────────────────────────────────
   const startTimeRef    = useRef<number>(0);
   const trialRtsRef     = useRef<number[]>([]);
   const trialCorrectRef = useRef<number>(0);
   const trialTotalRef   = useRef<number>(0);
 
-  const currentTrait: DiscoveredTrait = traits[traitIndex];
-  const traitDef: TraitDefinition | undefined = currentTrait
-    ? TRAIT_CATALOG[currentTrait.id]
-    : undefined;
-  const levelConfig: LevelConfig | undefined = traitDef?.levels[currentLevel - 1];
+  const currentTrait: DiscoveredTrait      = traits[traitIndex];
+  const traitDef: TraitDefinition | undefined = currentTrait ? TRAIT_CATALOG[currentTrait.id] : undefined;
+  const levelConfig: LevelConfig | undefined  = traitDef?.levels[currentLevel - 1];
 
-  // ── Progress indicators ───────────────────────────────────────────────────
-  const overallProgress = ((traitIndex) / traits.length) * 100;
+  const overallProgress = (traitIndex / traits.length) * 100;
 
-  // ── Handle game complete (called by game component) ───────────────────────
+  // ── Load saved progress on mount ──────────────────────────────────────────
+  useEffect(() => {
+    (async () => {
+      try {
+        const id = await getDeviceId();
+        setDeviceId(id);
+        const progress = await getTraitProgress(id);
+        savedProgressRef.current = progress;
+        // Set starting level for the first trait
+        const firstTraitId = traits[0]?.id;
+        const firstLevel = firstTraitId
+          ? (progress[firstTraitId]?.nextLevel ?? 1)
+          : 1;
+        setCurrentLevel(firstLevel);
+        setPhase('trait_intro');
+      } catch (err) {
+        console.error('[LevelGameScreen] Failed to load trait progress', {
+          sessionId,
+          error: err instanceof Error ? err.message : err,
+        });
+        // Fallback — start from level 1 for all traits
+        setCurrentLevel(1);
+        setPhase('trait_intro');
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Reset per-level tracking when play begins
+  useEffect(() => {
+    if (phase === 'playing') {
+      startTimeRef.current    = Date.now();
+      trialRtsRef.current     = [];
+      trialCorrectRef.current = 0;
+      trialTotalRef.current   = 0;
+    }
+  }, [phase]);
+
+  // ── Handle game complete ──────────────────────────────────────────────────
   const handleGameComplete = useCallback((score: number) => {
     if (!traitDef || !levelConfig) return;
 
@@ -106,139 +170,179 @@ export default function LevelGameScreen({ route, navigation }: Props) {
       ? trialRtsRef.current.reduce((a, b) => a + b, 0) / trialRtsRef.current.length
       : durationMs;
 
-    const scores = [...levelScoresRef.current, score];
-    levelScoresRef.current = scores;
+    // In round mode each trait is played once per round — pass single score.
+    // Ceiling detection accumulates across rounds through the stored nextLevel/status.
+    const outcome = adaptiveDecision(currentTrait.id, currentLevel, score, [score]);
 
-    const decision = adaptiveDecision(currentTrait.id, currentLevel, score, scores);
-
-    // Save to backend (fire-and-forget, non-blocking)
     submitLevelResult({
       sessionId,
-      traitId:  currentTrait.id,
-      level:    currentLevel,
+      traitId:     currentTrait.id,
+      level:       currentLevel,
       score,
       accuracy,
       avgLatencyMs: avgRt,
-      outcome: decision === 'skip' ? 'skip' : decision,
+      outcome,
       levelConfigJson: JSON.stringify(levelConfig),
-    }).catch(() => {/* non-fatal */});
+    }).catch((err) => {
+      console.warn('[LevelGameScreen] submitLevelResult failed (non-fatal)', {
+        sessionId,
+        traitId: currentTrait.id,
+        level:   currentLevel,
+        error:   err instanceof Error ? err.message : err,
+      });
+    });
 
     setLastScore(score);
-
-    switch (decision) {
-      case 'skip': {
-        setOutcomeLabel(`Elite performance — jumping to Level 4`);
-        setPhase('level_result');
-        break;
-      }
-      case 'ceiling': {
-        setOutcomeLabel('Cognitive ceiling reached — moving to next trait');
-        setPhase('level_result');
-        break;
-      }
-      case 'complete': {
-        setOutcomeLabel('Trait assessment complete');
-        setPhase('level_result');
-        break;
-      }
-      case 'continue': {
-        setOutcomeLabel(`Level ${currentLevel} done`);
-        setPhase('level_result');
-        break;
-      }
-    }
+    setLastOutcome(outcome);
+    setPhase('level_result');
   }, [traitDef, levelConfig, currentTrait, currentLevel, sessionId]);
 
-  // ── Advance after level result screen ─────────────────────────────────────
+  // ── Advance after level result ─────────────────────────────────────────────
   function advanceFromLevelResult() {
-    if (!traitDef || !levelConfig) return;
-    const scores = levelScoresRef.current;
-    const decision = adaptiveDecision(currentTrait.id, currentLevel, lastScore ?? 0, scores);
+    const score   = lastScore ?? 0;
+    const outcome = lastOutcome;
+    const saved   = savedProgressRef.current[currentTrait.id];
 
-    if (decision === 'skip') {
-      setCurrentLevel(4);
-      setPhase('trait_intro');
-    } else if (decision === 'ceiling' || decision === 'complete') {
-      finalizeTrait();
-    } else {
-      setCurrentLevel(l => l + 1);
-      setPhase('trait_intro');
-    }
-  }
+    // Compute next level for this trait
+    let nextLevel: number;
+    if (outcome === 'skip')                        nextLevel = 4;
+    else if (outcome === 'continue')               nextLevel = currentLevel + 1;
+    else /* ceiling | complete */                  nextLevel = currentLevel;
 
-  function finalizeTrait() {
-    const scores = levelScoresRef.current;
-    const peakScore = scores.length > 0 ? Math.max(...scores) : 0;
-    const avgScore  = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
-    const scores_decision = adaptiveDecision(currentTrait.id, currentLevel, lastScore ?? 0, scores);
+    // Clamp to 1–10
+    nextLevel = Math.max(1, Math.min(10, nextLevel));
 
-    const result: TraitResult = {
-      traitId:   currentTrait.id,
-      traitName: currentTrait.name,
-      isPrimary: currentTrait.isPrimary,
-      peakLevel: currentLevel,
-      peakScore,
-      avgScore,
-      outcome: scores_decision === 'ceiling' ? 'ceiling' : 'complete',
-      scores,
+    const nextStatus: TraitProgressItem['status'] =
+      outcome === 'ceiling'  ? 'ceiling'  :
+      outcome === 'complete' ? 'complete' :
+      'in_progress';
+
+    const entry: RoundEntry = {
+      traitId:     currentTrait.id,
+      traitName:   currentTrait.name,
+      playedLevel: currentLevel,
+      score,
+      outcome,
+      nextLevel,
+      nextStatus,
+      bestScore:   Math.max(saved?.bestScore ?? 0, score),
+      bestLevel:   Math.max(saved?.bestLevel ?? 0, currentLevel),
     };
 
-    const updated = [...allTraitResults, result];
-    setAllTraitResults(updated);
+    const updatedEntries = [...roundEntries, entry];
+    setRoundEntries(updatedEntries);
 
-    if (traitIndex + 1 >= traits.length) {
-      // All traits done — run Trait Talk
-      finishAssessment(updated);
+    if (traitIndex + 1 < traits.length) {
+      // Advance to next trait
+      const nextTraitId = traits[traitIndex + 1].id;
+      const nextTraitLevel = savedProgressRef.current[nextTraitId]?.nextLevel ?? 1;
+      setTraitIndex(i => i + 1);
+      setCurrentLevel(nextTraitLevel);
+      setPhase('trait_intro');
     } else {
-      setPhase('trait_complete');
+      // All traits played this round — finalize
+      finishRound(updatedEntries);
     }
   }
 
-  function advanceToNextTrait() {
-    levelScoresRef.current  = [];
-    trialRtsRef.current     = [];
-    trialCorrectRef.current = 0;
-    trialTotalRef.current   = 0;
-    setCurrentLevel(1);
-    setTraitIndex(i => i + 1);
+  // ── Finish round: save progress ───────────────────────────────────────────
+  function finishRound(entries: RoundEntry[]) {
+    setPhase('round_complete');
+
+    // Build progress items for the backend
+    const items: TraitProgressItem[] = entries.map(e => ({
+      traitId:   e.traitId,
+      nextLevel: e.nextLevel,
+      bestScore: e.bestScore,
+      bestLevel: e.bestLevel,
+      status:    e.nextStatus,
+    }));
+
+    // Update the in-memory progress ref so "Play Another Round" picks up new levels
+    const newProgress = { ...savedProgressRef.current };
+    for (const item of items) newProgress[item.traitId] = item;
+    savedProgressRef.current = newProgress;
+
+    // Save to local storage + backend (non-blocking)
+    saveTraitProgress(deviceId, userId ?? undefined, items).catch((err) => {
+      console.warn('[LevelGameScreen] saveTraitProgress failed', {
+        sessionId,
+        error: err instanceof Error ? err.message : err,
+      });
+    });
+  }
+
+  // ── Play another round immediately ────────────────────────────────────────
+  function playAnotherRound() {
+    const firstTraitId = traits[0]?.id;
+    const firstLevel   = savedProgressRef.current[firstTraitId]?.nextLevel ?? 1;
+    setTraitIndex(0);
+    setCurrentLevel(firstLevel);
+    setRoundEntries([]);
+    setLastScore(null);
     setPhase('trait_intro');
   }
 
-  async function finishAssessment(results: TraitResult[]) {
+  // ── Generate archetype (all traits complete) ──────────────────────────────
+  async function generateFullArchetype() {
     setPhase('processing');
     try {
-      // Build score map for Trait Talk (use avgScore * 100 / 100 = avgScore)
+      const traitResults: TraitResult[] = traits.map(t => {
+        const p = savedProgressRef.current[t.id];
+        return {
+          traitId:   t.id,
+          traitName: t.name,
+          isPrimary: t.isPrimary,
+          peakLevel: p?.bestLevel ?? 1,
+          peakScore: p?.bestScore ?? 0,
+          avgScore:  p?.bestScore ?? 0,
+          outcome:   (p?.status === 'ceiling' ? 'ceiling' : 'complete') as 'ceiling' | 'complete',
+          scores:    [p?.bestScore ?? 0],
+        };
+      });
+
       const scoreMap: Record<string, number> = {};
-      for (const r of results) scoreMap[r.traitId] = r.avgScore;
+      for (const r of traitResults) scoreMap[r.traitId] = r.avgScore;
 
       const traitTalk: TraitTalkResult = await runTraitTalk(sessionId, scoreMap);
-      const archetype = await generateArchetype(sessionId, profession, results, traitTalk);
+      const archetype = await generateArchetype(sessionId, profession, traitResults, traitTalk);
 
       navigation.replace('ArchetypeCard', {
         archetype,
         profession,
-        traitResults: results,
+        traitResults,
         traitTalk,
       });
     } catch (err) {
-      console.error('[LevelGame] finishAssessment:', err);
+      console.error('[LevelGameScreen] generateFullArchetype failed', {
+        sessionId,
+        profession,
+        error: err instanceof Error ? err.message : err,
+      });
       setError('Failed to generate your Archetype Card. Please try again.');
       setPhase('error');
     }
   }
 
-  // Reset trial tracking when phase becomes 'playing'
-  useEffect(() => {
-    if (phase === 'playing') {
-      startTimeRef.current    = Date.now();
-      trialRtsRef.current     = [];
-      trialCorrectRef.current = 0;
-      trialTotalRef.current   = 0;
-    }
-  }, [phase]);
+  // ── Check if all traits are finished ─────────────────────────────────────
+  function allTraitsFinished(): boolean {
+    return traits.every(t => {
+      const p = savedProgressRef.current[t.id];
+      return p?.status === 'ceiling' || p?.status === 'complete';
+    });
+  }
 
-  // ── Render helpers ────────────────────────────────────────────────────────
+  // ── Render: loading ───────────────────────────────────────────────────────
+  if (phase === 'loading') {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator color="#7c3aed" size="large" />
+        <Text style={styles.processingText}>Loading your progress…</Text>
+      </View>
+    );
+  }
 
+  // ── Render: processing (archetype) ────────────────────────────────────────
   if (phase === 'processing') {
     return (
       <View style={styles.center}>
@@ -249,68 +353,147 @@ export default function LevelGameScreen({ route, navigation }: Props) {
     );
   }
 
+  // ── Render: error ─────────────────────────────────────────────────────────
   if (phase === 'error') {
     return (
       <View style={styles.center}>
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.btn} onPress={() => finishAssessment(allTraitResults)}>
+        <TouchableOpacity style={styles.btn} onPress={generateFullArchetype}>
           <Text style={styles.btnText}>Retry</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  if (phase === 'trait_complete') {
-    const nextTrait = traits[traitIndex + 1];
+  // ── Render: round complete ─────────────────────────────────────────────────
+  if (phase === 'round_complete') {
+    const canGenerateArchetype = allTraitsFinished();
     return (
-      <View style={styles.center}>
-        <Text style={styles.doneEmoji}>{traitDef?.icon ?? '✓'}</Text>
-        <Text style={styles.traitDoneTitle}>{currentTrait.name}</Text>
-        <Text style={styles.traitDoneSubtitle}>Assessment complete</Text>
-        <View style={styles.nextBox}>
-          <Text style={styles.nextLabel}>Next up</Text>
-          <Text style={styles.nextName}>{nextTrait?.name}</Text>
+      <ScrollView style={styles.container} contentContainerStyle={styles.roundCompleteContent}>
+        <Text style={styles.roundCompleteTitle}>Round Complete</Text>
+        <Text style={styles.roundCompleteSubtitle}>Progress saved</Text>
+
+        {/* Per-trait summary rows */}
+        <View style={styles.summaryBox}>
+          {roundEntries.map((entry) => {
+            const scoreColor =
+              entry.score >= 80 ? '#22c55e' :
+              entry.score >= 60 ? '#3b82f6' :
+              entry.score >= 40 ? '#f59e0b' : '#ef4444';
+            const statusTag =
+              entry.nextStatus === 'complete' ? 'DONE' :
+              entry.nextStatus === 'ceiling'  ? 'CEILING' :
+              `→ L${entry.nextLevel}`;
+            return (
+              <View key={entry.traitId} style={styles.summaryRow}>
+                <View style={styles.summaryLeft}>
+                  <Text style={styles.summaryTraitName}>{entry.traitName}</Text>
+                  <Text style={styles.summaryLevelText}>Level {entry.playedLevel}</Text>
+                </View>
+                <View style={styles.summaryRight}>
+                  <Text style={[styles.summaryScore, { color: scoreColor }]}>
+                    {Math.round(entry.score)}
+                  </Text>
+                  <Text style={styles.summaryNext}>{statusTag}</Text>
+                </View>
+              </View>
+            );
+          })}
         </View>
-        <TouchableOpacity style={styles.btn} onPress={advanceToNextTrait}>
-          <Text style={styles.btnText}>Continue →</Text>
+
+        {canGenerateArchetype && (
+          <View style={styles.archetypePromptBox}>
+            <Text style={styles.archetypePromptTitle}>All traits assessed!</Text>
+            <Text style={styles.archetypePromptSubtitle}>
+              You've reached your ceiling across all 5 traits. Generate your full Archetype Card now.
+            </Text>
+            <TouchableOpacity style={[styles.btn, styles.archetypeBtn]} onPress={generateFullArchetype}>
+              <Text style={styles.btnText}>Generate Archetype Card</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <TouchableOpacity style={styles.btn} onPress={playAnotherRound}>
+          <Text style={styles.btnText}>Play Another Round</Text>
         </TouchableOpacity>
-      </View>
+
+        <TouchableOpacity
+          style={styles.btnSecondary}
+          onPress={() => navigation.popToTop()}
+        >
+          <Text style={styles.btnSecondaryText}>Done for Today</Text>
+        </TouchableOpacity>
+      </ScrollView>
     );
   }
 
+  // ── Render: level result ──────────────────────────────────────────────────
   if (phase === 'level_result') {
     const score = lastScore ?? 0;
-    const color = score >= 80 ? '#22c55e' : score >= 60 ? '#3b82f6' : score >= 40 ? '#f59e0b' : '#ef4444';
+    const color =
+      score >= 80 ? '#22c55e' :
+      score >= 60 ? '#3b82f6' :
+      score >= 40 ? '#f59e0b' : '#ef4444';
+
+    const outcomeLabel =
+      lastOutcome === 'skip'     ? 'Elite performance — next round starts at Level 4' :
+      lastOutcome === 'ceiling'  ? 'Cognitive ceiling reached for this trait' :
+      lastOutcome === 'complete' ? 'Trait mastered — maximum level reached' :
+      `Level ${currentLevel} complete`;
+
+    const isLastTrait = traitIndex + 1 >= traits.length;
+    const nextTrait   = !isLastTrait ? traits[traitIndex + 1] : null;
+
     return (
       <View style={styles.center}>
+        <Text style={styles.levelResultTrait}>{currentTrait.name}</Text>
         <Text style={styles.levelResultLabel}>Level {currentLevel}</Text>
         <Text style={[styles.levelScore, { color }]}>{Math.round(score)}</Text>
         <Text style={styles.levelScoreLabel}>/ 100</Text>
         <Text style={styles.outcomeText}>{outcomeLabel}</Text>
+
+        {nextTrait && (
+          <View style={styles.nextBox}>
+            <Text style={styles.nextLabel}>Next up</Text>
+            <Text style={styles.nextName}>{nextTrait.name}</Text>
+          </View>
+        )}
+
         <TouchableOpacity style={styles.btn} onPress={advanceFromLevelResult}>
-          <Text style={styles.btnText}>Continue</Text>
+          <Text style={styles.btnText}>
+            {isLastTrait ? 'Finish Round' : 'Continue →'}
+          </Text>
         </TouchableOpacity>
       </View>
     );
   }
 
+  // ── Render: trait intro ───────────────────────────────────────────────────
   if (phase === 'trait_intro') {
     if (!traitDef || !levelConfig) return null;
+
+    const savedItem = savedProgressRef.current[currentTrait.id];
+    const bestScore = savedItem?.bestScore ?? 0;
+    const bestLevel = savedItem?.bestLevel ?? 0;
+    const hasPlayed = bestLevel > 0;
+
     return (
       <View style={styles.container}>
-        {/* Overall progress bar */}
+        {/* Overall round progress bar */}
         <View style={styles.overallProgress}>
           <View style={[styles.overallFill, { width: `${overallProgress}%` as any }]} />
         </View>
 
         <ScrollView contentContainerStyle={styles.introContent}>
           <Text style={styles.traitIndexLabel}>
-            Trait {traitIndex + 1} of {traits.length}
+            Game {traitIndex + 1} of {traits.length}
           </Text>
           <Text style={styles.traitIcon}>{traitDef.icon}</Text>
           <Text style={styles.traitName}>{traitDef.name}</Text>
           {currentTrait.isPrimary && (
-            <View style={styles.primaryPill}><Text style={styles.primaryPillText}>PRIMARY</Text></View>
+            <View style={styles.primaryPill}>
+              <Text style={styles.primaryPillText}>PRIMARY</Text>
+            </View>
           )}
           <Text style={styles.traitDesc}>{traitDef.description}</Text>
 
@@ -321,17 +504,17 @@ export default function LevelGameScreen({ route, navigation }: Props) {
             </View>
             <Text style={styles.levelName}>{levelConfig.label}</Text>
 
-            {/* Level progress dots */}
+            {/* Progress dots showing where user is */}
             <View style={styles.levelDots}>
               {Array.from({ length: 10 }).map((_, i) => {
-                const played  = levelScoresRef.current.length > i;
+                const passed  = i + 1 < currentLevel;
                 const current = i + 1 === currentLevel;
                 return (
                   <View
                     key={i}
                     style={[
                       styles.dot,
-                      played  && styles.dotPlayed,
+                      passed  && styles.dotPlayed,
                       current && styles.dotCurrent,
                     ]}
                   />
@@ -339,12 +522,29 @@ export default function LevelGameScreen({ route, navigation }: Props) {
               })}
             </View>
 
+            {hasPlayed && (
+              <View style={styles.personalBestRow}>
+                <Text style={styles.personalBestLabel}>Personal best</Text>
+                <Text style={styles.personalBestValue}>
+                  {Math.round(bestScore)} at Level {bestLevel}
+                </Text>
+              </View>
+            )}
+
             {/* Complexity badges */}
             <View style={styles.badges}>
-              {levelConfig.speedMultiplier > 1.3 && <Badge label={`${levelConfig.speedMultiplier}× Speed`} color="#7c3aed" />}
-              {levelConfig.distractorDensity >= 0.5 && <Badge label="High Noise" color="#dc2626" />}
-              {levelConfig.ruleShifting && <Badge label="Rule Shift" color="#d97706" />}
-              {levelConfig.uiInterference && <Badge label="Interference" color="#db2777" />}
+              {levelConfig.speedMultiplier > 1.3 && (
+                <Badge label={`${levelConfig.speedMultiplier}× Speed`} color="#7c3aed" />
+              )}
+              {levelConfig.distractorDensity >= 0.5 && (
+                <Badge label="High Noise" color="#dc2626" />
+              )}
+              {levelConfig.ruleShifting && (
+                <Badge label="Rule Shift" color="#d97706" />
+              )}
+              {levelConfig.uiInterference && (
+                <Badge label="Interference" color="#db2777" />
+              )}
             </View>
           </View>
 
@@ -363,7 +563,6 @@ export default function LevelGameScreen({ route, navigation }: Props) {
     ...levelConfig.gameParams,
     onComplete: handleGameComplete,
     sessionId,
-    // Pass level complexity params so game components can optionally use them
     _levelSpeedMultiplier: levelConfig.speedMultiplier,
     _levelDistrDensity:    levelConfig.distractorDensity,
     _levelRuleShifting:    levelConfig.ruleShifting,
@@ -372,7 +571,6 @@ export default function LevelGameScreen({ route, navigation }: Props) {
 
   return (
     <View style={styles.gameContainer}>
-      {/* Thin progress strip at top */}
       <View style={styles.gameHeader}>
         <Text style={styles.gameHeaderText}>
           {traitDef.name}  ·  Level {currentLevel}
@@ -384,10 +582,9 @@ export default function LevelGameScreen({ route, navigation }: Props) {
 }
 
 // ── Game component dispatcher ─────────────────────────────────────────────────
-// Note: some game components do not yet accept a `config` prop (BlackBox,
-// TaskPlanning, Stroop, VisualSearch). Level complexity params are stored in
-// the catalog for future upgrades; for now those games run with built-in params
-// and adaptive progression is driven by the returned score.
+// Note: some components do not accept a `config` prop (BlackBox, TaskPlanning,
+// Stroop, VisualSearch). Those run with built-in params; adaptive progression
+// is still driven by the returned score.
 
 function renderGameComponent(
   engine: string,
@@ -407,12 +604,7 @@ function renderGameComponent(
         />
       );
     case 'stroop':
-      return (
-        <StroopGame
-          onComplete={onComplete}
-          sessionId={sid}
-        />
-      );
+      return <StroopGame onComplete={onComplete} sessionId={sid} />;
     case 'memory':
       return (
         <MemorySequenceGame
@@ -430,26 +622,11 @@ function renderGameComponent(
         />
       );
     case 'planning':
-      return (
-        <TaskPlanningGame
-          onComplete={onComplete}
-          sessionId={sid}
-        />
-      );
+      return <TaskPlanningGame onComplete={onComplete} sessionId={sid} />;
     case 'rule_discovery':
-      return (
-        <BlackBoxGame
-          onComplete={onComplete}
-          sessionId={sid}
-        />
-      );
+      return <BlackBoxGame onComplete={onComplete} sessionId={sid} />;
     case 'search':
-      return (
-        <VisualSearchGame
-          onComplete={onComplete}
-          sessionId={sid}
-        />
-      );
+      return <VisualSearchGame onComplete={onComplete} sessionId={sid} />;
     case 'reactor':
       return (
         <TheReactorGame
@@ -490,6 +667,62 @@ function renderGameComponent(
           sessionId={sid}
         />
       );
+    case 'briefing':
+      return (
+        <TheBriefingGame
+          config={params as Parameters<typeof TheBriefingGame>[0]['config']}
+          onComplete={onComplete}
+          sessionId={sid}
+        />
+      );
+    case 'empathy':
+      return (
+        <EmpathyResponseGame
+          config={params as Parameters<typeof EmpathyResponseGame>[0]['config']}
+          onComplete={onComplete}
+          sessionId={sid}
+        />
+      );
+    case 'radar_sweep':
+      return (
+        <RadarSweepGame
+          config={params as Parameters<typeof RadarSweepGame>[0]['config']}
+          onComplete={onComplete}
+          sessionId={sid}
+        />
+      );
+    case 'vector_flow':
+      return (
+        <VectorFlowGame
+          config={params as Parameters<typeof VectorFlowGame>[0]['config']}
+          onComplete={onComplete}
+          sessionId={sid}
+        />
+      );
+    case 'signal_sift':
+      return (
+        <SignalSiftGame
+          config={params as Parameters<typeof SignalSiftGame>[0]['config']}
+          onComplete={onComplete}
+          sessionId={sid}
+        />
+      );
+    case 'hold_short':
+      return (
+        <HoldShortGame
+          config={params as Parameters<typeof HoldShortGame>[0]['config']}
+          onComplete={onComplete}
+          sessionId={sid}
+        />
+      );
+    case 'nav_link':
+      return (
+        <NavLinkGame
+          config={params as Parameters<typeof NavLinkGame>[0]['config']}
+          onComplete={onComplete}
+          sessionId={sid}
+        />
+      );
     default:
       return null;
   }
@@ -506,9 +739,9 @@ function Badge({ label, color }: { label: string; color: string }) {
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container:   { flex: 1, backgroundColor: '#0f0e17' },
-  center:      { flex: 1, backgroundColor: '#0f0e17', alignItems: 'center', justifyContent: 'center', padding: 24 },
-  gameContainer: { flex: 1, backgroundColor: '#0f0e17' },
+  container:    { flex: 1, backgroundColor: '#0f0e17' },
+  center:       { flex: 1, backgroundColor: '#0f0e17', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  gameContainer:{ flex: 1, backgroundColor: '#0f0e17' },
 
   overallProgress: { height: 3, backgroundColor: '#1e1d2e', width: '100%' },
   overallFill:     { height: 3, backgroundColor: '#7c3aed' },
@@ -525,39 +758,71 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e1d2e', borderRadius: 14, padding: 18,
     width: '100%', marginBottom: 24,
   },
-  levelRow:    { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  levelLabel:  { fontSize: 12, color: '#9ca3af', fontWeight: '600' },
-  levelValue:  { fontSize: 12, color: '#7c3aed', fontWeight: '700' },
-  levelName:   { fontSize: 16, fontWeight: '600', color: '#e0e0ff', marginBottom: 14 },
+  levelRow:   { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+  levelLabel: { fontSize: 12, color: '#9ca3af', fontWeight: '600' },
+  levelValue: { fontSize: 12, color: '#7c3aed', fontWeight: '700' },
+  levelName:  { fontSize: 16, fontWeight: '600', color: '#e0e0ff', marginBottom: 14 },
 
-  levelDots: { flexDirection: 'row', gap: 6, marginBottom: 14 },
+  levelDots:  { flexDirection: 'row', gap: 6, marginBottom: 12 },
   dot:        { width: 8, height: 8, borderRadius: 4, backgroundColor: '#3d3a5c' },
   dotPlayed:  { backgroundColor: '#7c3aed' },
   dotCurrent: { backgroundColor: '#a78bfa', width: 12, height: 12, borderRadius: 6, marginTop: -2 },
+
+  personalBestRow:   { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+  personalBestLabel: { fontSize: 11, color: '#6b7280' },
+  personalBestValue: { fontSize: 11, color: '#a78bfa', fontWeight: '600' },
 
   badges:    { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   badge:     { borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   badgeText: { fontSize: 11, fontWeight: '600' },
 
-  btn:        { backgroundColor: '#7c3aed', borderRadius: 12, paddingVertical: 15, paddingHorizontal: 40, width: '100%', alignItems: 'center' },
+  btn:        { backgroundColor: '#7c3aed', borderRadius: 12, paddingVertical: 15, paddingHorizontal: 40, width: '100%', alignItems: 'center', marginBottom: 12 },
   btnText:    { color: '#fff', fontWeight: '700', fontSize: 16 },
+  btnSecondary:     { borderWidth: 1, borderColor: '#3d3a5c', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 40, width: '100%', alignItems: 'center' },
+  btnSecondaryText: { color: '#9ca3af', fontWeight: '600', fontSize: 15 },
 
   // Level result
-  levelResultLabel: { fontSize: 14, color: '#9ca3af', marginBottom: 8 },
-  levelScore:       { fontSize: 64, fontWeight: '800', marginBottom: 0 },
-  levelScoreLabel:  { fontSize: 14, color: '#6b7280', marginBottom: 16 },
-  outcomeText:      { fontSize: 14, color: '#d1d5db', textAlign: 'center', marginBottom: 28, lineHeight: 20 },
+  levelResultTrait:  { fontSize: 13, color: '#a78bfa', fontWeight: '600', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 },
+  levelResultLabel:  { fontSize: 14, color: '#9ca3af', marginBottom: 8 },
+  levelScore:        { fontSize: 64, fontWeight: '800', marginBottom: 0 },
+  levelScoreLabel:   { fontSize: 14, color: '#6b7280', marginBottom: 16 },
+  outcomeText:       { fontSize: 14, color: '#d1d5db', textAlign: 'center', marginBottom: 28, lineHeight: 20 },
 
-  // Trait complete
-  doneEmoji:        { fontSize: 52, marginBottom: 12 },
-  traitDoneTitle:   { fontSize: 22, fontWeight: '700', color: '#e0e0ff', marginBottom: 4 },
-  traitDoneSubtitle:{ fontSize: 14, color: '#22c55e', marginBottom: 24 },
   nextBox: {
     backgroundColor: '#1e1d2e', borderRadius: 12, padding: 16,
     alignItems: 'center', marginBottom: 24, width: '80%',
   },
   nextLabel: { fontSize: 11, color: '#9ca3af', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 },
   nextName:  { fontSize: 17, fontWeight: '600', color: '#e0e0ff' },
+
+  // Round complete
+  roundCompleteContent: { padding: 24, alignItems: 'center', paddingBottom: 60 },
+  roundCompleteTitle:   { fontSize: 28, fontWeight: '800', color: '#e0e0ff', marginBottom: 4 },
+  roundCompleteSubtitle:{ fontSize: 13, color: '#22c55e', marginBottom: 28 },
+
+  summaryBox: {
+    backgroundColor: '#1e1d2e', borderRadius: 14, width: '100%', marginBottom: 28,
+    overflow: 'hidden',
+  },
+  summaryRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: '#2a2840',
+  },
+  summaryLeft:       { flex: 1 },
+  summaryTraitName:  { fontSize: 15, fontWeight: '600', color: '#e0e0ff' },
+  summaryLevelText:  { fontSize: 12, color: '#6b7280', marginTop: 2 },
+  summaryRight:      { alignItems: 'flex-end' },
+  summaryScore:      { fontSize: 22, fontWeight: '800' },
+  summaryNext:       { fontSize: 11, color: '#9ca3af', marginTop: 2 },
+
+  archetypePromptBox: {
+    backgroundColor: '#1a0f2e', borderRadius: 14, borderWidth: 1, borderColor: '#7c3aed44',
+    padding: 20, width: '100%', marginBottom: 20, alignItems: 'center',
+  },
+  archetypePromptTitle:    { fontSize: 16, fontWeight: '700', color: '#a78bfa', marginBottom: 6 },
+  archetypePromptSubtitle: { fontSize: 13, color: '#9ca3af', textAlign: 'center', lineHeight: 19, marginBottom: 16 },
+  archetypeBtn:            { marginBottom: 0 },
 
   // Processing
   processingText:    { fontSize: 17, fontWeight: '600', color: '#e0e0ff', marginTop: 20 },
