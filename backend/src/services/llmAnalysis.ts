@@ -11,7 +11,7 @@ function calcCost(inputTokens: number, outputTokens: number): number {
   return (inputTokens * INPUT_COST_PER_M + outputTokens * OUTPUT_COST_PER_M) / 1_000_000;
 }
 
-async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 4): Promise<T> {
+async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
   let lastErr: unknown;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -19,11 +19,14 @@ async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 4): Promise<T> {
     } catch (err) {
       lastErr = err;
       const status = (err as any)?.status as number | undefined;
-      // Only retry on overload (529), server errors (≥500), or network errors (no status)
-      const isRetryable = status === undefined || status === 529 || status >= 500;
+      const msg    = (err as any)?.message as string | undefined;
+      // Never retry self-imposed timeouts — they just compound the wait
+      const isSelfTimeout = msg === 'LLM timeout';
+      // Only retry on overload (529) or server errors (≥500)
+      const isRetryable = !isSelfTimeout && (status === 529 || status >= 500);
       if (!isRetryable || attempt >= maxAttempts) break;
-      // Exponential backoff: 3s → 8s → 15s
-      const delayMs = [3000, 8000, 15000][attempt - 1] ?? 15000;
+      // Exponential backoff: 3s → 8s
+      const delayMs = [3000, 8000][attempt - 1] ?? 8000;
       console.warn(`[withRetry] attempt ${attempt} failed (status=${status ?? 'network'}), retrying in ${delayMs}ms...`);
       await new Promise(r => setTimeout(r, delayMs));
     }
@@ -777,7 +780,7 @@ Respond ONLY with valid JSON in this format:
         messages: [{ role: 'user', content: prompt }],
       }),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('LLM timeout')), 25_000)
+        setTimeout(() => reject(new Error('LLM timeout')), 60_000)
       ),
     ])
   );
