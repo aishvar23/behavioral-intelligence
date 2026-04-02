@@ -105,24 +105,20 @@ export default function TraitDiscoveryScreen({ route, navigation }: Props) {
 
       {traits && (
         <View style={styles.traitsSection}>
-          <Text style={styles.sectionTitle}>Your Assessment Profile</Text>
-          <Text style={styles.sectionSub}>5 traits · 10 levels each · adaptive difficulty</Text>
+          <Text style={styles.sectionTitle}>Creating games to assess</Text>
 
-          <Text style={styles.groupLabel}>● Primary Traits</Text>
-          {primary.map(t => (
-            <TraitCard key={t.id} trait={t} isPrimary />
-          ))}
+          <Text style={styles.groupLabel}>Primary Traits</Text>
+          <View style={styles.traitList}>
+            {primary.map(t => (
+              <Text key={t.id} style={styles.traitNamePrimary}>{t.name}</Text>
+            ))}
+          </View>
 
-          <Text style={[styles.groupLabel, { marginTop: 16 }]}>◦ Secondary Traits</Text>
-          {secondary.map(t => (
-            <TraitCard key={t.id} trait={t} isPrimary={false} />
-          ))}
-
-          <View style={styles.infoBox}>
-            <Text style={styles.infoText}>
-              Each trait is tested through 10 adaptive levels. The system adjusts
-              difficulty in real-time — complete all 5 traits to receive your Archetype Card.
-            </Text>
+          <Text style={[styles.groupLabel, styles.groupLabelSecondary]}>Secondary Traits</Text>
+          <View style={styles.traitList}>
+            {secondary.map(t => (
+              <Text key={t.id} style={styles.traitNameSecondary}>{t.name}</Text>
+            ))}
           </View>
 
           <TouchableOpacity
@@ -138,19 +134,6 @@ export default function TraitDiscoveryScreen({ route, navigation }: Props) {
         </View>
       )}
     </ScrollView>
-  );
-}
-
-function TraitCard({ trait, isPrimary }: { trait: DiscoveredTrait; isPrimary: boolean }) {
-  return (
-    <View style={[styles.traitCard, isPrimary ? styles.traitCardPrimary : styles.traitCardSecondary]}>
-      <View style={styles.traitHeader}>
-        <Text style={styles.traitId}>{trait.id}</Text>
-        <Text style={styles.traitName}>{trait.name}</Text>
-        {isPrimary && <View style={styles.primaryBadge}><Text style={styles.primaryBadgeText}>PRIMARY</Text></View>}
-      </View>
-      <Text style={styles.traitRelevance}>{trait.relevance}</Text>
-    </View>
   );
 }
 
@@ -178,32 +161,15 @@ const styles = StyleSheet.create({
   loadingBox:  { alignItems: 'center', marginTop: 40, gap: 14 },
   loadingText: { color: '#9ca3af', fontSize: 14 },
 
-  traitsSection: { marginTop: 8 },
-  sectionTitle:  { fontSize: 18, fontWeight: '700', color: '#e0e0ff', marginBottom: 4 },
-  sectionSub:    { fontSize: 12, color: '#7c3aed', marginBottom: 20, letterSpacing: 0.5 },
+  traitsSection: { marginTop: 16 },
+  sectionTitle:  { fontSize: 20, fontWeight: '700', color: '#e0e0ff', marginBottom: 20 },
 
-  groupLabel: { fontSize: 12, color: '#9ca3af', fontWeight: '600', letterSpacing: 1, marginBottom: 10, textTransform: 'uppercase' },
+  groupLabel:          { fontSize: 11, color: '#7c3aed', fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10 },
+  groupLabelSecondary: { marginTop: 20 },
 
-  traitCard: {
-    borderRadius: 12, padding: 14, marginBottom: 10,
-    borderWidth: 1,
-  },
-  traitCardPrimary:   { backgroundColor: '#1a1330', borderColor: '#7c3aed' },
-  traitCardSecondary: { backgroundColor: '#161524', borderColor: '#3d3a5c' },
-
-  traitHeader:      { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  traitId:          { fontSize: 11, color: '#7c3aed', fontWeight: '700', fontFamily: 'monospace' },
-  traitName:        { fontSize: 15, fontWeight: '600', color: '#e0e0ff', flex: 1 },
-  primaryBadge:     { backgroundColor: '#7c3aed22', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
-  primaryBadgeText: { fontSize: 9, color: '#a78bfa', fontWeight: '700', letterSpacing: 1 },
-
-  traitRelevance: { fontSize: 13, color: '#9ca3af', lineHeight: 18 },
-
-  infoBox: {
-    backgroundColor: '#1e1d2e', borderRadius: 10, padding: 14,
-    marginTop: 20, marginBottom: 20, borderLeftWidth: 3, borderLeftColor: '#7c3aed',
-  },
-  infoText: { fontSize: 13, color: '#9ca3af', lineHeight: 19 },
+  traitList:           { gap: 8, marginBottom: 4 },
+  traitNamePrimary:    { fontSize: 16, fontWeight: '600', color: '#e0e0ff' },
+  traitNameSecondary:  { fontSize: 15, fontWeight: '400', color: '#9ca3af' },
 
   beginBtn: {
     backgroundColor: '#7c3aed', borderRadius: 12, paddingVertical: 16,
