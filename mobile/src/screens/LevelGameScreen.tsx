@@ -315,12 +315,18 @@ export default function LevelGameScreen({ route, navigation }: Props) {
     setPhase('trait_intro');
   }
 
-  // ── Generate archetype (all traits complete) ──────────────────────────────
-  async function generateFullArchetype() {
+  // ── Generate archetype from current progress ──────────────────────────────
+  // Called on "Done for Today" (always) and when all traits are at ceiling/complete.
+  // Uses savedProgressRef which is updated at the end of every round before this runs.
+  async function generateCurrentArchetype() {
     setPhase('processing');
     try {
       const traitResults: TraitResult[] = traits.map(t => {
         const p = savedProgressRef.current[t.id];
+        const outcome: TraitResult['outcome'] =
+          p?.status === 'ceiling'  ? 'ceiling'  :
+          p?.status === 'complete' ? 'complete' :
+          'continue';
         return {
           traitId:   t.id,
           traitName: t.name,
@@ -328,7 +334,7 @@ export default function LevelGameScreen({ route, navigation }: Props) {
           peakLevel: p?.bestLevel ?? 1,
           peakScore: p?.bestScore ?? 0,
           avgScore:  p?.bestScore ?? 0,
-          outcome:   (p?.status === 'ceiling' ? 'ceiling' : 'complete') as 'ceiling' | 'complete',
+          outcome,
           scores:    [p?.bestScore ?? 0],
         };
       });
@@ -346,7 +352,7 @@ export default function LevelGameScreen({ route, navigation }: Props) {
         traitTalk,
       });
     } catch (err) {
-      console.error('[LevelGameScreen] generateFullArchetype failed', {
+      console.error('[LevelGameScreen] generateCurrentArchetype failed', {
         sessionId,
         profession,
         error: err instanceof Error ? err.message : err,
@@ -354,14 +360,6 @@ export default function LevelGameScreen({ route, navigation }: Props) {
       setError('Failed to generate your Archetype Card. Please try again.');
       setPhase('error');
     }
-  }
-
-  // ── Check if all traits are finished ─────────────────────────────────────
-  function allTraitsFinished(): boolean {
-    return traits.every(t => {
-      const p = savedProgressRef.current[t.id];
-      return p?.status === 'ceiling' || p?.status === 'complete';
-    });
   }
 
   // ── Render: loading ───────────────────────────────────────────────────────
@@ -390,7 +388,7 @@ export default function LevelGameScreen({ route, navigation }: Props) {
     return (
       <View style={styles.center}>
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.btn} onPress={generateFullArchetype}>
+        <TouchableOpacity style={styles.btn} onPress={generateCurrentArchetype}>
           <Text style={styles.btnText}>Retry</Text>
         </TouchableOpacity>
       </View>
@@ -399,7 +397,6 @@ export default function LevelGameScreen({ route, navigation }: Props) {
 
   // ── Render: round complete ─────────────────────────────────────────────────
   if (phase === 'round_complete') {
-    const canGenerateArchetype = allTraitsFinished();
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.roundCompleteContent}>
         <Text style={styles.roundCompleteTitle}>Round Complete</Text>
@@ -433,27 +430,15 @@ export default function LevelGameScreen({ route, navigation }: Props) {
           })}
         </View>
 
-        {canGenerateArchetype && (
-          <View style={styles.archetypePromptBox}>
-            <Text style={styles.archetypePromptTitle}>All traits assessed!</Text>
-            <Text style={styles.archetypePromptSubtitle}>
-              You've reached your ceiling across all 5 traits. Generate your full Archetype Card now.
-            </Text>
-            <TouchableOpacity style={[styles.btn, styles.archetypeBtn]} onPress={generateFullArchetype}>
-              <Text style={styles.btnText}>Generate Archetype Card</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
         <TouchableOpacity style={styles.btn} onPress={playAnotherRound}>
           <Text style={styles.btnText}>Play Another Round</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.btnSecondary}
-          onPress={() => navigation.popToTop()}
+          onPress={generateCurrentArchetype}
         >
-          <Text style={styles.btnSecondaryText}>Done for Today</Text>
+          <Text style={styles.btnSecondaryText}>Done for Today →  See Analysis</Text>
         </TouchableOpacity>
       </ScrollView>
     );
