@@ -339,9 +339,11 @@ export default function HoldShortGame({ sessionId, onComplete, config }: Props) 
   const checkSessionComplete = useCallback((current: Aircraft[]) => {
     const active = current.filter(a => a.status === 'approaching' || a.status === 'holding' || a.status === 'proceeding');
     if (spawnedRef.current >= cfg.totalAircraft && active.length === 0) {
-      finalizeSession();
+      // Defer outside the state-updater call stack so React doesn't warn about
+      // updating a parent (LevelGameScreen) while rendering this component.
+      setTimeout(() => finalizeSession(), 0);
     }
-  }, [cfg.totalAircraft]);
+  }, [cfg.totalAircraft, finalizeSession]);
 
   // ── Start game ────────────────────────────────────────────────────────────
 
