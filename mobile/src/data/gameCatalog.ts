@@ -264,7 +264,6 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     description: 'Meltdown mode — 6 bins, screen shakes, rods flicker, and priority rules flip every 15 seconds.',
     config: { numBins: 6, fallDurationMs: 1800, distractors: true, highPriorityBoost: 0.25, oscillate: true, meltdown: true, highRatio: 0.35, distractorRatio: 0.2, totalRods: 24 },
   },
-};
 
   // ── The Briefing variants (T15 Social Inference) ─────────────────────────
   briefing_standard: {
@@ -363,6 +362,7 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     description: 'Orbiting nodes, signal decay, bandwidth caps, and rapid brown-outs.',
     config: { nodeCount: 10, signalDecay: true, bandwidthCaps: true, brownOuts: true, durationMs: 90000, orbitSpeed: 20000 },
   },
+};
 
 // Game selection is handled dynamically by the backend LLM (/select-games endpoint).
 // GAME_CONFIGS is the authoritative catalog used by the frontend to render games
