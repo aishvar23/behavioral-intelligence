@@ -92,7 +92,7 @@ export default function StroopGame({ sessionId, onComplete }: Props) {
   }, [phase, trialNum]);
 
   function handleTap(tapped: CW) {
-    if (answered.current || phase !== 'playing') return;
+    if (answered.current || feedback !== null || phase !== 'playing') return;
     clearInterval(interval.current);
     answered.current = true;
     const rt = Date.now() - trialStart.current;
@@ -151,7 +151,13 @@ export default function StroopGame({ sessionId, onComplete }: Props) {
 
       <View style={s.btnGrid}>
         {WORDS.map(w => (
-          <TouchableOpacity key={w} style={[s.colorBtn, { backgroundColor: COLORS[w] }, !!feedback && s.btnOff]} onPress={() => handleTap(w)} activeOpacity={0.85}>
+          <TouchableOpacity
+            key={w}
+            style={[s.colorBtn, { backgroundColor: COLORS[w] }, !!feedback && s.btnOff]}
+            onPress={() => handleTap(w)}
+            disabled={!!feedback}
+            activeOpacity={0.85}
+          >
             <Text style={s.btnLabel}>{w}</Text>
           </TouchableOpacity>
         ))}
