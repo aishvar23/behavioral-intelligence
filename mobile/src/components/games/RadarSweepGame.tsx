@@ -589,8 +589,6 @@ export default function RadarSweepGame({ sessionId, onComplete, config }: Props)
             const isActive    = activeContactId === contact.id;
             const wasRevealed = revealedIds.has(contact.id);
             const wasTapped   = tappedSet.has(contact.id);
-            const isNextExpected = phase === 'recall' && contact.id === nextExpectedId;
-
             // Visibility rules
             let visible = false;
             let color   = '#38bdf8';
@@ -603,14 +601,15 @@ export default function RadarSweepGame({ sessionId, onComplete, config }: Props)
             } else if (phase === 'recall') {
               visible = true;
               if (wasTapped) {
-                color   = '#334155'; // tapped = dimmed
-                opacity = 0.4;
+                color   = '#334155'; // tapped = dimmed out
+                opacity = 0.3;
               } else if (contact.isDecoy) {
-                color   = '#f8717155';
-                opacity = 0.25;
+                color   = '#f87171';
+                opacity = 0.20;
               } else {
-                color   = isNextExpected ? '#86efac' : '#38bdf8';
-                opacity = isNextExpected ? 1 : 0.55;
+                // All untapped contacts look identical — user must recall order themselves
+                color   = '#38bdf8';
+                opacity = 0.55;
               }
             }
 
@@ -630,8 +629,6 @@ export default function RadarSweepGame({ sessionId, onComplete, config }: Props)
                     backgroundColor: color,
                     opacity,
                     transform: isActive ? [{ scale: 1.3 }] : [],
-                    borderWidth:     isNextExpected ? 2 : 0,
-                    borderColor:     '#fff',
                   },
                 ]}
                 onPress={() => handleContactTap(contact)}
