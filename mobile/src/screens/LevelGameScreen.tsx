@@ -548,6 +548,24 @@ export default function LevelGameScreen({ route, navigation }: Props) {
             </View>
           </View>
 
+          {/* How to Play */}
+          {(() => {
+            const htp = GAME_HOW_TO_PLAY[traitDef.gameEngine];
+            if (!htp) return null;
+            return (
+              <View style={styles.htpBox}>
+                <Text style={styles.htpTitle}>How to Play</Text>
+                <Text style={styles.htpTagline}>{htp.tagline}</Text>
+                {htp.steps.map((step, i) => (
+                  <View key={i} style={styles.htpStep}>
+                    <Text style={styles.htpBullet}>{i + 1}</Text>
+                    <Text style={styles.htpStepText}>{step}</Text>
+                  </View>
+                ))}
+              </View>
+            );
+          })()}
+
           <TouchableOpacity style={styles.btn} onPress={() => setPhase('playing')}>
             <Text style={styles.btnText}>Start Level {currentLevel}</Text>
           </TouchableOpacity>
@@ -580,6 +598,170 @@ export default function LevelGameScreen({ route, navigation }: Props) {
     </View>
   );
 }
+
+// ── How to play — per game engine ────────────────────────────────────────────
+
+interface HowToPlay {
+  tagline: string;
+  steps: string[];
+}
+
+const GAME_HOW_TO_PLAY: Record<string, HowToPlay> = {
+  reactor: {
+    tagline: 'Sort falling fuel rods into the correct bins',
+    steps: [
+      'Fuel rods fall from the top — each one belongs in a specific bin',
+      'Tap a rod, then tap the matching bin to sort it',
+      'Glowing rods are high priority — sort these first',
+      'Steam clouds are distractors — ignore them',
+      'Letting a rod hit the bottom loses points',
+    ],
+  },
+  hold_short: {
+    tagline: 'Control runway traffic — zero collisions',
+    steps: [
+      'Inbound aircraft appear one at a time, each requesting clearance',
+      'Tap PROCEED if the runway is clear for that aircraft',
+      'Tap HOLD SHORT if another aircraft is already using the same runway',
+      'Mayday aircraft are emergencies — always Proceed immediately',
+      'In fog, callsigns reveal only on close approach — decide early',
+    ],
+  },
+  radar_sweep: {
+    tagline: 'Memorise contacts on radar, tap them in reverse order',
+    steps: [
+      'Watch the sweep reveal blinking contacts one by one',
+      'Remember each contact\'s position and the order it appeared',
+      'When RECALL begins, tap the contacts in reverse order (last seen → first seen)',
+      'Red decoys appear at higher levels — do not tap these',
+      'At elite levels the radar rotates 90° before input — adjust mentally',
+    ],
+  },
+  logic: {
+    tagline: 'Solve logical reasoning problems',
+    steps: [
+      'Read the scenario or premises carefully',
+      'Select the answer that logically follows',
+      'Only what is stated can be assumed — no guessing',
+      'Work through each step; don\'t skip ahead',
+    ],
+  },
+  nav_link: {
+    tagline: 'Route satellite data from Source to Ground',
+    steps: [
+      'Nodes appear on screen — one is the Source, one is the Ground station',
+      'Tap two nodes to create a link between them',
+      'Your goal: maintain an unbroken path from Source to Ground at all times',
+      'Relay nodes can go offline (brown-out) — reroute quickly',
+      'Fewer hops = higher path efficiency score',
+    ],
+  },
+  rule_discovery: {
+    tagline: 'Discover the hidden rule by testing inputs',
+    steps: [
+      'A black box transforms any input you give it by a hidden rule',
+      'Submit test inputs and observe the outputs',
+      'Use the pattern to deduce the rule',
+      'Once confident, submit your prediction for a new input',
+      'Fewer tests used = higher score',
+    ],
+  },
+  blackbox: {
+    tagline: 'Discover the hidden rule by testing inputs',
+    steps: [
+      'A black box transforms any input you give it by a hidden rule',
+      'Submit test inputs and observe the outputs',
+      'Use the pattern to deduce the rule',
+      'Once confident, submit your prediction for a new input',
+      'Fewer tests used = higher score',
+    ],
+  },
+  visual_search: {
+    tagline: 'Find the odd symbols hidden in the grid',
+    steps: [
+      'A grid of symbols is displayed — most are identical',
+      'A few symbols are different — find and tap them all',
+      'Work systematically — scan row by row',
+      'Speed and accuracy both count toward your score',
+    ],
+  },
+  briefing: {
+    tagline: 'Read between the lines — identify hidden intent',
+    steps: [
+      'A crew communication transcript or scenario is shown',
+      'Read what is said and how it is said',
+      'Select the option that best reflects the speaker\'s true intent',
+      'Professional deference and indirect language often mask real meaning',
+    ],
+  },
+  stroop: {
+    tagline: 'Tap the ink color — not what the word says',
+    steps: [
+      'A color word appears on screen (e.g. "RED") written in a different ink color',
+      'Tap the button matching the INK COLOR — ignore what the word spells',
+      'Your brain will try to read the word — resist it',
+      'Respond as fast as possible without making errors',
+    ],
+  },
+  signal_sift: {
+    tagline: 'Detect anomalies in scrolling signal tracks',
+    steps: [
+      'Multiple signal tracks scroll across the screen as bar waveforms',
+      'Most bars are normal — anomalies appear as unusual spikes or pattern breaks',
+      'Tap the track row the moment you spot an anomaly',
+      'Peripheral tracks (far from centre) count double — watch the edges',
+      'False alarms (tapping normal signals) reduce your score',
+    ],
+  },
+  vector_flow: {
+    tagline: 'Classify objects rushing through the tunnel',
+    steps: [
+      'Objects fly toward you through a tunnel at high speed',
+      'Tap LEFT for Mechanical objects, RIGHT for Biological (or vice versa)',
+      'The rule flips every 10 seconds at higher levels — adapt fast',
+      'You have a fraction of a second per object — trust your instincts',
+      'Accuracy matters more than speed; a miss is worse than a slow correct tap',
+    ],
+  },
+  reactor_chaos: {
+    tagline: 'Sort fuel rods accurately while chaos unfolds',
+    steps: [
+      'Same as Reactor — sort falling rods into the correct bins',
+      'System Failure events strike at random: screen shakes, flickers, dims',
+      'Mayday rods are emergencies — sort these without hesitation',
+      'Maintain accuracy throughout chaos events — don\'t freeze',
+      'Recovery speed after each event is tracked as a KPI',
+    ],
+  },
+  archive: {
+    tagline: 'Memorise grid positions then recall them in sequence',
+    steps: [
+      'Glyphs flash on a grid one by one — memorise each position',
+      'After the display phase, the grid goes dark',
+      'Tap the positions in the same order they appeared',
+      'At higher levels: N-Back mode — match what appeared N steps ago',
+      'Dual-channel adds a second attribute to track simultaneously',
+    ],
+  },
+  matrix: {
+    tagline: 'Complete the pattern in the missing cell',
+    steps: [
+      'A 3×3 grid of shapes is shown with one cell missing',
+      'Find the rule governing rows and columns',
+      'Select the option that correctly completes the pattern',
+      'Rules can involve shape, rotation, count, or shading',
+    ],
+  },
+  speed_reactor: {
+    tagline: 'Tap fuel rods the instant they appear',
+    steps: [
+      'Fuel rods appear and fall — tap each one before it hits the bottom',
+      'No sorting required — just pure reaction time',
+      'Multiple rods may appear simultaneously at higher levels',
+      'Peripheral rods (near screen edges) score bonus points',
+    ],
+  },
+};
 
 // ── Game component dispatcher ─────────────────────────────────────────────────
 // Note: some components do not accept a `config` prop (BlackBox, TaskPlanning,
@@ -829,6 +1011,51 @@ const styles = StyleSheet.create({
   processingSubText: { fontSize: 13, color: '#9ca3af', marginTop: 8 },
 
   errorText: { fontSize: 15, color: '#f87171', textAlign: 'center', marginBottom: 24 },
+
+  // How to Play
+  htpBox: {
+    backgroundColor: '#12111f',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#2a2840',
+    padding: 16,
+    width: '100%',
+    marginBottom: 20,
+  },
+  htpTitle: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#7c3aed',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+  htpTagline: {
+    fontSize: 13,
+    color: '#c4b5fd',
+    fontWeight: '600',
+    marginBottom: 12,
+    lineHeight: 18,
+  },
+  htpStep: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 8,
+  },
+  htpBullet: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#7c3aed',
+    width: 16,
+    marginTop: 1,
+  },
+  htpStepText: {
+    fontSize: 13,
+    color: '#9ca3af',
+    flex: 1,
+    lineHeight: 19,
+  },
 
   // Game header
   gameHeader: {
