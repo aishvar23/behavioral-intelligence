@@ -33,10 +33,12 @@ export default function TraitDiscoveryScreen({ route, navigation }: Props) {
   const [traits, setTraits]         = useState<DiscoveredTrait[] | null>(null);
   const [sessionId]                 = useState(() => uuid());
   const [error, setError]           = useState<string | null>(null);
+  const discoveringRef              = useRef(false);
   const submittingRef               = useRef(false);
 
   async function handleDiscover() {
-    if (!profession.trim()) return;
+    if (!profession.trim() || discoveringRef.current) return;
+    discoveringRef.current = true;
     setLoading(true);
     setError(null);
     try {
@@ -46,6 +48,7 @@ export default function TraitDiscoveryScreen({ route, navigation }: Props) {
       setError('Could not analyse this profession — please try again.');
     } finally {
       setLoading(false);
+      discoveringRef.current = false;
     }
   }
 
@@ -99,14 +102,12 @@ export default function TraitDiscoveryScreen({ route, navigation }: Props) {
       {loading && !traits && (
         <View style={styles.loadingBox}>
           <ActivityIndicator color="#7c3aed" size="large" />
-          <Text style={styles.loadingText}>Identifying cognitive traits…</Text>
+          <Text style={styles.loadingText}>Mapping cognitive profile for {profession.trim()}…</Text>
         </View>
       )}
 
       {traits && (
         <View style={styles.traitsSection}>
-          <Text style={styles.sectionTitle}>Creating games to assess</Text>
-
           <Text style={styles.groupLabel}>Primary Traits</Text>
           <View style={styles.traitList}>
             {primary.map(t => (
@@ -126,10 +127,14 @@ export default function TraitDiscoveryScreen({ route, navigation }: Props) {
             onPress={handleBegin}
             disabled={loading}
           >
-            {loading
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={styles.beginBtnText}>Begin Assessment →</Text>
-            }
+            {loading ? (
+              <View style={styles.beginBtnLoading}>
+                <ActivityIndicator color="#fff" size="small" />
+                <Text style={styles.beginBtnText}>Preparing your assessment…</Text>
+              </View>
+            ) : (
+              <Text style={styles.beginBtnText}>Begin Assessment →</Text>
+            )}
           </TouchableOpacity>
         </View>
       )}
@@ -175,5 +180,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#7c3aed', borderRadius: 12, paddingVertical: 16,
     alignItems: 'center', marginBottom: 20,
   },
+  beginBtnLoading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   beginBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
 });

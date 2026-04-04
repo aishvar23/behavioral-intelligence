@@ -10,6 +10,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  BackHandler,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -118,6 +119,13 @@ export default function BaselineScreen({ route, navigation }: Props) {
   }, [reactionTimes, sessionId, profession, traits, navigation]);
 
   useEffect(() => () => clearTimer(), [clearTimer]);
+
+  // Block Android hardware back button during active calibration phases
+  useEffect(() => {
+    if (phase === 'intro') return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
+    return () => sub.remove();
+  }, [phase]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
