@@ -159,26 +159,39 @@ export default function LevelGameScreen({ route, navigation }: Props) {
   }, [phase]);
 
   // ── Handle game complete ──────────────────────────────────────────────────
+  // Legacy games (stroop, visual_search, blackbox) accumulate raw points
+  // instead of emitting a 0-100 score. Normalize before storing.
+  const RAW_SCORE_MAX: Record<string, number> = {
+    stroop:       360, // 24 trials × max 15 pts each
+    visual_search: 200, // 8 rounds × max 25 pts each
+    blackbox:     320, // 8 rounds × max 40 pts each
+  };
+
   const handleGameComplete = useCallback((score: number) => {
     if (!traitDef || !levelConfig) return;
+
+    const rawMax = RAW_SCORE_MAX[traitDef.gameEngine];
+    const normalizedScore = rawMax
+      ? Math.min(100, Math.round((score / rawMax) * 100))
+      : score;
 
     const durationMs = Date.now() - startTimeRef.current;
     const accuracy   = trialTotalRef.current > 0
       ? trialCorrectRef.current / trialTotalRef.current
-      : score / 100;
+      : normalizedScore / 100;
     const avgRt = trialRtsRef.current.length > 0
       ? trialRtsRef.current.reduce((a, b) => a + b, 0) / trialRtsRef.current.length
       : durationMs;
 
     // In round mode each trait is played once per round — pass single score.
     // Ceiling detection accumulates across rounds through the stored nextLevel/status.
-    const outcome = adaptiveDecision(currentTrait.id, currentLevel, score, [score]);
+    const outcome = adaptiveDecision(currentTrait.id, currentLevel, normalizedScore, [normalizedScore]);
 
     submitLevelResult({
       sessionId,
       traitId:     currentTrait.id,
       level:       currentLevel,
-      score,
+      score:       normalizedScore,
       accuracy,
       avgLatencyMs: avgRt,
       outcome,
@@ -192,7 +205,7 @@ export default function LevelGameScreen({ route, navigation }: Props) {
       });
     });
 
-    setLastScore(score);
+    setLastScore(normalizedScore);
     setLastOutcome(outcome);
     setPhase('level_result');
   }, [traitDef, levelConfig, currentTrait, currentLevel, sessionId]);
