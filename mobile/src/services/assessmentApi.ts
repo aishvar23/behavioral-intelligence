@@ -162,7 +162,9 @@ export async function getTraitProgress(deviceId: string): Promise<Record<string,
       params: { deviceId },
     });
     const map: Record<string, TraitProgressItem> = {};
-    for (const item of res.data.progress) map[item.traitId] = item;
+    for (const item of res.data.progress) {
+      map[item.traitId] = { ...item, bestScore: Math.min(100, item.bestScore) };
+    }
     // Keep local copy in sync
     await AsyncStorage.setItem(LOCAL_PROGRESS_KEY, JSON.stringify(map));
     return map;
@@ -172,7 +174,13 @@ export async function getTraitProgress(deviceId: string): Promise<Record<string,
       error: err instanceof Error ? err.message : err,
     });
     const cached = await AsyncStorage.getItem(LOCAL_PROGRESS_KEY);
-    return cached ? JSON.parse(cached) : {};
+    if (!cached) return {};
+    const raw: Record<string, TraitProgressItem> = JSON.parse(cached);
+    // Clamp bestScore in case cache contains pre-normalization raw point values
+    for (const key of Object.keys(raw)) {
+      raw[key] = { ...raw[key], bestScore: Math.min(100, raw[key].bestScore) };
+    }
+    return raw;
   }
 }
 

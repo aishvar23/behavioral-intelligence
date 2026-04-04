@@ -270,7 +270,7 @@ export default function LevelGameScreen({ route, navigation }: Props) {
       outcome,
       nextLevel,
       nextStatus,
-      bestScore:   Math.max(saved?.bestScore ?? 0, score),
+      bestScore:   Math.min(100, Math.max(saved?.bestScore ?? 0, score)),
       bestLevel:   Math.max(saved?.bestLevel ?? 0, currentLevel),
     };
 
