@@ -73,7 +73,6 @@ export default function ArchetypeCardScreen({ route, navigation }: Props) {
             return (
               <View key={t.traitId} style={styles.traitRow}>
                 <View style={styles.traitRowLeft}>
-                  <Text style={styles.traitRowId}>{t.traitId}</Text>
                   <View>
                     <Text style={styles.traitRowName}>{t.traitName}</Text>
                     <Text style={styles.traitRowMeta}>
@@ -103,7 +102,6 @@ export default function ArchetypeCardScreen({ route, navigation }: Props) {
             return (
               <View key={n.traitId} style={styles.narrativeCard}>
                 <View style={styles.narrativeHeader}>
-                  <Text style={styles.narrativeId}>{n.traitId}</Text>
                   <Text style={styles.narrativeName}>{n.traitName}</Text>
                   <View style={[styles.miniLevelBadge, { backgroundColor: color + '22', borderColor: color }]}>
                     <Text style={[styles.miniLevelText, { color }]}>{n.level}</Text>
@@ -122,6 +120,61 @@ export default function ArchetypeCardScreen({ route, navigation }: Props) {
           <Text style={styles.devText}>{archetype.developmentArea}</Text>
         </View>
       </Section>
+
+      {/* ── Profession Fit ── */}
+      {archetype.professionFit && (
+        <Section title="Profession Fit">
+          {(() => {
+            const fitColors: Record<string, string> = { excellent: '#22c55e', good: '#3b82f6', moderate: '#f59e0b', low: '#ef4444' };
+            const fc = fitColors[archetype.professionFit.rating] ?? '#9ca3af';
+            return (
+              <View style={[styles.fitCard, { borderColor: fc }]}>
+                <View style={styles.fitHeader}>
+                  <Text style={styles.fitProfession}>{profession}</Text>
+                  <View style={[styles.fitBadge, { backgroundColor: fc + '22', borderColor: fc }]}>
+                    <Text style={[styles.fitBadgeText, { color: fc }]}>{archetype.professionFit.rating.toUpperCase()}</Text>
+                  </View>
+                </View>
+                <Text style={styles.fitSummary}>{archetype.professionFit.summary}</Text>
+              </View>
+            );
+          })()}
+        </Section>
+      )}
+
+      {/* ── Trait Observations ── */}
+      {archetype.observations && archetype.observations.length > 0 && (
+        <Section title="What We Observed">
+          <Text style={styles.sectionNote}>Factual observations from your cognitive performance</Text>
+          {archetype.observations.map((obs, i) => (
+            <View key={i} style={styles.observationCard}>
+              <Text style={styles.observationTrait}>{obs.trait}</Text>
+              <Text style={styles.observationText}>{obs.observation}</Text>
+              <View style={styles.relevancePill}>
+                <Text style={styles.relevanceText}>{obs.relevance}</Text>
+              </View>
+            </View>
+          ))}
+        </Section>
+      )}
+
+      {/* ── Skill Development ── */}
+      {archetype.skillDevelopment && archetype.skillDevelopment.length > 0 && (
+        <Section title="Skill Development">
+          <Text style={styles.sectionNote}>Personalised activities to build your weakest traits</Text>
+          {archetype.skillDevelopment.map((item, i) => (
+            <View key={i} style={styles.skillCard}>
+              <Text style={styles.skillName}>{item.skill}</Text>
+              {item.activities.map((act, j) => (
+                <View key={j} style={styles.activityRow}>
+                  <Text style={styles.activityBullet}>•</Text>
+                  <Text style={styles.activityText}>{act}</Text>
+                </View>
+              ))}
+            </View>
+          ))}
+        </Section>
+      )}
 
       {/* ── Trait Talk Insights ── */}
       {hasFlags && (
@@ -228,8 +281,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: '#1e1d2e', borderRadius: 10, padding: 12,
   },
-  traitRowLeft:  { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
-  traitRowId:    { fontSize: 11, color: '#7c3aed', fontWeight: '700', fontFamily: 'monospace', width: 32 },
+  traitRowLeft:  { flexDirection: 'row', alignItems: 'center', flex: 1 },
   traitRowName:  { fontSize: 14, fontWeight: '600', color: '#e0e0ff' },
   traitRowMeta:  { fontSize: 11, color: '#6b7280', marginTop: 2 },
   levelBadge:    { borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
@@ -240,11 +292,40 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e1d2e', borderRadius: 12, padding: 14, marginBottom: 10,
   },
   narrativeHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  narrativeId:     { fontSize: 11, color: '#7c3aed', fontWeight: '700', fontFamily: 'monospace' },
   narrativeName:   { fontSize: 14, fontWeight: '600', color: '#e0e0ff', flex: 1 },
   miniLevelBadge:  { borderWidth: 1, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
   miniLevelText:   { fontSize: 10, fontWeight: '700' },
   narrativeText:   { fontSize: 13, color: '#9ca3af', lineHeight: 19 },
+
+  // Profession fit
+  fitCard: {
+    backgroundColor: '#1e1d2e', borderRadius: 12, padding: 16, borderWidth: 1.5,
+  },
+  fitHeader:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  fitProfession: { fontSize: 15, fontWeight: '600', color: '#e0e0ff', flex: 1 },
+  fitBadge:      { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1 },
+  fitBadgeText:  { fontSize: 11, fontWeight: '700' },
+  fitSummary:    { fontSize: 14, color: '#d1d5db', lineHeight: 22 },
+
+  // Observations
+  observationCard: {
+    backgroundColor: '#1e1d2e', borderRadius: 12, padding: 14, marginBottom: 10,
+  },
+  observationTrait: { fontSize: 11, color: '#7c3aed', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 },
+  observationText:  { fontSize: 14, color: '#e0e0ff', lineHeight: 21, marginBottom: 10 },
+  relevancePill: {
+    backgroundColor: '#16132a', borderRadius: 8, padding: 10, borderLeftWidth: 3, borderLeftColor: '#7c3aed',
+  },
+  relevanceText: { fontSize: 13, color: '#9ca3af', lineHeight: 19, fontStyle: 'italic' },
+
+  // Skill development
+  skillCard: {
+    backgroundColor: '#1e1d2e', borderRadius: 12, padding: 14, marginBottom: 10,
+  },
+  skillName:      { fontSize: 14, fontWeight: '700', color: '#a78bfa', marginBottom: 10 },
+  activityRow:    { flexDirection: 'row', gap: 8, marginBottom: 6 },
+  activityBullet: { color: '#a78bfa', fontSize: 14, lineHeight: 20 },
+  activityText:   { fontSize: 13, color: '#d1d5db', lineHeight: 20, flex: 1 },
 
   // Development
   devBox: {

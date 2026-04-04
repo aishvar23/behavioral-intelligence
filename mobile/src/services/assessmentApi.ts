@@ -52,8 +52,21 @@ export interface ArchetypeCard {
   professionalAlignment: string;
   strengthSummary: string;
   developmentArea: string;
+  professionFit?: {
+    rating: string;
+    summary: string;
+  };
+  observations?: Array<{
+    trait: string;
+    observation: string;
+    relevance: string;
+  }>;
   traitNarratives: TraitNarrative[];
   traitTalkInsights: string[];
+  skillDevelopment?: Array<{
+    skill: string;
+    activities: string[];
+  }>;
   recommendations: Array<{ action: string; rationale: string }>;
 }
 

@@ -709,16 +709,29 @@ export interface TraitTalkSummary {
 export interface ArchetypeCard {
   archetypeName: string;         // e.g. "The Precision Analyst"
   archetypeTagline: string;      // 1 line, punchy
-  professionalAlignment: string; // "Your X and Y match the Nth percentile of [profession]"
+  professionalAlignment: string; // how primary traits align with the profession
   strengthSummary: string;       // 2–3 sentences on cognitive strengths
   developmentArea: string;       // 1–2 sentences on the gap
+  professionFit?: {
+    rating: string;              // "excellent" | "good" | "moderate" | "low"
+    summary: string;             // 1–2 sentences grounded in trait data
+  };
+  observations?: Array<{
+    trait: string;               // trait name
+    observation: string;         // factual second-person observation
+    relevance: string;           // how it relates to the profession
+  }>;
   traitNarratives: Array<{
     traitId: string;
     traitName: string;
     level: string;              // "Elite" | "Strong" | "Developing" | "Foundational"
-    narrative: string;          // 1–2 sentence insight
+    narrative: string;          // 2–3 sentence insight
   }>;
   traitTalkInsights: string[];   // 1 insight per conflict flag found
+  skillDevelopment?: Array<{
+    skill: string;
+    activities: string[];
+  }>;
   recommendations: Array<{ action: string; rationale: string }>;
 }
 
@@ -744,26 +757,75 @@ export async function generateArchetypeReport(
     ? `Baseline reaction time: ${Math.round(baselineRtMs)}ms (calibrated)`
     : 'Baseline: not calibrated';
 
-  const prompt = `You are a cognitive profiling expert. Generate a personalised Archetype Card from this Cognitive Mirror Assessment data.
+  const prompt = `You are a cognitive profiling expert generating a detailed, personalised Archetype Card from Cognitive Mirror Assessment data.
+This is an adaptive assessment where each trait was tested across difficulty levels 1–10. Higher peak level = harder challenges completed.
 
-Profession: "${profession}"
+Profession target: "${profession}"
 ${baselineContext}
 
-Traits:
+━━━ TRAIT SCORES ━━━
 ${traitSummary}
 
 ${traitTalkSection}
 
-Rules: Be specific to the scores. No generic phrases like "well-rounded" or "room for improvement". Every sentence must reference the data.
+━━━ YOUR TASK ━━━
+1. PROFILE — Assign an archetype name and tagline that captures the dominant cognitive pattern.
+2. ALIGN — Write 2–3 sentences on how the primary traits map onto ${profession} demands. Reference specific scores.
+3. OBSERVE — For each trait, write a factual second-person observation (2–3 sentences). Reference the peak level and score. Explain what that performance level means for someone targeting ${profession}. Use language like "you reached…" or "your score of X suggests…".
+4. ASSESS — Rate overall profession fit (excellent/good/moderate/low) based on how well primary trait scores meet typical ${profession} thresholds. Write 1–2 grounded sentences.
+5. DEVELOP — Identify the 2 weakest traits. For each, suggest 2–3 specific, practical skill-building activities a person can do today.
+6. INSIGHT — For any Trait Talk flags: write one contextualised sentence explaining the conflict and what it means for ${profession} performance.
+7. RECOMMEND — Write 3 specific, actionable development recommendations. Each must reference a specific trait and explain the concrete benefit for ${profession}.
 
-Respond ONLY with this JSON (no markdown, no preamble):
-{"archetypeName":"The [Name]","archetypeTagline":"[punchy one-liner]","professionalAlignment":"[how primary traits align with ${profession}]","strengthSummary":"[2-3 sentences on cognitive strengths]","developmentArea":"[1-2 sentences on the key gap]","traitNarratives":[{"traitId":"","traitName":"","level":"Elite|Strong|Developing|Foundational","narrative":"[1-2 sentences]"}],"traitTalkInsights":["[one insight per flag]"],"recommendations":[{"action":"[specific action]","rationale":"[why it addresses the gap]"}]}`;
+Rules: Every sentence must reference the data. No generic phrases like "well-rounded", "great potential", or "room for improvement". Scores below 50 are Foundational — address them directly, not euphemistically. Do NOT make things up — only reference traits that appear in the data above.
+
+Respond ONLY with valid JSON (no markdown, no preamble):
+{
+  "archetypeName": "The [Name]",
+  "archetypeTagline": "Punchy one-liner under 12 words",
+  "professionalAlignment": "2-3 sentences on how primary traits align with ${profession}",
+  "strengthSummary": "2-3 sentences on top cognitive strengths with specific scores",
+  "developmentArea": "1-2 sentences on the key gap, naming the specific trait",
+  "professionFit": {
+    "rating": "excellent | good | moderate | low",
+    "summary": "1-2 sentences grounded in trait scores and ${profession} requirements"
+  },
+  "observations": [
+    {
+      "trait": "trait name",
+      "observation": "2-3 sentences: what the level and score reveal, factual second-person",
+      "relevance": "1 sentence: how this relates to ${profession}"
+    }
+  ],
+  "traitNarratives": [
+    {
+      "traitId": "T01",
+      "traitName": "Triage",
+      "level": "Elite | Strong | Developing | Foundational",
+      "narrative": "2-3 sentences: specific insight grounded in peak level and score"
+    }
+  ],
+  "traitTalkInsights": ["one contextualised sentence per flag, or empty array if no flags"],
+  "skillDevelopment": [
+    {
+      "skill": "trait or skill name being developed",
+      "activities": ["specific activity 1", "specific activity 2", "specific activity 3"]
+    }
+  ],
+  "recommendations": [
+    {
+      "action": "specific, concrete action",
+      "rationale": "why it addresses the gap and benefits the ${profession} path"
+    }
+  ]
+}`;
 
   const message = await withRetry(() =>
     Promise.race([
       client.messages.create({
         model: 'claude-sonnet-4-6',
-        max_tokens: 1024,
+        max_tokens: 2048,
+        system: 'You are a JSON API. Respond only with valid JSON. No prose, no markdown, no code fences.',
         messages: [{ role: 'user', content: prompt }],
       }),
       new Promise<never>((_, reject) =>
@@ -796,12 +858,15 @@ Respond ONLY with this JSON (no markdown, no preamble):
       professionalAlignment: `Your assessment reveals a distinctive cognitive profile relevant to ${profession}.`,
       strengthSummary: 'The assessment captured a range of cognitive signals across your chosen trait domains.',
       developmentArea: 'Further assessment sessions will provide a more detailed developmental picture.',
+      professionFit: { rating: 'moderate', summary: 'Assessment data was captured but analysis could not be generated. Retake for a full report.' },
+      observations: [],
       traitNarratives: traitResults.map(t => ({
         traitId: t.traitId, traitName: t.traitName,
         level: t.peakScore >= 85 ? 'Elite' : t.peakScore >= 70 ? 'Strong' : t.peakScore >= 50 ? 'Developing' : 'Foundational',
-        narrative: `Reached level ${t.peakLevel} with a peak score of ${Math.round(t.peakScore)}.`,
+        narrative: `You reached level ${t.peakLevel} with a peak score of ${Math.round(t.peakScore)}.`,
       })),
       traitTalkInsights: traitTalk.flags.map(f => f.description),
+      skillDevelopment: [],
       recommendations: [{ action: 'Retake the assessment with full focus', rationale: 'More data points improve archetype accuracy.' }],
     };
   }
